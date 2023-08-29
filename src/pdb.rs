@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use std::{fmt, result};
 use nanoid::nanoid;
-pub(crate) struct DBManager {
+pub(crate) struct ProjectDBManager {
     db: Database,
 }
 
@@ -32,11 +32,11 @@ pub(crate) struct ProjectIOConfig {
     uuid: String,
 }
 
-impl DBManager {
+impl ProjectDBManager {
     pub(crate) fn get() -> Self {
         let db = get_database();
         initialize_package_root();
-        DBManager {
+        ProjectDBManager {
             db,
         }
     }
