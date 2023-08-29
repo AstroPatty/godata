@@ -1,5 +1,5 @@
-/// Basic i-o routines associated with a virtual file system. In particular, responsible
-/// for managing the user data directory where the virtual file system is hosted.
+/// Databse routines for managing the top-level project and collections database
+/// 
 
 use directories::BaseDirs;
 use serde::{Serialize, Deserialize};
@@ -76,7 +76,7 @@ impl DBManager {
         false
     }
 
-    pub(crate) fn create_project(&self, name: &str, collection: Option<&str>) {
+    pub(crate) fn create_project(&self, name: &str, collection: Option<&str>) -> Result<PathBuf> {
         let colname: &str;
         match collection {
             Some(cname) => {
@@ -88,7 +88,9 @@ impl DBManager {
             }
         }
         if self.has_project(name, colname) {
-            panic!("Project already exists");
+            return Err(DBError{
+                msg: format!("Project {} already exists in collection {}.", name, colname)
+            })
         }
 
         let projects: Collection<ProjectIOConfig> = self.db.collection(colname);
@@ -97,17 +99,20 @@ impl DBManager {
             uuid: nanoid!(),
         };
         let project_path = get_dirs()
-                            .get("package_root")
+                            .get("data_dir")
                             .unwrap()
                             .join(&project.uuid);
         std::fs::create_dir_all(&project_path).unwrap();
-        projects.insert_one(project);
+        match projects.insert_one(project) {
+            Ok(_) => {Ok(project_path)},
+            Err(_) => {Err(DBError{msg: "Unable to insert project into collection.".to_string()})}
+        }
 
     }
 
-    pub(crate) fn remove_project(&self, name: &str, colname: &str) {
+    pub(crate) fn remove_project(&self, name: &str, colname: &str) -> Result<String>{
         if !self.has_project(name, colname) {
-            panic!("Project does not exist");
+            return Err(DBError { msg: format!("Project {} does not exist in collection {}", name, colname)})
         }
         let projects: Collection<ProjectIOConfig> = self.db.collection(colname);
         let project = projects.find_one(
@@ -117,7 +122,7 @@ impl DBManager {
         ).unwrap()
         .unwrap();
         let project_path = get_dirs()
-                            .get("package_root")
+                            .get("data_dir")
                             .unwrap()
                             .join(&project.uuid);
         std::fs::remove_dir_all(&project_path).unwrap();
@@ -126,6 +131,7 @@ impl DBManager {
                 "name": name
             }
         ).unwrap();
+        Ok(name.to_string())
     }
 }
 
@@ -133,11 +139,13 @@ impl DBManager {
 fn get_dirs() -> HashMap<String, PathBuf> {
     let mut dirs = HashMap::new();
     let base_dir: BaseDirs  = BaseDirs::new().unwrap();
-    let data_dir: &Path = base_dir.data_dir();
-    let package_root: PathBuf = data_dir.join("godata");
+    let user_data_dir: &Path = base_dir.data_dir();
+    let package_root: PathBuf = user_data_dir.join("godata");
     let db_path: PathBuf = package_root.join(".godata");
+    let data_dir: PathBuf = package_root.join("data");
     dirs.insert("package_root".to_string(), package_root);
     dirs.insert("db_path".to_string(), db_path);
+    dirs.insert("data_dir".to_string(), data_dir);
     dirs
     }
 
