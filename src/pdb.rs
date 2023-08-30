@@ -1,165 +1,177 @@
 /// Databse routines for managing the top-level project and collections database
 /// 
 
-use directories::BaseDirs;
 use serde::{Serialize, Deserialize};
 use polodb_core::{Database, Collection, bson::doc};
-use std::path::{Path, PathBuf};
-use std::collections::HashMap;
-use std::{fmt, result};
+use std::path::PathBuf;
 use nanoid::nanoid;
-pub(crate) struct ProjectDBManager {
-    db: Database,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct DBError {
-    msg: String
-}
-
-impl fmt::Display for DBError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Godata database error: {}", self.msg)
-    }
-}
-
-type Result<T> = result::Result<T, DBError>;
+use crate::mdb::{ProjectDocument, Result, ProjectError};
+use std::fs;
 
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct ProjectIOConfig {
+pub(crate) struct FolderDocument {
+    pub(crate) name: String,
+    uuid: String,
+    children: Vec<String>,
+    location: Option<PathBuf>,
+    parent: Option<String>,
+}
+
+struct FileDocument {
     name: String,
     uuid: String,
+    parent: String,
+    location: PathBuf,
 }
 
-impl ProjectDBManager {
-    pub(crate) fn get() -> Self {
-        let db = get_database();
-        initialize_package_root();
-        ProjectDBManager {
-            db,
+
+pub(crate) struct ProjectFileSystemManager {
+    project_config: ProjectDocument,
+    db: Database
+}
+
+
+impl ProjectFileSystemManager {
+    pub(crate) fn open(config: ProjectDocument) -> ProjectFileSystemManager {
+        if !config.root.exists() {
+            fs::create_dir_all(&config.root).unwrap();
+        }
+        let db_path = config.root.join(".godata");
+        let db = Database::open_file(&db_path).unwrap();
+        let folder_metadata = db.collection::<FolderDocument>("folder_metadata");
+        if folder_metadata.count_documents().unwrap_or(0) == 0 {
+            let root_folder = FolderDocument {
+                name: config.name.clone(),
+                uuid: config.uuid.clone(),
+                children: Vec::new(),
+                location: None,
+                parent: None,
+            };
+            folder_metadata.insert_one(&root_folder).unwrap();
+        }
+        
+        ProjectFileSystemManager { project_config: config, db: db}       
+    }
+
+    pub(crate) fn folder_exists(&self, folder_path: &[&str], parent: Option<&str>) -> bool {
+        match self.get_folder_at_path(folder_path, parent) {
+            Some(_) => true,
+            None => false
         }
     }
-    fn has_collection(&self, colname: &str) -> bool {
 
-        let known_collections = self.db.list_collection_names();
-        match known_collections {
-            Ok(collections) => {
-                if !(collections.contains(&colname.to_string())) {
-                    return false
+    pub(crate) fn get_folder_contents(&self, uuid: &str) -> Result<Vec<FolderDocument>> {
+        let collection = self.db.collection::<FolderDocument>("folder_metadata");
+        let folder_doc = collection.find_one(doc!{
+            "uuid": uuid
+        }).unwrap();
+        match folder_doc {
+            Some(doc) => {
+                let mut folder_docs = Vec::new();
+                for child in doc.children {
+                    let child_doc = collection.find_one(doc!{
+                        "uuid": child
+                    }).unwrap();
+                    match child_doc {
+                        Some(c) => folder_docs.push(c),
+                        None => ()
+                    }
                 }
-                else {
-                    let res = self.db.collection::<ProjectIOConfig>(colname)
-                                        .count_documents()
-                                        .is_ok_and(|n| n > 0);
-                    return res
+                Ok(folder_docs)
+            }
+            None => Err(ProjectError{msg: "Folder not found".to_string()})
+        }
+
+
+    }
+    
+    pub(crate) fn get_folder_at_path(&self, folder_path: &[&str], parent: Option<&str>) -> Option<String> {      
+        if folder_path.len() == 1 && parent.is_some() {
+            let collection = self.db.collection::<FolderDocument>("folder_metadata");
+            let folder_doc = collection.find_one(doc!{
+                "name": folder_path[0],
+                "parent": parent.unwrap()
+            }).unwrap();
+            match folder_doc {
+                Some(doc) => {
+                    return Some(doc.uuid.clone())
                 }
+                None => return None
             }
-            _ => false
         }
-
-    }
-
-    pub(crate) fn has_project(&self, name: &str, colname: &str) -> bool {
-        if ! self.has_collection(colname) {
-            return false
-        }
-        let projects: Collection<ProjectIOConfig> = self.db.collection(colname);
-        let project = projects.find_one(
-            doc! {
-                "name": name
-            }
-        ).unwrap();
-        if project.is_some() {
-            return true
-        }
-        false
-    }
-
-    pub(crate) fn create_project(&self, name: &str, collection: Option<&str>) -> Result<PathBuf> {
-        let colname: &str;
-        match collection {
-            Some(cname) => {
-                colname = cname;
+        
+        match parent {
+            Some(p) =>{
+                let collection = self.db.collection::<FolderDocument>("folder_metadata");
+                let folder_doc = collection.find_one(doc!{
+                    "name": folder_path[0],
+                    "parent": p
+                }).unwrap();
+                match folder_doc {
+                    Some(doc) => return self.get_folder_at_path(&folder_path[1..], Some(&doc.uuid)),
+                    None => return None
+                }
             }
             None => {
-                println!("No collection name provided... Adding to default.");
-                colname = "default";
+                let parent_uuid = &self.project_config.uuid;
+                return self.get_folder_at_path(folder_path, Some(parent_uuid))
             }
         }
-        if self.has_project(name, colname) {
-            return Err(DBError{
-                msg: format!("Project {} already exists in collection {}.", name, colname)
-            })
-        }
 
-        let projects: Collection<ProjectIOConfig> = self.db.collection(colname);
-        let project = ProjectIOConfig {
-            name: name.to_string(),
-            uuid: nanoid!(),
+
+        
+    }
+    
+ 
+    pub(crate) fn create_folder(&self, folder_path: &str) -> Result<String> {
+        println!("Creating folder {}", folder_path);
+        let folder_path_split = folder_path.split(".").collect::<Vec<&str>>();
+        let parent_uuid: String;
+        if folder_path_split.len() == 1 {
+            parent_uuid = self.project_config.uuid.clone();
+        } else {
+            parent_uuid = self.get_folder_at_path(&folder_path_split[0..folder_path_split.len()-1], None).unwrap();
+        }
+        
+        println!("Parent uuid: {}", parent_uuid);
+        let uuid = nanoid!();
+        let folder_collection: Collection<FolderDocument> = self.db.collection("folder_metadata");
+        let folder_doc = FolderDocument {
+            name: folder_path_split[folder_path_split.len()-1].to_string(),
+            uuid: uuid.clone(),
+            children: Vec::new(),
+            location: None,
+            parent: Some(parent_uuid.to_string()),
         };
-        let project_path = get_dirs()
-                            .get("data_dir")
-                            .unwrap()
-                            .join(&project.uuid);
-        std::fs::create_dir_all(&project_path).unwrap();
-        match projects.insert_one(project) {
-            Ok(_) => {Ok(project_path)},
-            Err(_) => {Err(DBError{msg: "Unable to insert project into collection.".to_string()})}
-        }
-
+        folder_collection.insert_one(&folder_doc).unwrap();
+        self.link_folder(folder_doc, &folder_collection);
+        Ok(uuid)
     }
 
-    pub(crate) fn remove_project(&self, name: &str, colname: &str) -> Result<String>{
-        if !self.has_project(name, colname) {
-            return Err(DBError { msg: format!("Project {} does not exist in collection {}", name, colname)})
-        }
-        let projects: Collection<ProjectIOConfig> = self.db.collection(colname);
-        let project = projects.find_one(
-            doc! {
-                "name": name
+    fn link_folder(&self, folder_doc: FolderDocument, folder_collection: &Collection<FolderDocument> ) {
+        match folder_doc.parent {
+            Some(p) => {
+                let parent_doc = folder_collection.find_one(doc!{
+                    "uuid": p
+                }).unwrap();
+                match parent_doc {
+                    Some(mut doc) => {
+                        doc.children.push(folder_doc.uuid);
+                        folder_collection.update_one(doc!{
+                            "uuid": doc.uuid
+                        }, doc! {
+                            "$set": {
+                                "children": doc.children
+                            }
+                        }).unwrap();
+                    }
+                    None => ()  //Error handling if the parent is not found
+                }
+
             }
-        ).unwrap()
-        .unwrap();
-        let project_path = get_dirs()
-                            .get("data_dir")
-                            .unwrap()
-                            .join(&project.uuid);
-        std::fs::remove_dir_all(&project_path).unwrap();
-        projects.delete_one(
-            doc! {
-                "name": name
-            }
-        ).unwrap();
-        Ok(name.to_string())
+
+            None => ()
+        }
     }
-}
-
-
-fn get_dirs() -> HashMap<String, PathBuf> {
-    let mut dirs = HashMap::new();
-    let base_dir: BaseDirs  = BaseDirs::new().unwrap();
-    let user_data_dir: &Path = base_dir.data_dir();
-    let package_root: PathBuf = user_data_dir.join("godata");
-    let db_path: PathBuf = package_root.join(".godata");
-    let data_dir: PathBuf = package_root.join("data");
-    dirs.insert("package_root".to_string(), package_root);
-    dirs.insert("db_path".to_string(), db_path);
-    dirs.insert("data_dir".to_string(), data_dir);
-    dirs
-    }
-
- fn initialize_package_root() {
-    let dirs = get_dirs();
-    let pkg_root = dirs.get("package_root").unwrap();
-    if !pkg_root.exists() {
-        std::fs::create_dir_all(&pkg_root).unwrap();
-    }
-}
-
-fn get_database() -> Database {
-    let dirs = get_dirs();
-    let db_path = dirs.get("db_path").unwrap();
-    let db = Database::open_file(&db_path).unwrap();
-    db
 }
