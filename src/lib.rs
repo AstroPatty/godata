@@ -1,19 +1,20 @@
 mod pdb;
 mod project;
 mod mdb;
+use pyo3::prelude::*;
+use pyo3::wrap_pymodule;
 
-#[cfg(test)]
-mod tests{
-    use super::{pdb, project};
-    #[test]
-    fn test_create() {
-        let project_mgr = project::ProjectManager::new();
-        let project = project_mgr.create_project("test2", None).unwrap();
-        project.mkdir("test");
-        project.mkdir("test.test2");
-        project.ls(None);
-        project.ls(Some("test"));
-        ()
-    }
+#[pymodule]
+#[pyo3(name = "godata_lib")]
+fn godata_lib(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_wrapped(wrap_pymodule!(_project))?;
+    Ok(())
 }
 
+#[pymodule]
+#[pyo3(name = "project")]
+fn _project(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_class::<project::Project>()?;
+    m.add_class::<project::ProjectManager>()?;
+    Ok(())
+}

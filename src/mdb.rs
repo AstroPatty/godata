@@ -91,7 +91,7 @@ impl MainDBManager {
                 Ok(p)
             }
             None => {
-                Err(ProjectError{msg: format!("Project {} does not exist in collection {}", colname_, name)})
+                Err(ProjectError{msg: format!("Project {} does not exist in collection {}", name, colname_)})
             }
         }
     }

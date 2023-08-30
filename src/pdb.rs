@@ -125,7 +125,6 @@ impl ProjectFileSystemManager {
     
  
     pub(crate) fn create_folder(&self, folder_path: &str) -> Result<String> {
-        println!("Creating folder {}", folder_path);
         let folder_path_split = folder_path.split(".").collect::<Vec<&str>>();
         let parent_uuid: String;
         if folder_path_split.len() == 1 {
@@ -134,7 +133,6 @@ impl ProjectFileSystemManager {
             parent_uuid = self.get_folder_at_path(&folder_path_split[0..folder_path_split.len()-1], None).unwrap();
         }
         
-        println!("Parent uuid: {}", parent_uuid);
         let uuid = nanoid!();
         let folder_collection: Collection<FolderDocument> = self.db.collection("folder_metadata");
         let folder_doc = FolderDocument {
