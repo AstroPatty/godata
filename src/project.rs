@@ -34,6 +34,14 @@ impl ProjectManager {
         }        
     }
 
+    pub(crate) fn list_projects(&self, colname: Option<&str>) -> PyResult<Vec<String>> {
+        let projects = self.db.list_projects(colname);
+        match projects {
+            Ok(projects) => {Ok(projects)},
+            Err(e) => {Err(GodataProjectError::new_err(e.msg))}
+        }
+    }
+
     pub(crate) fn load_project(&self, name: &str, colname: Option<&str>) -> PyResult<Project> {
         let pconfig = self.db.get_project(name, colname);
         match pconfig {

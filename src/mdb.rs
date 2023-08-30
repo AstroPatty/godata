@@ -95,7 +95,42 @@ impl MainDBManager {
             }
         }
     }
+    pub(crate) fn list_projects(&self, colname: Option<&str>) -> Result<Vec<String>> {
+        let colname_: &str;
+        match colname {
+            Some(cname) => {
+                colname_ = cname;
+            }
+            None => {
+                colname_ = "default";
+            }
+        }
+        if !self.has_collection(colname_) {
+            return Err(ProjectError{msg: format!("Collection {} does not exist", colname_)})
+        }
 
+        let projects: Collection<ProjectDocument> = self.db.collection(colname_);
+        let project_docs = projects.find(None);
+        let mut names = Vec::new();
+
+        match project_docs {
+            Ok(docs) => {
+                for doc in docs {
+                    names.push(doc.unwrap().name.to_string());
+                }
+                if names.len() == 0 {
+                    return Err(ProjectError{msg: format!("Collection {} does not exist", colname_)})
+                }
+                Ok(names)
+            }
+            Err(_) => {
+                Err(ProjectError{msg: format!("Collection {} does not exist", colname_)})
+            }
+        }
+
+
+
+    }
 
     pub(crate) fn has_project(&self, name: &str, colname: Option<&str>) -> bool {
         let colname_: &str;
