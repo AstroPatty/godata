@@ -1,4 +1,4 @@
-use crate::pdb::ProjectFileSystemManager;
+use crate::pdb::{ProjectFileSystemManager, FileSystemObject};
 use crate::mdb::{MainDBManager, Result, ProjectDocument};
 use std::clone::Clone;
 use pyo3::prelude::*;
@@ -76,8 +76,12 @@ impl ProjectManager {
 #[pymethods]
 impl Project {
     
-    pub fn mkdir(&self, folder_path: &str) {
-        self.fs.create_folder(folder_path);
+    pub fn mkdir(&self, folder_path: &str) -> PyResult<()>{
+        let result = self.fs.create_folder(folder_path);
+        match result {
+            Ok(_) => Ok(()),
+            Err(e) => Err(GodataProjectError::new_err(e.msg))
+        }
     }
 
     pub fn ls(&self, folder_path: Option<&str>) -> PyResult<()>{
@@ -100,8 +104,22 @@ impl Project {
 
         }
         let contents = self.fs.get_folder_contents(&folder_uuid).unwrap();
-        for content in contents {
-            println!("{}", content.name);
+        let mut files = Vec::new();
+        let mut folders = Vec::new();
+        for item in contents {
+            match item {
+                FileSystemObject::Folder(_) => folders.push(item),
+                FileSystemObject::File(_) => files.push(item)
+            }
+        }
+
+
+        for folder in folders {
+            println!("{}/", folder.get_name())
+        }
+
+        for file in files {
+            println!("{}", file.get_name());
         }
         Ok(())
         

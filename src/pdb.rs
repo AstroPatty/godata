@@ -3,7 +3,7 @@
 
 use serde::{Serialize, Deserialize};
 use polodb_core::{Database, Collection, bson::doc};
-use std::path::PathBuf;
+use std::{path::PathBuf, fs::File};
 use nanoid::nanoid;
 use crate::mdb::{ProjectDocument, Result, ProjectError};
 use std::fs;
@@ -17,12 +17,46 @@ pub(crate) struct FolderDocument {
     location: Option<PathBuf>,
     parent: Option<String>,
 }
-
-struct FileDocument {
+#[derive(Serialize, Deserialize)]
+pub(crate) struct FileDocument {
     name: String,
     uuid: String,
     parent: String,
     location: PathBuf,
+}
+
+
+pub(crate) enum FileSystemObject {
+    Folder(FolderDocument),
+    File(FileDocument)
+}
+
+impl FileSystemObject {
+    fn get_identifier(&self) -> String {
+        match self {
+            FileSystemObject::Folder(f) =>  f.uuid.clone(),
+            FileSystemObject::File(f) => f.uuid.clone()
+        }
+    }
+
+    fn get_parent(&self) -> Option<String> {
+        match self {
+            FileSystemObject::Folder(f) => f.parent.clone(),
+            FileSystemObject::File(f) => Some(f.parent.clone())
+        }
+    }
+    pub(crate) fn get_name(&self) -> String {
+        match self {
+            FileSystemObject::Folder(f) => f.name.clone(),
+            FileSystemObject::File(f) => f.name.clone()
+        }
+    }
+    fn get_type(&self) -> String {
+        match self {
+            FileSystemObject::Folder(_) => "folder".to_string(),
+            FileSystemObject::File(_) => "file".to_string()
+        }
+    }
 }
 
 
@@ -61,24 +95,43 @@ impl ProjectFileSystemManager {
         }
     }
 
-    pub(crate) fn get_folder_contents(&self, uuid: &str) -> Result<Vec<FolderDocument>> {
-        let collection = self.db.collection::<FolderDocument>("folder_metadata");
-        let folder_doc = collection.find_one(doc!{
+    pub(crate) fn get_folder_contents(&self, uuid: &str) 
+        -> Result<Vec<FileSystemObject>> {
+
+
+        let folder_collection = self.db.collection::<FolderDocument>("folder_metadata");
+        let file_collection = self.db.collection::<FileDocument>(uuid);
+        let folder_doc = folder_collection.find_one(doc!{
             "uuid": uuid
         }).unwrap();
         match folder_doc {
             Some(doc) => {
-                let mut folder_docs = Vec::new();
+                let mut return_objects = Vec::new();
                 for child in doc.children {
-                    let child_doc = collection.find_one(doc!{
-                        "uuid": child
-                    }).unwrap();
-                    match child_doc {
-                        Some(c) => folder_docs.push(c),
-                        None => ()
+                    let id_split: Vec<&str> = child.split(":").collect();
+                    if id_split[0] == "folder" {
+                        let child_doc = folder_collection.find_one(doc!{
+                            "uuid": id_split[1]
+                        }).unwrap();
+                        match child_doc {
+                            Some(c) => return_objects.push(FileSystemObject::Folder(c)),
+                            None => ()
+                        }
+                    }
+                    else if id_split[0] == "file" {
+                        let child_doc = file_collection.find_one(
+                            doc!{"uuid": id_split[1]}
+                        ).unwrap();
+                        match child_doc {
+                            Some(c) => return_objects.push(FileSystemObject::File(c)),
+                            None => ()
+                        }
+                    }
+                    else {
+                        return Err(ProjectError{msg: format!("Invalid child type found {}", id_split[0]).to_string()})
                     }
                 }
-                Ok(folder_docs)
+                Ok(return_objects)
             }
             None => Err(ProjectError{msg: "Folder not found".to_string()})
         }
@@ -122,6 +175,80 @@ impl ProjectFileSystemManager {
 
         
     }
+    fn name_exists(&self, item: &FileSystemObject) -> bool {
+        match item {
+            FileSystemObject::File(f) => {
+                let parent = f.parent.to_string();
+                let collection = self.db.collection::<FileDocument>(&parent);
+                let file_doc = collection.find_one(doc!{
+                    "name": f.name.to_string()
+                }).unwrap();
+                match file_doc {
+                    Some(_) => true,
+                    None => false
+                }
+            },
+            FileSystemObject::Folder(f) => {
+                let parent = f.parent.clone().unwrap_or(self.project_config.uuid.clone());
+                let collection = self.db.collection::<FolderDocument>("folder_metadata");
+                let folder_doc = collection.find_one(doc!{
+                    "name": f.name.to_string(),
+                    "parent": parent
+                }).unwrap();
+                match folder_doc {
+                    Some(_) => true,
+                    None => false
+                }
+            }
+        }
+        
+    }
+
+    fn insert_and_link(&self, item: &FileSystemObject) -> Result<String> {
+        if self.name_exists(item) {
+            let item_type = match item {
+                FileSystemObject::Folder(_) => "Folder",
+                FileSystemObject::File(_) => "File"
+            };
+            return Err(ProjectError{msg: format!("{} `{}` already exists in this folder!", item_type, item.get_name())})
+        }
+
+        let folder_collection = self.db.collection::<FolderDocument>("folder_metadata");
+        match item {
+            FileSystemObject::Folder(f) => {
+                folder_collection.insert_one(f).unwrap();
+                self.link(item, &folder_collection);
+                Ok(f.uuid.clone())
+            }
+            FileSystemObject::File(f) => {
+                let file_collection = self.db.collection::<FileDocument>(&f.parent);
+                file_collection.insert_one(f).unwrap();
+                self.link(item, &folder_collection);
+                Ok(f.uuid.clone())
+            }
+        }
+    }
+
+    pub(crate) fn attach_file(&self, file_path: &PathBuf, project_path: &str) -> Result<String> {
+        let project_path_split = project_path.split(".").collect::<Vec<&str>>();
+        let file_name = project_path_split[project_path_split.len()-1];
+        let folder_uuid = self.get_folder_at_path(&project_path_split[0..project_path_split.len()-1], None);
+
+
+        match folder_uuid {
+            Some(uuid) => {
+                let file_uuid = nanoid!();
+                let file_doc = FileDocument {
+                    name: file_name.to_string(),
+                    uuid: file_uuid.clone(),
+                    parent: uuid,
+                    location: PathBuf::from(file_path),
+                };
+                self.insert_and_link(&FileSystemObject::File(file_doc))
+            }
+            None => Err(ProjectError{msg: "Folder not found".to_string()})
+        }
+    }
     
  
     pub(crate) fn create_folder(&self, folder_path: &str) -> Result<String> {
@@ -142,20 +269,23 @@ impl ProjectFileSystemManager {
             location: None,
             parent: Some(parent_uuid.to_string()),
         };
-        folder_collection.insert_one(&folder_doc).unwrap();
-        self.link_folder(folder_doc, &folder_collection);
-        Ok(uuid)
+        self.insert_and_link(&FileSystemObject::Folder(folder_doc))
     }
 
-    fn link_folder(&self, folder_doc: FolderDocument, folder_collection: &Collection<FolderDocument> ) {
-        match folder_doc.parent {
+    fn link(&self, item: &FileSystemObject, folder_collection: &Collection<FolderDocument> ) {
+        let child_uid = item.get_identifier();
+        let child_type = item.get_type();
+        let child_id = format!("{}:{}", child_type, child_uid);
+
+
+        match item.get_parent() {
             Some(p) => {
                 let parent_doc = folder_collection.find_one(doc!{
                     "uuid": p
                 }).unwrap();
                 match parent_doc {
                     Some(mut doc) => {
-                        doc.children.push(folder_doc.uuid);
+                        doc.children.push(child_id);
                         folder_collection.update_one(doc!{
                             "uuid": doc.uuid
                         }, doc! {
