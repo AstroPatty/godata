@@ -1,6 +1,8 @@
 use crate::pdb::{ProjectFileSystemManager, FileSystemObject};
 use crate::mdb::{MainDBManager, Result, ProjectDocument};
+use std::path::PathBuf;
 use std::clone::Clone;
+use std::str::FromStr;
 use pyo3::prelude::*;
 use pyo3::create_exception;
 
@@ -78,6 +80,18 @@ impl Project {
     
     pub fn mkdir(&self, folder_path: &str) -> PyResult<()>{
         let result = self.fs.create_folder(folder_path);
+        match result {
+            Ok(_) => Ok(()),
+            Err(e) => Err(GodataProjectError::new_err(e.msg))
+        }
+    }
+
+    pub fn add_file(&self, file_path: &str, project_path: &str) -> PyResult<()> {
+        let path = PathBuf::from_str(file_path).unwrap();
+        if !path.exists() || !path.is_file() {
+            return Err(GodataProjectError::new_err(format!("No file found at `{file_path}`")))
+        }
+        let result = self.fs.attach_file(&path, project_path);
         match result {
             Ok(_) => Ok(()),
             Err(e) => Err(GodataProjectError::new_err(e.msg))

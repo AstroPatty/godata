@@ -5,13 +5,13 @@ opened_projects = {}
 __all__ = ["open_project", "list_projects", "create_project"]
 
 def create_project(name, collection = None):
-    return manager.create_project(name, collection)
+    pname = collection or "default" + "." + name
+    #Note, the manager will throw in case the project already exists
+    project =  manager.create_project(name, collection)
+    opened_projects[pname] = project
 
 def open_project(name, collection = None):
-    if collection is None:
-        pname = name
-    else:
-        pname = collection + "." + name
+    pname = collection or "default" + "." + name
     if pname in opened_projects:
         return opened_projects[pname]
 
