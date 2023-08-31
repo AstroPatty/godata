@@ -77,16 +77,19 @@ impl ProjectManager {
 
 #[pymethods]
 impl Project {
-    
-    pub fn mkdir(&self, folder_path: &str) -> PyResult<()>{
-        let result = self.fs.create_folder(folder_path);
+    pub fn remove_file(&self, project_path: &str) -> PyResult<()> {
+        /// Remove a file from the project. This will not delete the file
+        /// unless the file has been stored in godata's internal storage.
+        
+        let result = self.fs.remove_file(project_path);
         match result {
             Ok(_) => Ok(()),
             Err(e) => Err(GodataProjectError::new_err(e.msg))
         }
     }
-
     pub fn add_file(&self, file_path: &str, project_path: &str) -> PyResult<()> {
+        /// Add a file to the project. If the folder does not exist, it will
+        /// be created recursively.
         let path = PathBuf::from_str(file_path).unwrap();
         if !path.exists() || !path.is_file() {
             return Err(GodataProjectError::new_err(format!("No file found at `{file_path}`")))

@@ -9,6 +9,7 @@ def create_project(name, collection = None):
     #Note, the manager will throw in case the project already exists
     project =  manager.create_project(name, collection)
     opened_projects[pname] = project
+    return project
 
 def open_project(name, collection = None):
     pname = collection or "default" + "." + name

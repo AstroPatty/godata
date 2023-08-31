@@ -95,8 +95,7 @@ impl ProjectFileSystemManager {
         }
     }
 
-    pub(crate) fn get_folder_contents(&self, uuid: &str) 
-        -> Result<Vec<FileSystemObject>> {
+    pub(crate) fn get_folder_contents(&self, uuid: &str) -> Result<Vec<FileSystemObject>> {
 
 
         let folder_collection = self.db.collection::<FolderDocument>("folder_metadata");
@@ -232,24 +231,99 @@ impl ProjectFileSystemManager {
     pub(crate) fn attach_file(&self, file_path: &PathBuf, project_path: &str) -> Result<String> {
         let project_path_split = project_path.split(".").collect::<Vec<&str>>();
         let file_name = project_path_split[project_path_split.len()-1];
-        let folder_uuid = self.get_folder_at_path(&project_path_split[0..project_path_split.len()-1], None);
+        let folder_path = &project_path_split[0..project_path_split.len()-1];
+        let folder = self.get_folder_at_path(folder_path, None);
+        let folder_uuid: String;
 
-
-        match folder_uuid {
+        match folder {
             Some(uuid) => {
-                let file_uuid = nanoid!();
-                let file_doc = FileDocument {
-                    name: file_name.to_string(),
-                    uuid: file_uuid.clone(),
-                    parent: uuid,
-                    location: PathBuf::from(file_path),
-                };
-                self.insert_and_link(&FileSystemObject::File(file_doc))
+                folder_uuid = uuid;
             }
-            None => Err(ProjectError{msg: "Folder not found".to_string()})
+
+            None => {
+                folder_uuid = self.create_folder_recursive(folder_path)?;
+            }
         }
+
+
+        let file_uuid = nanoid!();
+        let file_doc = FileDocument {
+            name: file_name.to_string(),
+            uuid: file_uuid.clone(),
+            parent: folder_uuid,
+            location: PathBuf::from(file_path)
+        };
+
+        self.insert_and_link(&FileSystemObject::File(file_doc))
+
+    }
+
+    pub(crate) fn remove_file(&self, project_path: &str) -> Result<()> {
+        let project_path_split = project_path.split(".").collect::<Vec<&str>>();
+        let file_name = project_path_split[project_path_split.len()-1];
+        let folder = self.get_folder_at_path(&project_path_split[0..project_path_split.len()-1], None);
+        match folder {
+            None => {
+                return Err(ProjectError{msg: "Folder {} not found".to_string()})
+            } 
+            Some(_) => ()
+        }
+        let folder_uuid = folder.unwrap();
+        let children = self.get_folder_contents(&folder_uuid).unwrap();
+        let mut file_id: String = String::from("unknown");
+        for child in children {
+            match child {
+                FileSystemObject::Folder(_) => continue,
+                FileSystemObject::File(f) => {
+                    if f.name == file_name {
+                        file_id = f.uuid;
+                        break;
+                    }
+
+                }
+            }
+        }
+        if &file_id == "unknown" {
+            return Err(ProjectError{msg: "File not found!".to_string()})
+        }
+
+        let file_collection = self.db.collection::<FileDocument>(&folder_uuid);
+        file_collection.delete_one(doc!{
+            "uuid": &file_id
+        }).unwrap();
+        let folder_collection = self.db.collection::<FolderDocument>("folder_metadata");
+        let folder_doc = folder_collection.find_one(doc!{
+            "uuid": folder_uuid.clone()
+        }).unwrap();
+        let children = &folder_doc.unwrap().children;
+        self.prune_tree(&folder_uuid, format!("file:{}", file_id).as_str());
+        Ok(())
     }
     
+    fn prune_tree(&self, folder_uuid: &str, remove_child: &str) {
+        /// Remove this folder from the tree if it only has the child `remove_child`,
+        /// and recursively remove its parents on the same condition.
+        if folder_uuid == self.project_config.uuid {
+            return
+        }
+        let folder_collection = self.db.collection::<FolderDocument>("folder_metadata");
+        let folder_doc = folder_collection.find_one(doc!{
+            "uuid": folder_uuid
+        }).unwrap().unwrap();
+
+        if folder_doc.children.len() == 1 && folder_doc.children[0] == remove_child {
+            folder_collection.delete_one(doc!{
+                "uuid": folder_uuid
+            }).unwrap();
+            match folder_doc.parent {
+                None => (),
+                Some(p) => {self.prune_tree(&p, format!("folder:{}", folder_uuid).as_str())}
+            }
+        }
+        else {
+            println!("{:?}", folder_doc.children);
+        }
+    }
  
     pub(crate) fn create_folder(&self, folder_path: &str) -> Result<String> {
         let folder_path_split = folder_path.split(".").collect::<Vec<&str>>();
@@ -270,6 +344,40 @@ impl ProjectFileSystemManager {
             parent: Some(parent_uuid.to_string()),
         };
         self.insert_and_link(&FileSystemObject::Folder(folder_doc))
+    }
+
+    fn create_folder_recursive(&self, folder_path: &[&str]) -> Result<String> {
+        /// Create a folder recursively from a given path. If a folder already exists,
+        /// it will simply be passed over. This will only throw in error if the last
+        /// folder in the path already exists.
+        let mut folder;
+        let mut id = self.project_config.uuid.clone();
+        let mut current_path: String = folder_path[0].to_string();
+        if self.folder_exists(folder_path, None)  {
+            return Err(ProjectError{msg: "Folder already exists".to_string()})
+        }
+        for i in 0..folder_path.len() {
+            folder = self.get_folder_at_path(&folder_path[0..i+1], None);
+            match folder {
+                Some(_) => (),
+                None => {
+                    let result = self.create_folder(&current_path);
+                    match result {
+                        Ok(uuid) => {
+                            id = uuid;
+                            if i == (folder_path.len() - 1) {
+                               break;
+                            }
+                            current_path = current_path + "." + folder_path[i+1];
+                        }
+                        Err(e) => {
+                            return Err(e)
+                        }
+                    }
+                }
+            }
+        }
+        Ok(id)
     }
 
     fn link(&self, item: &FileSystemObject, folder_collection: &Collection<FolderDocument> ) {
