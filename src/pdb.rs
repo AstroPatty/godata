@@ -6,23 +6,24 @@ use polodb_core::{Database, Collection, bson::doc};
 use std::{path::PathBuf, fs::File};
 use nanoid::nanoid;
 use crate::mdb::{ProjectDocument, Result, ProjectError};
+use crate::ftree::FileTreeObject;
 use std::fs;
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub(crate) struct FolderDocument {
+    pub(crate) uuid: String,
     pub(crate) name: String,
-    uuid: String,
-    children: Vec<String>,
-    location: Option<PathBuf>,
-    parent: Option<String>,
+    pub(crate) children: Vec<String>,
+    pub(crate) location: Option<PathBuf>,
+    pub(crate) parent: Option<String>,
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub(crate) struct FileDocument {
-    name: String,
-    uuid: String,
-    parent: String,
-    location: PathBuf,
+    pub(crate) uuid: String,
+    pub(crate) name: String,
+    pub(crate) parent: String,
+    pub(crate) location: PathBuf,
 }
 
 
@@ -32,6 +33,7 @@ pub(crate) enum FileSystemObject {
 }
 
 impl FileSystemObject {
+    
     fn get_identifier(&self) -> String {
         match self {
             FileSystemObject::Folder(f) =>  f.uuid.clone(),
@@ -87,327 +89,110 @@ impl ProjectFileSystemManager {
         
         ProjectFileSystemManager { project_config: config, db: db}       
     }
-
-    pub(crate) fn folder_exists(&self, folder_path: &[&str], parent: Option<&str>) -> bool {
-        match self.get_folder_at_path(folder_path, parent) {
-            Some(_) => true,
-            None => false
-        }
-    }
-
-    pub(crate) fn get_folder_contents(&self, uuid: &str) -> Result<Vec<FileSystemObject>> {
-
-
-        let folder_collection = self.db.collection::<FolderDocument>("folder_metadata");
-        let file_collection = self.db.collection::<FileDocument>(uuid);
-        let folder_doc = folder_collection.find_one(doc!{
-            "uuid": uuid
-        }).unwrap();
-        match folder_doc {
-            Some(doc) => {
-                let mut return_objects = Vec::new();
-                for child in doc.children {
-                    let id_split: Vec<&str> = child.split(":").collect();
-                    if id_split[0] == "folder" {
-                        let child_doc = folder_collection.find_one(doc!{
-                            "uuid": id_split[1]
-                        }).unwrap();
-                        match child_doc {
-                            Some(c) => return_objects.push(FileSystemObject::Folder(c)),
-                            None => ()
-                        }
-                    }
-                    else if id_split[0] == "file" {
-                        let child_doc = file_collection.find_one(
-                            doc!{"uuid": id_split[1]}
-                        ).unwrap();
-                        match child_doc {
-                            Some(c) => return_objects.push(FileSystemObject::File(c)),
-                            None => ()
-                        }
-                    }
-                    else {
-                        return Err(ProjectError{msg: format!("Invalid child type found {}", id_split[0]).to_string()})
-                    }
-                }
-                Ok(return_objects)
-            }
-            None => Err(ProjectError{msg: "Folder not found".to_string()})
-        }
-
-
-    }
-    
-    pub(crate) fn get_folder_at_path(&self, folder_path: &[&str], parent: Option<&str>) -> Option<String> {      
-        if folder_path.len() == 1 && parent.is_some() {
+    pub(crate) fn get_child_records(&self, parent: &FolderDocument) -> Result<Vec<FileSystemObject>> {
+        let mut children = Vec::new();
+        for child in &parent.children {
             let collection = self.db.collection::<FolderDocument>("folder_metadata");
-            let folder_doc = collection.find_one(doc!{
-                "name": folder_path[0],
-                "parent": parent.unwrap()
-            }).unwrap();
-            match folder_doc {
-                Some(doc) => {
-                    return Some(doc.uuid.clone())
-                }
-                None => return None
-            }
+            let child_record = collection.find_one(doc!{
+                "uuid": child
+            }).unwrap().unwrap();
+            children.push(FileSystemObject::Folder(child_record));
         }
-        
-        match parent {
-            Some(p) =>{
-                let collection = self.db.collection::<FolderDocument>("folder_metadata");
-                let folder_doc = collection.find_one(doc!{
-                    "name": folder_path[0],
-                    "parent": p
-                }).unwrap();
-                match folder_doc {
-                    Some(doc) => return self.get_folder_at_path(&folder_path[1..], Some(&doc.uuid)),
-                    None => return None
-                }
-            }
-            None => {
-                let parent_uuid = &self.project_config.uuid;
-                return self.get_folder_at_path(folder_path, Some(parent_uuid))
-            }
-        }
-
-
-        
-    }
-    fn name_exists(&self, item: &FileSystemObject) -> bool {
-        match item {
-            FileSystemObject::File(f) => {
-                let parent = f.parent.to_string();
-                let collection = self.db.collection::<FileDocument>(&parent);
-                let file_doc = collection.find_one(doc!{
-                    "name": f.name.to_string()
-                }).unwrap();
-                match file_doc {
-                    Some(_) => true,
-                    None => false
-                }
-            },
-            FileSystemObject::Folder(f) => {
-                let parent = f.parent.clone().unwrap_or(self.project_config.uuid.clone());
-                let collection = self.db.collection::<FolderDocument>("folder_metadata");
-                let folder_doc = collection.find_one(doc!{
-                    "name": f.name.to_string(),
-                    "parent": parent
-                }).unwrap();
-                match folder_doc {
-                    Some(_) => true,
-                    None => false
-                }
-            }
-        }
-        
-    }
-
-    fn insert_and_link(&self, item: &FileSystemObject) -> Result<String> {
-        if self.name_exists(item) {
-            let item_type = match item {
-                FileSystemObject::Folder(_) => "Folder",
-                FileSystemObject::File(_) => "File"
-            };
-            return Err(ProjectError{msg: format!("{} `{}` already exists in this folder!", item_type, item.get_name())})
-        }
-
-        let folder_collection = self.db.collection::<FolderDocument>("folder_metadata");
-        match item {
-            FileSystemObject::Folder(f) => {
-                folder_collection.insert_one(f).unwrap();
-                self.link(item, &folder_collection);
-                Ok(f.uuid.clone())
-            }
-            FileSystemObject::File(f) => {
-                let file_collection = self.db.collection::<FileDocument>(&f.parent);
-                file_collection.insert_one(f).unwrap();
-                self.link(item, &folder_collection);
-                Ok(f.uuid.clone())
-            }
-        }
-    }
-
-    pub(crate) fn attach_file(&self, file_path: &PathBuf, project_path: &str) -> Result<String> {
-        let project_path_split = project_path.split(".").collect::<Vec<&str>>();
-        let file_name = project_path_split[project_path_split.len()-1];
-        let folder_path = &project_path_split[0..project_path_split.len()-1];
-        let folder = self.get_folder_at_path(folder_path, None);
-        let folder_uuid: String;
-
-        match folder {
-            Some(uuid) => {
-                folder_uuid = uuid;
-            }
-
-            None => {
-                folder_uuid = self.create_folder_recursive(folder_path)?;
-            }
-        }
-
-
-        let file_uuid = nanoid!();
-        let file_doc = FileDocument {
-            name: file_name.to_string(),
-            uuid: file_uuid.clone(),
-            parent: folder_uuid,
-            location: PathBuf::from(file_path)
-        };
-
-        self.insert_and_link(&FileSystemObject::File(file_doc))
-
-    }
-
-    pub(crate) fn remove_file(&self, project_path: &str) -> Result<()> {
-        let project_path_split = project_path.split(".").collect::<Vec<&str>>();
-        let file_name = project_path_split[project_path_split.len()-1];
-        let folder = self.get_folder_at_path(&project_path_split[0..project_path_split.len()-1], None);
-        match folder {
-            None => {
-                return Err(ProjectError{msg: "Folder {} not found".to_string()})
-            } 
-            Some(_) => ()
-        }
-        let folder_uuid = folder.unwrap();
-        let children = self.get_folder_contents(&folder_uuid).unwrap();
-        let mut file_id: String = String::from("unknown");
-        for child in children {
-            match child {
-                FileSystemObject::Folder(_) => continue,
-                FileSystemObject::File(f) => {
-                    if f.name == file_name {
-                        file_id = f.uuid;
-                        break;
-                    }
-
-                }
-            }
-        }
-        if &file_id == "unknown" {
-            return Err(ProjectError{msg: "File not found!".to_string()})
-        }
-
-        let file_collection = self.db.collection::<FileDocument>(&folder_uuid);
-        file_collection.delete_one(doc!{
-            "uuid": &file_id
+        let collection = self.db.collection::<FileDocument>(&parent.uuid);
+        let file_records = collection.find(doc!{
+            "parent": parent.uuid.clone()
         }).unwrap();
-        let folder_collection = self.db.collection::<FolderDocument>("folder_metadata");
-        let folder_doc = folder_collection.find_one(doc!{
-            "uuid": folder_uuid.clone()
-        }).unwrap();
-        let children = &folder_doc.unwrap().children;
-        self.prune_tree(&folder_uuid, format!("file:{}", file_id).as_str());
-        Ok(())
-    }
-    
-    fn prune_tree(&self, folder_uuid: &str, remove_child: &str) {
-        /// Remove this folder from the tree if it only has the child `remove_child`,
-        /// and recursively remove its parents on the same condition.
-        if folder_uuid == self.project_config.uuid {
-            return
+        for file in file_records {
+            children.push(FileSystemObject::File(file.unwrap()));
         }
-        let folder_collection = self.db.collection::<FolderDocument>("folder_metadata");
-        let folder_doc = folder_collection.find_one(doc!{
-            "uuid": folder_uuid
-        }).unwrap().unwrap();
+        Ok(children)
+    }
+    pub(crate) fn get_root(&self) -> FolderDocument {
+        let collection = self.db.collection::<FolderDocument>("folder_metadata");
+        collection.find_one(doc!{
+            "uuid": self.project_config.uuid.clone()
+        }).unwrap().unwrap() //This should never fail, since the root is always created
+    }
+    pub(crate) fn add(&self, record: &FileSystemObject) -> Result<()> {
+        let parent = record.get_parent().unwrap();
 
-        if folder_doc.children.len() == 1 && folder_doc.children[0] == remove_child {
-            folder_collection.delete_one(doc!{
-                "uuid": folder_uuid
-            }).unwrap();
-            match folder_doc.parent {
-                None => (),
-                Some(p) => {self.prune_tree(&p, format!("folder:{}", folder_uuid).as_str())}
-            }
-        }
-        else {
-            println!("{:?}", folder_doc.children);
-        }
-    }
- 
-    pub(crate) fn create_folder(&self, folder_path: &str) -> Result<String> {
-        let folder_path_split = folder_path.split(".").collect::<Vec<&str>>();
-        let parent_uuid: String;
-        if folder_path_split.len() == 1 {
-            parent_uuid = self.project_config.uuid.clone();
-        } else {
-            parent_uuid = self.get_folder_at_path(&folder_path_split[0..folder_path_split.len()-1], None).unwrap();
-        }
-        
-        let uuid = nanoid!();
-        let folder_collection: Collection<FolderDocument> = self.db.collection("folder_metadata");
-        let folder_doc = FolderDocument {
-            name: folder_path_split[folder_path_split.len()-1].to_string(),
-            uuid: uuid.clone(),
-            children: Vec::new(),
-            location: None,
-            parent: Some(parent_uuid.to_string()),
-        };
-        self.insert_and_link(&FileSystemObject::Folder(folder_doc))
-    }
-
-    fn create_folder_recursive(&self, folder_path: &[&str]) -> Result<String> {
-        /// Create a folder recursively from a given path. If a folder already exists,
-        /// it will simply be passed over. This will only throw in error if the last
-        /// folder in the path already exists.
-        let mut folder;
-        let mut id = self.project_config.uuid.clone();
-        let mut current_path: String = folder_path[0].to_string();
-        if self.folder_exists(folder_path, None)  {
-            return Err(ProjectError{msg: "Folder already exists".to_string()})
-        }
-        for i in 0..folder_path.len() {
-            folder = self.get_folder_at_path(&folder_path[0..i+1], None);
-            match folder {
-                Some(_) => (),
-                None => {
-                    let result = self.create_folder(&current_path);
-                    match result {
-                        Ok(uuid) => {
-                            id = uuid;
-                            if i == (folder_path.len() - 1) {
-                               break;
-                            }
-                            current_path = current_path + "." + folder_path[i+1];
-                        }
-                        Err(e) => {
-                            return Err(e)
-                        }
+        match record {
+            FileSystemObject::Folder(f) => {
+                let uuid = &f.uuid;
+                let collection = self.db.collection::<FolderDocument>("folder_metadata");
+                collection.insert_one(f).unwrap();
+                let parent_children_list = &collection.find_one(doc!{
+                    "uuid": &parent
+                }).unwrap().unwrap();
+                let mut children = parent_children_list.children.clone();
+                children.push(uuid.clone());
+                collection.update_one(doc!{
+                    "uuid": &parent
+                }, doc!{ 
+                    "$set": {
+                        "children": children
                     }
-                }
-            }
-        }
-        Ok(id)
-    }
-
-    fn link(&self, item: &FileSystemObject, folder_collection: &Collection<FolderDocument> ) {
-        let child_uid = item.get_identifier();
-        let child_type = item.get_type();
-        let child_id = format!("{}:{}", child_type, child_uid);
-
-
-        match item.get_parent() {
-            Some(p) => {
-                let parent_doc = folder_collection.find_one(doc!{
-                    "uuid": p
                 }).unwrap();
-                match parent_doc {
-                    Some(mut doc) => {
-                        doc.children.push(child_id);
-                        folder_collection.update_one(doc!{
-                            "uuid": doc.uuid
-                        }, doc! {
-                            "$set": {
-                                "children": doc.children
-                            }
-                        }).unwrap();
-                    }
-                    None => ()  //Error handling if the parent is not found
-                }
-
+                
+                Ok(())
             }
 
-            None => ()
+            FileSystemObject::File(f) => {
+                let parent = f.parent.clone();
+                let parent_collection = self.db.collection::<FileDocument>(&parent);
+                parent_collection.insert_one(f).unwrap();
+                Ok(())
+            }
+        }
+
+    }
+    pub(crate) fn update(&self, record: &FileSystemObject) -> Result<()> {
+        match record {
+            FileSystemObject::Folder(f) => {
+                let uuid = &f.uuid;
+                let collection = self.db.collection::<FolderDocument>("folder_metadata");
+                let current = collection.delete_one(doc!{
+                    "uuid": uuid
+                }).unwrap();
+                collection.insert_one(f).unwrap();                
+                Ok(())
+            }
+
+            FileSystemObject::File(f) => {
+                let parent = f.parent.clone();
+                let parent_collection = self.db.collection::<FileDocument>(&parent);
+                let current = parent_collection.delete_one(doc!{
+                    "uuid": f.uuid.clone()
+                }).unwrap();
+                parent_collection.insert_one(f).unwrap();
+                Ok(())
+            }
+        }
+
+    }
+    pub(crate) fn remove(&self, record: &FileSystemObject) -> Result<()> {
+        match record {
+            FileSystemObject::Folder(f) => {
+                let uuid = &f.uuid;
+                let children = self.get_child_records(&f)?;
+                for child in children {
+                    self.remove(&child)?;
+                }
+                let collection = self.db.collection::<FolderDocument>("folder_metadata");
+                collection.delete_one(doc!{
+                    "uuid": uuid
+                }).unwrap();
+                Ok(())
+            }
+
+            FileSystemObject::File(f) => {
+                let parent = &f.parent;
+                let parent_collection = self.db.collection::<FileDocument>(&parent);
+                parent_collection.delete_one(doc!{
+                    "uuid": f.uuid.clone()
+                }).unwrap();
+                Ok(())
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 mod pdb;
 mod project;
 mod mdb;
+mod ftree;
 use pyo3::prelude::*;
 use pyo3::wrap_pymodule;
 
@@ -18,3 +19,5 @@ fn _project(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<project::ProjectManager>()?;
     Ok(())
 }
+
+// Add some tests
