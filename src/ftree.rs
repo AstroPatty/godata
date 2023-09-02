@@ -20,7 +20,13 @@ impl FileTreeObject {
             FileTreeObject::File(f) => FileSystemObject::File(f.cfg.clone()),
         }
     }
-
+    
+    pub(crate) fn get_path(&self) -> PathBuf {
+        match self {
+            FileTreeObject::Folder(f) => f.cfg.location.clone().unwrap(),
+            FileTreeObject::File(f) => f.cfg.location.clone(),
+        }
+    }
 }
 pub(crate) struct FileTree {
     root: FileTreeFolder,
@@ -45,6 +51,12 @@ impl FileTree {
             root: root_node,
         }
     }
+
+    pub(crate) fn query(&self, path: &str) -> Result<&FileTreeObject> {
+        let split = path.split("/").collect::<Vec<&str>>();
+        self.root.query(&split)
+    }
+
     pub(crate) fn add_file(&mut self, path: PathBuf, project_path: &str, resursive: bool) -> Result<()> {
         let split_project_path = project_path
                                     .strip_suffix("/")

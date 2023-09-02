@@ -90,10 +90,31 @@ impl Project {
             Err(e) => Err(GodataProjectError::new_err(e.msg))
         }
     }
+
+    pub fn get(&self, project_path: &str) -> PyResult<String> {
+        /// Get a file from the.
+        let result = self.tree.query(project_path);
+        match result {
+            Ok(item) => {
+                let path = item.get_path();
+                match item {
+                    FileTreeObject::File(_) => {
+                        let path_str = &path.to_str().unwrap();
+                        Ok(path_str.to_string())
+                    }
+                    FileTreeObject::Folder(_) => {
+                        Err(GodataProjectError::new_err(format!("`{}` is a folder", project_path)))
+                    }
+                }
+            }
+            Err(e) => Err(GodataProjectError::new_err(e.msg))
+        }
+    }
+
     pub fn add_file(&mut self, file_path: &str, project_path: &str) -> PyResult<()> {
         /// Add a file to the project. If the folder does not exist, it will
         /// be created recursively.
-        let path = PathBuf::from_str(file_path).unwrap();
+        let path = PathBuf::from_str(file_path).unwrap().canonicalize().unwrap();
         if !path.exists() || !path.is_file() {
             return Err(GodataProjectError::new_err(format!("No file found at `{file_path}`")))
         }
