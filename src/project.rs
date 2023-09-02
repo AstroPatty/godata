@@ -109,6 +109,14 @@ impl Project {
         match contents {
             Err(e) => Err(GodataProjectError::new_err(e.msg)),
             Ok(contents) => {
+                let header_string: String;
+                match folder_path {
+                    None => header_string = format!("Project: {}", self.cfg.name),
+                    Some(path) => header_string = format!("Folder: {}", path)
+                }
+                println!("{}", header_string);
+                println!("{}","-".repeat(header_string.len()));
+
                 let mut files = Vec::new();
                 let mut folders = Vec::new();
                 for item in contents {
@@ -129,6 +137,7 @@ impl Project {
                 for file in files {
                     println!("{}", file.get_name());
                 }
+                println!("{}","-".repeat(header_string.len()));
                 Ok(())
             }
         }

@@ -46,7 +46,11 @@ impl FileTree {
         }
     }
     pub(crate) fn add_file(&mut self, path: PathBuf, project_path: &str, resursive: bool) -> Result<()> {
-        let split_project_path = project_path.split("/").collect::<Vec<&str>>();
+        let split_project_path = project_path
+                                    .strip_suffix("/")
+                                    .unwrap_or(project_path)
+                                    .split("/")
+                                    .collect::<Vec<&str>>();
         if split_project_path.len() == 1 {
             let uuid = nanoid::nanoid!();
             let new_file = FileTreeFile {
@@ -57,7 +61,6 @@ impl FileTree {
                     location: path,
                 }
             };
-            println!("Adding file to root");
             self.mgr.add(&FileSystemObject::File(new_file.cfg.clone()))?;
             self.root.children.push(FileTreeObject::File(new_file));
             return Ok(())
@@ -97,8 +100,7 @@ impl FileTree {
             }
         }
     }
-    pub(crate) fn add_folder(&mut self, split_project_path: &[&str], recursive: bool) -> Result<()> {
-        println!("Adding folder {}", split_project_path.join("/"));
+    fn add_folder(&mut self, split_project_path: &[&str], recursive: bool) -> Result<()> {
         if split_project_path.len() == 1 { //We're adding to the root folder
             
             let children = self.root.children.iter().map(|x| x.get_name()).collect::<Vec<&str>>();
@@ -164,9 +166,13 @@ impl FileTree {
     
 
 
-    pub(crate) fn remove(&mut self, path: &str, recursive: bool) -> Result<()> {
-        let split = path.split("/").collect::<Vec<&str>>();
-        let doc = self.root.remove(&split, recursive);
+    pub(crate) fn remove(&mut self, project_path: &str, recursive: bool) -> Result<()> {
+        let split_project_path = project_path
+                                    .strip_suffix("/")
+                                    .unwrap_or(project_path)
+                                    .split("/")
+                                    .collect::<Vec<&str>>();
+        let doc = self.root.remove(&split_project_path, recursive);
         match doc {
             Ok(d) => {
                 self.mgr.remove(&d.get_config())?;
