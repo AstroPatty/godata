@@ -2,6 +2,7 @@ mod pdb;
 mod project;
 mod mdb;
 mod ftree;
+mod io;
 use pyo3::prelude::*;
 use pyo3::wrap_pymodule;
 

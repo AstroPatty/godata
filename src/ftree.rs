@@ -1,7 +1,7 @@
 use crate::pdb::{FolderDocument, FileDocument, ProjectFileSystemManager, FileSystemObject};
-use crate::mdb::{ProjectError, Result};
-use crate::project::Project;
+use crate::mdb::{ProjectError, Result, get_dirs};
 use std::path::PathBuf;
+use std::fs;
 pub(crate) enum FileTreeObject {
     Folder(FileTreeFolder),
     File(FileTreeFile),
@@ -23,7 +23,7 @@ impl FileTreeObject {
     
     pub(crate) fn get_path(&self) -> PathBuf {
         match self {
-            FileTreeObject::Folder(f) => f.cfg.location.clone().unwrap(),
+            FileTreeObject::Folder(f) => f.cfg.location.clone(),
             FileTreeObject::File(f) => f.cfg.location.clone(),
         }
     }
@@ -55,6 +55,67 @@ impl FileTree {
     pub(crate) fn query(&self, path: &str) -> Result<&FileTreeObject> {
         let split = path.split("/").collect::<Vec<&str>>();
         self.root.query(&split)
+    } 
+
+    fn exists(&self, project_path: &str) -> bool {
+        return self.query(project_path).is_ok();
+    } 
+
+    pub(crate) fn store(&mut self, project_path: &str, recursive: bool, suffix: &str) -> Result<PathBuf> {
+        /// This function is used to store a python object in the project's internal storage. 
+        /// It takes in a project path and a suffix, and returns a path to the location the object
+        /// should be stored. In case of failure, it is better for the tree to have a reference to a 
+        /// file that does not exist, then for a file to exist that we have no reference to.
+        let split_project_path = project_path
+                                    .strip_suffix("/")
+                                    .unwrap_or(project_path)
+                                    .split("/")
+                                    .collect::<Vec<&str>>();
+        let project_storage_directory = get_dirs()
+                                    .get("data_dir")
+                                    .unwrap()
+                                    .join(&self.root.cfg.uuid);
+        let uuid = nanoid::nanoid!();
+        let path: PathBuf;
+        let parent_uuid: &str;
+        if split_project_path.len() == 1 {
+            parent_uuid = &self.root.cfg.uuid; // Store in root directory
+            path = PathBuf::from(project_storage_directory.join(&uuid).with_extension(suffix).to_str().unwrap());
+        }
+        else {
+            if !self.exists(project_path) {
+                if !recursive {
+                    return Err(ProjectError {msg: "Path does not exist".to_string()})
+                }
+                self.add_folder(&split_project_path[0..&split_project_path.len() - 1], true)?;
+            }
+            let parent_folder_ = self.root.query(&split_project_path[0..&split_project_path.len() - 1])?;
+            match parent_folder_ {
+                FileTreeObject::File(_) => {
+                    return Err(ProjectError {msg: "Path is a file".to_string()})
+                }
+                FileTreeObject::Folder(f) => {
+                    path = f.cfg.location.join(&uuid).with_extension(suffix);
+                    parent_uuid = &f.cfg.uuid;
+                }
+            }
+        }
+        if !path.parent().unwrap().exists() {
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+        }
+
+        let new_file = FileTreeFile {
+            cfg: FileDocument {
+                name: split_project_path[split_project_path.len() - 1].to_string(),
+                uuid: uuid,
+                parent: parent_uuid.to_string(),
+                location: path.clone(),
+            }
+        };
+        self.mgr.add(&FileSystemObject::File(new_file.cfg.clone()))?;
+        self.root.insert(&split_project_path, FileTreeObject::File(new_file))?;
+        Ok(path)
+        
     }
 
     pub(crate) fn add_file(&mut self, path: PathBuf, project_path: &str, resursive: bool) -> Result<()> {
@@ -123,9 +184,9 @@ impl FileTree {
             let new_folder = FileTreeFolder {
                 cfg: FolderDocument {
                     name: split_project_path[0].to_string(),
+                    location: self.root.cfg.location.clone().join(&uuid),
                     uuid: uuid,
                     children: Vec::new(),
-                    location: None,
                     parent: Some(self.root.cfg.uuid.clone()),
                 },
                 children: Vec::new(),
@@ -136,7 +197,7 @@ impl FileTree {
         }
 
         let parent_path = &split_project_path[0..split_project_path.len()-1];
-        let parent = self.root.query_mutable(&parent_path);
+        let parent = self.root.query(&parent_path);
         match parent {
             Ok(p) => { //The parent already exists!
                 match p {
@@ -152,15 +213,15 @@ impl FileTree {
                         let new_folder = FileTreeFolder {
                             cfg: FolderDocument {
                                 name: split_project_path[split_project_path.len() - 1].to_string(),
+                                location: self.root.cfg.location.join(&uuid),
                                 uuid: uuid,
                                 children: Vec::new(),
-                                location: None,
                                 parent: Some(f.cfg.uuid.clone()),
                             },
                             children: Vec::new(),
                         };
                         self.mgr.add(&FileSystemObject::Folder(new_folder.cfg.clone()))?;
-                        f.children.push(FileTreeObject::Folder(new_folder));
+                        self.root.insert(split_project_path, FileTreeObject::Folder(new_folder))?;
                         return Ok(())
                     }
                 }
@@ -178,7 +239,7 @@ impl FileTree {
     
 
 
-    pub(crate) fn remove(&mut self, project_path: &str, recursive: bool) -> Result<()> {
+    pub(crate) fn remove(&mut self, project_path: &str, recursive: bool) -> Result<FileSystemObject> {
         let split_project_path = project_path
                                     .strip_suffix("/")
                                     .unwrap_or(project_path)
@@ -187,8 +248,9 @@ impl FileTree {
         let doc = self.root.remove(&split_project_path, recursive);
         match doc {
             Ok(d) => {
-                self.mgr.remove(&d.get_config())?;
-                Ok(())
+                let cfg = d.get_config();
+                self.mgr.remove(&cfg)?;
+                Ok(cfg)
             },
             Err(e) => Err(ProjectError{msg: e.msg})
         }
@@ -292,7 +354,7 @@ impl FileTreeFolder {
             self.children.push(obj);
             return Ok(())
         }
-
+        // Recursive case, we need to find the next folder
         let parent = self.query_mutable(&path[0..path.len()-1])?;
         match parent {
             FileTreeObject::File(f) => {

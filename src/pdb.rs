@@ -15,7 +15,7 @@ pub(crate) struct FolderDocument {
     pub(crate) uuid: String,
     pub(crate) name: String,
     pub(crate) children: Vec<String>,
-    pub(crate) location: Option<PathBuf>,
+    pub(crate) location: PathBuf,
     pub(crate) parent: Option<String>,
 }
 #[derive(Serialize, Deserialize, Clone)]
@@ -59,6 +59,13 @@ impl FileSystemObject {
             FileSystemObject::File(_) => "file".to_string()
         }
     }
+
+    pub(crate) fn get_location(&self) -> PathBuf {
+        match self {
+            FileSystemObject::Folder(f) => f.location.clone(),
+            FileSystemObject::File(f) => f.location.clone()
+        }
+    }
 }
 
 
@@ -81,7 +88,7 @@ impl ProjectFileSystemManager {
                 name: config.name.clone(),
                 uuid: config.uuid.clone(),
                 children: Vec::new(),
-                location: None,
+                location: config.root.clone(),
                 parent: None,
             };
             folder_metadata.insert_one(&root_folder).unwrap();

@@ -1,5 +1,6 @@
 use crate::pdb::{ProjectFileSystemManager};
 use crate::mdb::{MainDBManager, Result, ProjectDocument};
+use crate::io::{store, remove_if_internal};
 use crate::ftree::{FileTree, FileTreeObject};
 use std::path::PathBuf;
 use std::clone::Clone;
@@ -86,9 +87,14 @@ impl Project {
         
         let result = self.tree.remove(project_path, recurisive.unwrap_or(false));
         match result {
-            Ok(_) => Ok(()),
+            Ok(fso) => {
+                let path = fso.get_location();
+                remove_if_internal(path);
+                Ok(())
+            }
             Err(e) => Err(GodataProjectError::new_err(e.msg))
         }
+
     }
 
     pub fn get(&self, project_path: &str) -> PyResult<String> {
@@ -111,9 +117,24 @@ impl Project {
         }
     }
 
+    pub fn store(&mut self, object: &PyAny, project_path: &str, output_function: &PyAny, suffix: &str) -> PyResult<()> {
+        /// Store an object in the project. The object must be serializable to JSON.
+        let result = self.tree.store(project_path, true, suffix);
+        match result {
+            Ok(path) => {
+                let path_str = path.to_str().unwrap();
+                store(object, output_function, path_str)?;
+                Ok(())
+            }
+            Err(e) => Err(GodataProjectError::new_err(e.msg))
+        }
+
+    }
+
+
     pub fn add_file(&mut self, file_path: &str, project_path: &str) -> PyResult<()> {
-        /// Add a file to the project. If the folder does not exist, it will
-        /// be created recursively.
+        /// Add a file that already exists to the project. If the folder does not exist, it will
+        /// be created recursively. 
         let path = PathBuf::from_str(file_path).unwrap().canonicalize().unwrap();
         if !path.exists() || !path.is_file() {
             return Err(GodataProjectError::new_err(format!("No file found at `{file_path}`")))
