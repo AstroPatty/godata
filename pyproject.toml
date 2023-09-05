@@ -5,3 +5,11 @@ build-backend = "maturin"
 [tool.maturin]
 # "extension-module" tells pyo3 we want to build an extension module (skips linking against libpython.so)
 features = ["pyo3/extension-module"]
+
+[project.optional-dependencies]
+develop = [
+    "black>=23.7.0",
+    "isort>=5.12.0",
+    "ruff>=0.0.285",
+    "pre-commit>=3.3.3"
+]
