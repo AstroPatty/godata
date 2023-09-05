@@ -1,3 +1,4 @@
+
 [build-system]
 requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
@@ -5,6 +6,12 @@ build-backend = "maturin"
 [tool.maturin]
 # "extension-module" tells pyo3 we want to build an extension module (skips linking against libpython.so)
 features = ["pyo3/extension-module"]
+
+[project]
+name = "godata"
+version = "0.1.1"
+requires-python = ">=3.10"
+
 
 [project.optional-dependencies]
 develop = [
