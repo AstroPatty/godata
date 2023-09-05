@@ -1,6 +1,5 @@
-import pkgutil
 import inspect
-
+import pkgutil
 
 _known_writers = {}
 _known_readers = {}
@@ -46,8 +45,10 @@ for loader, module_name, is_pkg in pkgutil.walk_packages(__path__):
                 elif not isinstance(par.annotation, type):
                     raise ValueError("Writer function annotations must be types")
                 elif par.annotation in _known_writers:
-                    raise ValueError(f"Writer function already registered for type "\
-                                     f"{par.annotation.__name__}")
+                    raise ValueError(
+                        f"Writer function already registered for type "
+                        f"{par.annotation.__name__}"
+                    )
                 f_ = child(par.annotation)
                 _known_writers.update({par.annotation: f_})
             elif "read" in child.__name__:
@@ -56,16 +57,22 @@ for loader, module_name, is_pkg in pkgutil.walk_packages(__path__):
                 par = list(signature.parameters.values())[0]
                 return_type = signature.return_annotation
                 if return_type == inspect._empty:
-                    raise ValueError("Reader functions must have a return type annotation")
+                    raise ValueError(
+                        "Reader functions must have a return type annotation"
+                    )
                 if par.default == inspect._empty:
-                    raise ValueError("Reader functions must a default value for their "\
-                                     "argument, which specifies a file suffix.")
+                    raise ValueError(
+                        "Reader functions must a default value for their "
+                        "argument, which specifies a file suffix."
+                    )
                 elif not isinstance(par.default, str):
                     raise ValueError("Reader function annotations must be types")
                 elif par.default.strip(".") in _known_readers:
-                    raise ValueError(f"Reader function already registered for file type "\
-                                     f"{par.annotation.__name__}")
-                
+                    raise ValueError(
+                        f"Reader function already registered for file type "
+                        f"{par.annotation.__name__}"
+                    )
+
                 f_ = child()
                 _known_readers.update({par.default.strip("."): (f_, return_type)})
 
@@ -76,10 +83,13 @@ for suffix, (f_, rtype) in _known_readers.items():
     else:
         raise ValueError(f"Reader functions must have an equivalent writer function!")
 
+
 def get_known_readers():
     return _known_readers
 
+
 def get_known_writers():
     return _known_writers
+
 
 __all__ = ["get_known_readers", "get_known_writers"]

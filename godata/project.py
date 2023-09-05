@@ -1,12 +1,15 @@
-from godata_lib import project
-from typing import Any
 from pathlib import Path
+from typing import Any
+
+from godata_lib import project
+
 from .io import get_known_readers, get_known_writers
 
 manager = project.ProjectManager()
 opened_projects = {}
 
 __all__ = ["open_project", "list_projects", "create_project"]
+
 
 class GodataProject:
     """
@@ -17,7 +20,7 @@ class GodataProject:
     will most likely be in python.
 
     Note that in most cases error handling is actually done by the rust library, so in
-    almost all cases expect that an exception encountered while using this class is 
+    almost all cases expect that an exception encountered while using this class is
     coming from there.
 
     This class also provides docstrings for the underlying methods, such that all
@@ -26,14 +29,13 @@ class GodataProject:
 
     def __init__(self, _project):
         self._project = _project
-    
+
     def __getattr__(self, name):
         return getattr(self._project, name)
 
-
     def remove(self, project_path: str, recursive: bool = False):
         """
-        Remove an file/folder at the given path. If a folder contains other 
+        Remove an file/folder at the given path. If a folder contains other
         files/folders, this will throw an error unless rucursive is set to True.
         """
         self._project.remove(project_path, recursive)
@@ -64,17 +66,14 @@ class GodataProject:
         actually ARE rust objects under the hood, and will be handled by the rust
         library. If a writer is not found by either python or rust, this will throw
         an error.
-        
+
         However one thing to note is that if a writer is found in python, it will
         always be used over a rust writer.
         """
-        
+
         writers = get_known_writers()
         writer_fn, suffix = writers.get(type(object), (None, None))
         self._project.store(object, project_path, writer_fn, suffix)
-
-
-
 
     def add_file(self, file_path: Path, project_path: str):
         """
@@ -91,14 +90,16 @@ class GodataProject:
         """
         self._project.ls(project_path)
 
-def create_project(name, collection = None):
+
+def create_project(name, collection=None):
     pname = collection or "default" + "." + name
-    #Note, the manager will throw an error if the project already exists
-    project =  manager.create_project(name, collection)
+    # Note, the manager will throw an error if the project already exists
+    project = manager.create_project(name, collection)
     opened_projects[pname] = project
     return GodataProject(project)
 
-def open_project(name, collection = None):
+
+def open_project(name, collection=None):
     pname = collection or "default" + "." + name
     if pname in opened_projects:
         return opened_projects[pname]
@@ -107,8 +108,8 @@ def open_project(name, collection = None):
     opened_projects[pname] = project
     return GodataProject(project)
 
-def list_projects(collection = None):
 
+def list_projects(collection=None):
     projects = manager.list_projects(collection)
     print(f"Projects in collection `{collection or 'default'}`:")
     for p in projects:

@@ -13,3 +13,22 @@ develop = [
     "ruff>=0.0.285",
     "pre-commit>=3.3.3"
 ]
+
+[tool.isort]
+profile = "black"
+
+[tool.black]
+extend-exclude = '''
+(
+dev/*
+| io/*
+)
+'''
+
+[tool.ruff]
+
+exclude = [
+"dev",
+"io",
+"test*"
+]
