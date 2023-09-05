@@ -40,12 +40,21 @@ class GodataProject:
 
     def get(self, project_path: str):
         """
-        Get an object at a given product path. This method will return a python object
+        Get an object at a given project path. This method will return a python object
         whenever possible. If godata doesn't know how to read in a file of this type,
         it will return a path.
         """
-        return self._project.get(project_path)
-
+        obj = self._project.get(project_path)
+        try:
+            path = Path(obj)
+            readers = get_known_readers()
+            suffix = path.suffix.strip(".")
+            if suffix not in readers:
+                return path
+            reader_fn = readers[suffix][0]
+            return reader_fn(path)
+        except TypeError:
+            return obj
 
     def store(self, object: Any, project_path: str):
         """
