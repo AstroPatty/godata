@@ -1,6 +1,7 @@
 from godata_lib import project
 from typing import Any
 from pathlib import Path
+from .io import get_known_readers, get_known_writers
 
 manager = project.ProjectManager()
 opened_projects = {}
@@ -47,9 +48,25 @@ class GodataProject:
 
 
     def store(self, object: Any, project_path: str):
-        # We have to find the right store function for this object.
-        raise NotImplementedError("Not implemented yet")
-    
+        """
+        Stores a given python object in godata's internal storage at the given path.
+        Not having a writer defined in godata's python io module is not necessarily
+        a failure case. Some objects can be converted easily into rust objects (or)
+        actually ARE rust objects under the hood, and will be handled by the rust
+        library. If a writer is not found by either python or rust, this will throw
+        an error.
+        
+        However one thing to note is that if a writer is found in python, it will
+        always be used over a rust writer.
+        """
+        
+        writers = get_known_writers()
+        writer_fn = writers.get(type(object), None)
+        self._project.store(object, project_path, writer_fn)
+
+
+
+
     def add_file(self, file_path: Path, project_path: str):
         """
         Add a file to the project. This will not actually move any data, just create
