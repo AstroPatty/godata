@@ -117,20 +117,25 @@ impl Project {
         }
     }
 
-    pub fn store(&mut self, object: &PyAny, project_path: &str, output_function: &PyAny, suffix: &str) -> PyResult<()> {
+    pub fn store(&mut self, object: &PyAny, project_path: &str, output_function: Option<&PyAny>, suffix: Option<&str>) -> PyResult<()> {
         /// Store an object in the project. The object must be serializable to JSON.
-        let result = self.tree.store(project_path, true, suffix);
-        match result {
-            Ok(path) => {
-                let path_str = path.to_str().unwrap();
-                store(object, output_function, path_str)?;
-                Ok(())
+        match (output_function, suffix) {
+            (Some(func), Some(suff)) => {
+                let result = self.tree.store(project_path, true, suff);
+                match result {
+                    Ok(path) => {
+                        let path_str = path.to_str().unwrap();
+                        store(object, func, path_str)?;
+                        Ok(())
+                    }
+                    Err(e) => Err(GodataProjectError::new_err(e.msg))
+                }
             }
-            Err(e) => Err(GodataProjectError::new_err(e.msg))
+            _ => {
+                Err(GodataProjectError::new_err("Rust io for internally stored files is not yet implemented"))
+            }
         }
-
     }
-
 
     pub fn add_file(&mut self, file_path: &str, project_path: &str) -> PyResult<()> {
         /// Add a file that already exists to the project. If the folder does not exist, it will

@@ -4,6 +4,7 @@ import inspect
 
 _known_writers = {}
 _known_readers = {}
+_io_match = {}
 
 """
 
@@ -53,16 +54,27 @@ for loader, module_name, is_pkg in pkgutil.walk_packages(__path__):
                 if len(signature.parameters) != 1:
                     raise ValueError("Reader functions must take exactly one argument")
                 par = list(signature.parameters.values())[0]
+                return_type = signature.return_annotation
+                if return_type == inspect._empty:
+                    raise ValueError("Reader functions must have a return type annotation")
                 if par.default == inspect._empty:
                     raise ValueError("Reader functions must a default value for their "\
                                      "argument, which specifies a file suffix.")
                 elif not isinstance(par.default, str):
                     raise ValueError("Reader function annotations must be types")
-                elif par.default in _known_readers:
-                    raise ValueError(f"Reader function already registered for type "\
+                elif par.default.strip(".") in _known_readers:
+                    raise ValueError(f"Reader function already registered for file type "\
                                      f"{par.annotation.__name__}")
+                
                 f_ = child()
-                _known_readers.update({par.default.strip("."): child})
+                _known_readers.update({par.default.strip("."): (f_, return_type)})
+
+for suffix, (f_, rtype) in _known_readers.items():
+    if rtype in _known_writers.keys():
+        writer_function = _known_writers[rtype]
+        _known_writers.update({rtype: (writer_function, suffix)})
+    else:
+        raise ValueError(f"Reader functions must have an equivalent writer function!")
 
 def get_known_readers():
     return _known_readers

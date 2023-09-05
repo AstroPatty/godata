@@ -44,7 +44,7 @@ class GodataProject:
         whenever possible. If godata doesn't know how to read in a file of this type,
         it will return a path.
         """
-        self._project.get(project_path)
+        return self._project.get(project_path)
 
 
     def store(self, object: Any, project_path: str):
@@ -61,8 +61,8 @@ class GodataProject:
         """
         
         writers = get_known_writers()
-        writer_fn = writers.get(type(object), None)
-        self._project.store(object, project_path, writer_fn)
+        writer_fn, suffix = writers.get(type(object), (None, None))
+        self._project.store(object, project_path, writer_fn, suffix)
 
 
 
@@ -80,8 +80,7 @@ class GodataProject:
         perform the ls in the folder at the given path. Otherwise, it will perform
         it in the project root.
         """
-
-
+        self._project.ls(project_path)
 
 def create_project(name, collection = None):
     pname = collection or "default" + "." + name
