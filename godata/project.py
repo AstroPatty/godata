@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any
 
-from godata_lib import project
+from godata.godata import project
 
 from .io import get_known_readers, get_known_writers
 

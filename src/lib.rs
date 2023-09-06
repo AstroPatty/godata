@@ -7,7 +7,7 @@ use pyo3::prelude::*;
 use pyo3::wrap_pymodule;
 
 #[pymodule]
-#[pyo3(name = "godata_lib")]
+#[pyo3(name = "godata")]
 fn godata_lib(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pymodule!(_project))?;
     Ok(())
