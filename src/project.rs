@@ -38,8 +38,16 @@ impl ProjectManager {
         }        
     }
 
-    pub(crate) fn list_projects(&self, colname: Option<&str>) -> PyResult<Vec<String>> {
-        let projects = self.db.list_projects(colname);
+    pub(crate) fn list_collections(&self, show_hidden: bool) -> PyResult<Vec<String>> {
+        let collections = self.db.list_collections(show_hidden);
+        match collections {
+            Some(collections) => {Ok(collections)},
+            None => {Err(GodataProjectError::new_err("No collections found, or collections are hidden"))}
+        }
+    }
+
+    pub(crate) fn list_projects(&self, show_hidden: bool, colname: Option<&str>) -> PyResult<Vec<String>> {
+        let projects = self.db.list_projects(show_hidden, colname);
         match projects {
             Ok(projects) => {Ok(projects)},
             Err(e) => {Err(GodataProjectError::new_err(e.msg))}

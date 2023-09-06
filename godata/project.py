@@ -109,8 +109,15 @@ def open_project(name, collection=None):
     return GodataProject(project)
 
 
-def list_projects(collection=None):
-    projects = manager.list_projects(collection)
+def list_projects(collection=None, show_hidden=False):
+    projects = manager.list_projects(show_hidden, collection)
     print(f"Projects in collection `{collection or 'default'}`:")
     for p in projects:
         print(f"  {p}")
+
+
+def list_collections(show_hidden=False):
+    list_collections = manager.list_collections(show_hidden)
+    print("Collections:")
+    for c in list_collections:
+        print(f"  {c}")

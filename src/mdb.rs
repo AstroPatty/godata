@@ -65,6 +65,27 @@ impl MainDBManager {
             }
         }
     }
+    pub (crate) fn list_collections(&self, show_hidden: bool) -> Option<Vec<String>> {
+        let mut names: Vec<String> = Vec::new();
+        let _names = self.db.list_collection_names();
+        match _names {
+            Ok(names_) => {
+                for name in names_ {
+                    if !name.starts_with(".") || show_hidden {
+                        names.push(name.to_string());
+                    }
+                }
+                Some(names)
+
+            }
+            Err(_) => {
+                None
+            }
+
+        }
+    
+    
+    }
 
     pub(crate) fn get_project(&self, name:&str, colname: Option<&str>) -> Result<ProjectDocument> {
         let colname_: &str;
@@ -95,7 +116,7 @@ impl MainDBManager {
             }
         }
     }
-    pub(crate) fn list_projects(&self, colname: Option<&str>) -> Result<Vec<String>> {
+    pub(crate) fn list_projects(&self, show_hidden: bool, colname: Option<&str>) -> Result<Vec<String>> {
         let colname_: &str;
         match colname {
             Some(cname) => {
@@ -116,10 +137,13 @@ impl MainDBManager {
         match project_docs {
             Ok(docs) => {
                 for doc in docs {
-                    names.push(doc.unwrap().name.to_string());
+                    let name = doc.unwrap().name.to_string();
+                    if !name.starts_with(".") || show_hidden{
+                        names.push(name);
+                    }
                 }
                 if names.len() == 0 {
-                    return Err(ProjectError{msg: format!("Collection {} does not exist", colname_)})
+                    return Err(ProjectError{msg: format!("Collection {} does not exist, or only contains hidden projects", colname_)})
                 }
                 Ok(names)
             }

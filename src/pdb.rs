@@ -2,11 +2,9 @@
 /// 
 
 use serde::{Serialize, Deserialize};
-use polodb_core::{Database, Collection, bson::doc};
-use std::{path::PathBuf, fs::File};
-use nanoid::nanoid;
-use crate::mdb::{ProjectDocument, Result, ProjectError};
-use crate::ftree::FileTreeObject;
+use polodb_core::{Database, bson::doc};
+use std::path::PathBuf;
+use crate::mdb::{ProjectDocument, Result};
 use std::fs;
 
 
