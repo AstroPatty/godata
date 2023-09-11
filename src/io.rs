@@ -16,7 +16,7 @@ pub(crate) fn store(object: &PyAny, output_function:  &PyAny, path: &str) -> PyR
     Ok(())
 }
 
-pub(crate) fn remove_if_internal(path: PathBuf) {
+pub(crate) fn remove_if_internal(path: &PathBuf) {
     // Remove a file or folder if it is stored in the internal storage.
     let dirs = get_dirs();
     let data_dir = dirs.get("data_dir").unwrap();

@@ -256,19 +256,18 @@ impl FileTree {
         }
     }
 
-    pub(crate) fn get_contents(&self, path: Option<&str>) -> Result<&Vec<FileTreeObject>> {
+    pub(crate) fn get_contents(&self, recursive: bool, path: Option<&str>) -> Result<Vec<&FileTreeObject>> {
         let split = match path {
             Some(p) => p.split("/").collect::<Vec<&str>>(),
-            None => return Ok(&self.root.children)
-        };
-        
+            None => return Ok(self.root.get_children(recursive))
+        };        
         let node = self.root.query(&split)?;
         match node {
             FileTreeObject::File(f) => {
                 return Err(ProjectError {msg: "Path is a file".to_string()})
             }
             FileTreeObject::Folder(f) => {
-                return Ok(&f.children)
+                return Ok(f.get_children(recursive))
             }
         }
     }
@@ -297,6 +296,23 @@ impl FileTreeFolder {
             cfg: cfg,
             children: children_nodes,
         }
+    }
+
+    pub(crate) fn get_children(&self, recursive: bool) -> Vec<&FileTreeObject> {
+        let mut children = Vec::new();
+        for child in &self.children {
+            children.push(child);
+            match child {
+                FileTreeObject::File(f) => {}
+                FileTreeObject::Folder(f) => {
+                    if recursive {
+                        let mut child_children = f.get_children(true);
+                        children.append(&mut child_children);
+                    }
+                }
+            }
+        }
+        children
     }
 
     pub(crate) fn query(&self, query_path: &[&str]) -> Result<&FileTreeObject> {

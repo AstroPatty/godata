@@ -1,7 +1,7 @@
 use crate::pdb::{ProjectFileSystemManager};
 use crate::mdb::{MainDBManager, Result, ProjectDocument};
 use crate::io::{store, remove_if_internal};
-use crate::ftree::{FileTree, FileTreeObject};
+use crate::ftree::{FileTree, FileTreeObject, FileTreeFolder};
 use std::path::PathBuf;
 use std::clone::Clone;
 use std::str::FromStr;
@@ -70,7 +70,7 @@ impl ProjectManager {
 
     }
 
-    pub(crate) fn create_project(&self, name: &str, colname: Option<&str>) -> PyResult<Project> {
+    pub(crate) fn create_project(&mut self, name: &str, colname: Option<&str>) -> PyResult<Project> {
         let pconfig = self.db.create_project(name, colname);
         match pconfig {
             Ok(config) => {
@@ -85,6 +85,38 @@ impl ProjectManager {
 
         }
     }
+    pub(crate) fn remove_project(&mut self, name: &str, colname: Option<&str>) -> PyResult<()> {
+        let project = self.load_project(name, colname);
+        // Make sure the project exists
+        let project_ = match project {
+            Ok(p_) => {
+                p_
+            }
+            Err(e) => {
+                return Err(GodataProjectError::new_err(format!("Project {} does not exist", name)))
+            }
+        };
+        let all_children = project_.tree.get_contents(true, None).unwrap();
+        for child in all_children {
+            match child {
+                FileTreeObject::File(f) => {
+                    let path = &f.cfg.location;
+                    remove_if_internal(path);
+                }
+                FileTreeObject::Folder(_) => ()
+            }
+        }
+        let root = project_.cfg.root; // Clean folder tree
+        remove_if_internal(&root);
+        let _ = match self.db.remove_project(name, colname) {
+            Err(e) => Err(GodataProjectError::new_err(e.msg)),
+            Ok(_) => Ok(())            
+        };
+
+        Ok(())
+        // Check for data stored internally
+
+    }
 }
 
 #[pymethods]
@@ -97,7 +129,7 @@ impl Project {
         match result {
             Ok(fso) => {
                 let path = fso.get_location();
-                remove_if_internal(path);
+                remove_if_internal(&path);
                 Ok(())
             }
             Err(e) => Err(GodataProjectError::new_err(e.msg))
@@ -160,7 +192,7 @@ impl Project {
     }
 
     pub fn ls(&self, folder_path: Option<&str>) -> PyResult<()>{
-        let contents = self.tree.get_contents(folder_path);
+        let contents = self.tree.get_contents(false, folder_path);
         match contents {
             Err(e) => Err(GodataProjectError::new_err(e.msg)),
             Ok(contents) => {

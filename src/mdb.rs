@@ -1,7 +1,7 @@
-use polodb_core::{Database, Collection};
-use polodb_core::bson::doc;
 use serde::{Serialize, Deserialize};
+use serde_json::{Value, Map};
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::path::{PathBuf, Path};
 use directories::BaseDirs;
 use nanoid::nanoid;
@@ -23,18 +23,40 @@ pub(crate) type Result<T> = result::Result<T, ProjectError>;
 
 
 pub(crate) struct MainDBManager{
-    db: Database,
+    loc: PathBuf,
+    data: HashMap<String, HashMap<String, ProjectDocument>>,
+    _modified: bool,
+}
+
+impl Drop for MainDBManager {
+    fn drop(&mut self) {
+        if self._modified {
+            let data = serde_json::to_string(&self.data).unwrap();
+            std::fs::write(&self.loc, data).unwrap();
+            println!("{:?}", &self.loc);
+        }
+    }
 }
 
 impl MainDBManager {
     pub(crate) fn get() -> Self {
-        let db = get_database();
+        let loc = get_database();
+        let data;
+        if !loc.exists() {
+            data = HashMap::new();
+        }
+        else {
+            let contents = std::fs::read_to_string(&loc).unwrap();
+            data = serde_json::from_str(&contents).unwrap();
+        }
         MainDBManager {
-            db,
+            loc: loc,
+            data: data,
+            _modified: false,
         }
     }
 
-    pub(crate) fn create_project(&self, name: &str, collection: Option<&str>) -> Result<ProjectDocument> {
+    pub(crate) fn create_project(&mut self, name: &str, collection: Option<&str>) -> Result<ProjectDocument> {
         if self.has_project(name, collection) {
             return Err(ProjectError{msg: "Project already exists".to_string()})
         }
@@ -51,42 +73,34 @@ impl MainDBManager {
             uuid: uuid,
             root: path
         };
-
-        match collection {
-            Some(colname) => {
-                let collection = self.db.collection::<ProjectDocument>(colname);
-                collection.insert_one(&project);
-                Ok(project)
-            }
-            None => {
-                let collection = self.db.collection::<ProjectDocument>("default");
-                collection.insert_one(&project);
-                Ok(project)
-            }
+        let _collection = collection.unwrap_or("default");
+        let mut coldata;
+        if !self.data.contains_key(_collection) {
+            let c_ = HashMap::new();
+            self.data.insert(_collection.to_string(),  c_);
         }
+        coldata = self.data.get_mut(_collection).unwrap();
+        coldata.insert(name.to_string(), project.clone());
+        self._modified = true;
+        Ok(project)
     }
+    
+    pub(crate) fn remove_project(&mut self, name: &str, colname: Option<&str>) -> Result<()> {
+        let colname_ = colname.unwrap_or("default");
+        let main_collection = self.data.get_mut(colname_).unwrap();
+        let result = main_collection.remove(name).unwrap();
+        self._modified = true;
+        Ok(())
+    }
+    
     pub (crate) fn list_collections(&self, show_hidden: bool) -> Option<Vec<String>> {
-        let mut names: Vec<String> = Vec::new();
-        let _names = self.db.list_collection_names();
-        match _names {
-            Ok(names_) => {
-                for name in names_ {
-                    if !name.starts_with(".") || show_hidden {
-                        names.push(name.to_string());
-                    }
-                }
-                Some(names)
-
-            }
-            Err(_) => {
-                None
-            }
-
+        let _names = self.data.keys().map(|x| x.to_string()).collect::<Vec<String>>();
+        if _names.len() == 0 {
+            return None
         }
-    
-    
+        Some(_names)
     }
-
+    
     pub(crate) fn get_project(&self, name:&str, colname: Option<&str>) -> Result<ProjectDocument> {
         let colname_: &str;
         match colname {
@@ -101,15 +115,11 @@ impl MainDBManager {
             return Err(ProjectError{msg: format!("Collection {} does not exist", colname_)})
         }
 
-        let projects: Collection<ProjectDocument> = self.db.collection(colname_);
-        let project = projects.find_one(
-            doc! {
-                "name": name
-            }
-        ).unwrap();
+        let projects = self.data.get(colname_).unwrap();
+        let project = projects.get(name);
         match project {
             Some(p) => {
-                Ok(p)
+                Ok(p.clone())
             }
             None => {
                 Err(ProjectError{msg: format!("Project {} does not exist in collection {}", name, colname_)})
@@ -130,30 +140,12 @@ impl MainDBManager {
             return Err(ProjectError{msg: format!("Collection {} does not exist", colname_)})
         }
 
-        let projects: Collection<ProjectDocument> = self.db.collection(colname_);
-        let project_docs = projects.find(None);
-        let mut names = Vec::new();
-
-        match project_docs {
-            Ok(docs) => {
-                for doc in docs {
-                    let name = doc.unwrap().name.to_string();
-                    if !name.starts_with(".") || show_hidden{
-                        names.push(name);
-                    }
-                }
-                if names.len() == 0 {
-                    return Err(ProjectError{msg: format!("Collection {} does not exist, or only contains hidden projects", colname_)})
-                }
-                Ok(names)
-            }
-            Err(_) => {
-                Err(ProjectError{msg: format!("Collection {} does not exist", colname_)})
-            }
+        let projects = self.data.get(colname_).unwrap();
+        let names = projects.keys().map(|x| x.to_string()).collect::<Vec<String>>();
+        if names.len() == 0 {
+            return Err(ProjectError{msg: format!("Collection {} does not exist, or only contains hidden projects", colname_)})
         }
-
-
-
+        Ok(names)
     }
 
     pub(crate) fn has_project(&self, name: &str, colname: Option<&str>) -> bool {
@@ -170,29 +162,23 @@ impl MainDBManager {
             return false
         }
 
-        let projects: Collection<ProjectDocument> = self.db.collection(colname_);
-        let project = projects.find_one(
-            doc! {
-                "name": name
-            }
-        ).unwrap();
-        if project.is_some() {
+        let projects = self.data.get(colname_).unwrap();
+        if projects.contains_key(name) {
             return true
         }
         false
     }
+
     pub(crate) fn has_collection(&self, name: &str) -> bool {
-        let collections = self.db.list_collection_names();
+        let collections = self.list_collections(true);
         match collections {
-            Ok(colls) => {
-                for coll in colls {
-                    if coll == name {
-                        return true
-                    }
+            Some(colls) => {
+                if colls.contains(&name.to_string()) {
+                    return true
                 }
                 false
             }
-            Err(_) => {
+            None => {
                 false
             }
         }
@@ -218,9 +204,8 @@ pub(crate) fn get_dirs() -> HashMap<String, PathBuf> {
     dirs
 }
 
-fn get_database() -> Database {
+fn get_database() -> PathBuf {
     let dirs = get_dirs();
     let db_path = dirs.get("db_path").unwrap();
-    let db = Database::open_file(&db_path).unwrap();
-    db
+    db_path.clone()
 }

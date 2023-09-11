@@ -99,6 +99,15 @@ def create_project(name, collection=None):
     return GodataProject(project)
 
 
+def remove_project(name, collection=None):
+    """
+    Remove a project and all data stored in godata's internal storage. At present,
+    this explicitly forces the user the suply True as an argument as a confirmation.
+    In the future, we may implement an option to output the internal files somewhere.
+    """
+    manager.remove_project(name, collection)
+
+
 def open_project(name, collection=None):
     pname = collection or "default" + "." + name
     if pname in opened_projects:
