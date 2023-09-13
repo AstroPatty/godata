@@ -7,7 +7,6 @@ use nanoid::nanoid;
 use std::result;
 use rusqlite::Connection;
 use crate::db;
-
 #[derive(Serialize, Deserialize, Clone)]
 pub(crate) struct ProjectDocument {
     pub(crate) name: String,
@@ -118,7 +117,7 @@ impl MainDBManager {
             }
         }
         if !self.has_collection(colname_) {
-            return Err(ProjectError{msg: format!("Collection {} does not exist", colname_)})
+            return Err(ProjectError{msg: format!("Collection `{}` does not exist", colname_)})
         }
 
         let names = db::get_keys(&self.data, colname_);
@@ -150,10 +149,7 @@ impl MainDBManager {
         let n_records = db::n_records(&self.data, name);
         match n_records {
             Ok(n) => {
-                if n > 0 {
-                    return true
-                }
-                false
+                return n > 0
             }
             Err(_) => {
                 false
