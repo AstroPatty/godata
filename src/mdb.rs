@@ -1,17 +1,19 @@
 use serde::{Serialize, Deserialize};
-use serde_json::{Value, Map};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::path::{PathBuf, Path};
 use directories::BaseDirs;
 use nanoid::nanoid;
 use std::result;
+use rusqlite::Connection;
+use crate::db;
 #[derive(Serialize, Deserialize, Clone)]
 pub(crate) struct ProjectDocument {
     pub(crate) name: String,
     pub(crate) uuid: String,
     pub(crate) root: PathBuf,
 }
+
 #[derive(Debug)]
 pub(crate) struct ProjectError {
     pub(crate) msg: String
@@ -24,31 +26,15 @@ pub(crate) type Result<T> = result::Result<T, ProjectError>;
 
 pub(crate) struct MainDBManager{
     loc: PathBuf,
-    data: HashMap<String, HashMap<String, ProjectDocument>>,
+    data: Connection,
     _modified: bool,
 }
 
-impl Drop for MainDBManager {
-    fn drop(&mut self) {
-        if self._modified {
-            let data = serde_json::to_string(&self.data).unwrap();
-            std::fs::write(&self.loc, data).unwrap();
-            println!("{:?}", &self.loc);
-        }
-    }
-}
 
 impl MainDBManager {
     pub(crate) fn get() -> Self {
-        let loc = get_database();
-        let data;
-        if !loc.exists() {
-            data = HashMap::new();
-        }
-        else {
-            let contents = std::fs::read_to_string(&loc).unwrap();
-            data = serde_json::from_str(&contents).unwrap();
-        }
+        let loc = get_database_path();
+        let data = Connection::open(&loc).unwrap();
         MainDBManager {
             loc: loc,
             data: data,
@@ -74,27 +60,21 @@ impl MainDBManager {
             root: path
         };
         let _collection = collection.unwrap_or("default");
-        let mut coldata;
-        if !self.data.contains_key(_collection) {
-            let c_ = HashMap::new();
-            self.data.insert(_collection.to_string(),  c_);
+        if !db::table_exists(&self.data, _collection) {
+            db::create_kv_table(&self.data, _collection).unwrap();
         }
-        coldata = self.data.get_mut(_collection).unwrap();
-        coldata.insert(name.to_string(), project.clone());
-        self._modified = true;
+        db::add_to_table(&self.data, _collection, name, &project).unwrap();
         Ok(project)
     }
     
     pub(crate) fn remove_project(&mut self, name: &str, colname: Option<&str>) -> Result<()> {
         let colname_ = colname.unwrap_or("default");
-        let main_collection = self.data.get_mut(colname_).unwrap();
-        let result = main_collection.remove(name).unwrap();
-        self._modified = true;
+        let result = db::remove(&self.data, colname_, name).unwrap();
         Ok(())
     }
     
     pub (crate) fn list_collections(&self, show_hidden: bool) -> Option<Vec<String>> {
-        let _names = self.data.keys().map(|x| x.to_string()).collect::<Vec<String>>();
+        let _names = db::list_tables(&self.data);
         if _names.len() == 0 {
             return None
         }
@@ -114,17 +94,17 @@ impl MainDBManager {
         if !self.has_collection(colname_) {
             return Err(ProjectError{msg: format!("Collection {} does not exist", colname_)})
         }
-
-        let projects = self.data.get(colname_).unwrap();
-        let project = projects.get(name);
-        match project {
+        let p_ = db::get_record_from_table(&self.data, colname_, name);
+        let p = match p_ {
             Some(p) => {
-                Ok(p.clone())
+                p
             }
             None => {
-                Err(ProjectError{msg: format!("Project {} does not exist in collection {}", name, colname_)})
+                return Err(ProjectError{msg: format!("Project {} does not exist in collection {}", name, colname_)})
             }
-        }
+        };
+        let project: ProjectDocument = serde_json::from_str(&p).unwrap();
+        Ok(project)
     }
     pub(crate) fn list_projects(&self, show_hidden: bool, colname: Option<&str>) -> Result<Vec<String>> {
         let colname_: &str;
@@ -140,11 +120,7 @@ impl MainDBManager {
             return Err(ProjectError{msg: format!("Collection {} does not exist", colname_)})
         }
 
-        let projects = self.data.get(colname_).unwrap();
-        let names = projects.keys().map(|x| x.to_string()).collect::<Vec<String>>();
-        if names.len() == 0 {
-            return Err(ProjectError{msg: format!("Collection {} does not exist, or only contains hidden projects", colname_)})
-        }
+        let names = db::get_keys(&self.data, colname_);
         Ok(names)
     }
 
@@ -162,30 +138,28 @@ impl MainDBManager {
             return false
         }
 
-        let projects = self.data.get(colname_).unwrap();
-        if projects.contains_key(name) {
+        let projects = db::get_keys(&self.data, colname_);
+        if projects.iter().any(|k| k == name) {
             return true
         }
         false
     }
 
     pub(crate) fn has_collection(&self, name: &str) -> bool {
-        let collections = self.list_collections(true);
-        match collections {
-            Some(colls) => {
-                if colls.contains(&name.to_string()) {
+        let n_records = db::n_records(&self.data, name);
+        match n_records {
+            Ok(n) => {
+                if n > 0 {
                     return true
                 }
                 false
             }
-            None => {
+            Err(_) => {
                 false
             }
         }
     }
 }
-
-
 
 pub(crate) fn get_dirs() -> HashMap<String, PathBuf> {
     let mut dirs = HashMap::new();
@@ -204,7 +178,7 @@ pub(crate) fn get_dirs() -> HashMap<String, PathBuf> {
     dirs
 }
 
-fn get_database() -> PathBuf {
+fn get_database_path() -> PathBuf {
     let dirs = get_dirs();
     let db_path = dirs.get("db_path").unwrap();
     db_path.clone()

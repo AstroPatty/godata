@@ -7,6 +7,9 @@ use crate::mdb::{ProjectDocument, Result};
 use std::collections::HashMap;
 use std::fs;
 use serde_json;
+use rusqlite::Connection;
+use crate::db;
+
 #[derive(Serialize, Deserialize, Clone)]
 pub(crate) struct FolderDocument {
     pub(crate) uuid: String,
@@ -68,50 +71,24 @@ impl FileSystemObject {
 
 pub(crate) struct ProjectFileSystemManager {
     project_config: ProjectDocument,
-    _modified: bool,
-    folder_data: HashMap<String, HashMap<String, FileDocument>>,
-    folder_metadata: HashMap<String, FolderDocument>,
+    db_connection: Connection,
 }
-
-impl Drop for ProjectFileSystemManager {
-    fn drop(&mut self) {
-        if self._modified {
-            let folder_data_path = self.project_config.root.join(".folder_data");
-            let folder_metadata_path = self.project_config.root.join(".folder_metadata");
-            let folder_data = serde_json::to_string(&self.folder_data).unwrap();
-            let folder_metadata = serde_json::to_string(&self.folder_metadata).unwrap();
-            std::fs::write(&folder_data_path, folder_data).unwrap();
-            std::fs::write(&folder_metadata_path, folder_metadata).unwrap();
-        }
-    }
-}
-
 impl ProjectFileSystemManager {
     pub(crate) fn open(config: ProjectDocument) -> ProjectFileSystemManager {
         if !config.root.exists() {
             fs::create_dir_all(&config.root).unwrap();
         }
-        let folder_data: HashMap<String, HashMap<String, FileDocument>>;
-        let folder_data_path = config.root.join(".folder_data");
-        if !folder_data_path.exists() {
-            folder_data = HashMap::new();
+        let data_db_path = config.root.join(".godata");
+        let data_db = Connection::open(&data_db_path).unwrap();
+        let folder_metadata_count;
+        match db::n_records(&data_db, "folder_metadata") {
+            Ok(n) => folder_metadata_count = n,
+            Err(_) => {
+                db::create_kv_table(&data_db, "folder_metadata").unwrap();
+                folder_metadata_count = 0;
+            }
         }
-        else {
-            let contents = std::fs::read_to_string(&folder_data_path).unwrap();
-            folder_data = serde_json::from_str(&contents).unwrap();
-        }
-
-        let mut folder_metadata: HashMap<String, FolderDocument>;
-        let folder_metadata_path = config.root.join(".folder_metadata");
-        if !folder_metadata_path.exists() {
-            folder_metadata = HashMap::new();
-        }
-        else {
-            let contents = std::fs::read_to_string(&folder_metadata_path).unwrap();
-            folder_metadata = serde_json::from_str(&contents).unwrap();
-        }
-
-        if folder_metadata.keys().len() == 0 {
+        if folder_metadata_count == 0 {
             let root_folder = FolderDocument {
                 name: config.name.clone(),
                 uuid: config.uuid.clone(),
@@ -119,10 +96,11 @@ impl ProjectFileSystemManager {
                 location: config.root.clone(),
                 parent: None,
             };
-            folder_metadata.insert(config.uuid.clone(), root_folder);
+            db::add_to_table(&data_db, "folder_metadata", &root_folder.uuid, &root_folder);
         }
+
         
-        ProjectFileSystemManager { project_config: config, folder_data: folder_data, folder_metadata: folder_metadata, _modified: false}       
+        ProjectFileSystemManager { project_config: config, db_connection: data_db }       
     }
 
     pub(crate) fn remove_all(&self) {
@@ -132,67 +110,46 @@ impl ProjectFileSystemManager {
     pub(crate) fn get_child_records(&self, parent: &FolderDocument) -> Result<Vec<FileSystemObject>> {
         let mut children = Vec::new();
         for child in &parent.children {
-            let child_record = self.folder_metadata.get(child).unwrap();
+            let child_record = db::get_record_from_table(&self.db_connection, "folder_metadata", &child).unwrap();
+            let child_record: FolderDocument = serde_json::from_str(&child_record).unwrap();
             children.push(FileSystemObject::Folder(child_record.clone()));
         }
-        let folder_info = self.folder_data.get(&parent.uuid);
-        if folder_info.is_none() {
+        let files = db::get_all_records(&self.db_connection, &parent.uuid).unwrap_or(HashMap::new());
+        if files.len() == 0 {
             return Ok(children)
         }
-        for file in folder_info.unwrap().values() {
-            children.push(FileSystemObject::File(file.clone()));
+        for file in files.values() {
+            let file_obj = serde_json::from_str::<FileDocument>(&file).unwrap();
+            children.push(FileSystemObject::File(file_obj));
         }
         Ok(children)
     }
     pub(crate) fn get_root(&self) -> FolderDocument {
-        let root = self.folder_metadata.get(&self.project_config.uuid).unwrap();
-        root.clone()
+        let root_record = db::get_record_from_table(&self.db_connection, "folder_metadata", &self.project_config.uuid).unwrap();
+        let root: FolderDocument = serde_json::from_str(&root_record).unwrap();
+        root
     }
     pub(crate) fn add(&mut self, record: &FileSystemObject) -> Result<()> {
         let parent = record.get_parent().unwrap();
-
+        if !db::table_exists(&self.db_connection, &parent) {
+            db::create_kv_table(&self.db_connection, &parent).unwrap();
+        }
         match record {
             FileSystemObject::Folder(f) => {
                 let uuid = &f.uuid;
-                self.folder_metadata.insert(uuid.clone(), f.clone());
-                let parent_children_list = self.folder_metadata.get_mut(&parent).unwrap();
-                parent_children_list.children.push(uuid.clone());
-                self._modified = true;
-                Ok(())
+                db::add_to_table(&self.db_connection, "folder_metadata", uuid, f).unwrap();
+                let parent_record = db::get_record_from_table(&self.db_connection, "folder_metadata", &parent).unwrap();
+                let mut parent_record: FolderDocument = serde_json::from_str(&parent_record).unwrap();
+                parent_record.children.push(uuid.clone());
+                db::update_record(&self.db_connection, "folder_metadata", &parent, &parent_record).unwrap();
             }
 
             FileSystemObject::File(f) => {
-                let parent = f.parent.clone();
-                if !self.folder_data.contains_key(&parent) {
-                    self.folder_data.insert(parent.clone(), HashMap::new());
-                }
-                let parent_collection = self.folder_data.get_mut(&parent).unwrap();
-                parent_collection.insert(f.uuid.clone(), f.clone());
-                self._modified = true;
-                Ok(())
+                let parent = &f.parent;
+                db::add_to_table(&self.db_connection, parent, &f.uuid, f).unwrap();
             }
         }
-
-    }
-    pub(crate) fn update(&mut self, record: &FileSystemObject) -> Result<()> {
-        match record {
-            FileSystemObject::Folder(f) => {
-                let uuid = &f.uuid;
-                self.folder_metadata.remove(uuid);
-                self.folder_metadata.insert(uuid.clone(), f.clone());
-                self._modified = true;
-                Ok(())
-            }
-
-            FileSystemObject::File(f) => {
-                let parent = f.parent.clone();
-                let file_list = self.folder_data.get_mut(&parent).unwrap();
-                file_list.remove(&f.uuid);
-                file_list.insert(f.uuid.clone(), f.clone());
-                self._modified = true;
-                Ok(())
-            }
-        }
+        Ok(())
 
     }
     pub(crate) fn remove(&mut self, record: &FileSystemObject) -> Result<()> {
@@ -203,18 +160,20 @@ impl ProjectFileSystemManager {
                 for child in children {
                     self.remove(&child)?;
                 }
-                self.folder_metadata.remove(uuid);
-                self._modified = true;
-                Ok(())
+                match db::remove(&self.db_connection, "folder_metadata", uuid) {
+                    Ok(_) => {}
+                    Err(_) => {
+                        return Err(crate::mdb::ProjectError{msg: format!("Could not remove folder {} from folder metadata", uuid)})
+                    }
+                }
+                db::delete_kv_table(&self.db_connection, uuid).unwrap_or({});
             }
 
             FileSystemObject::File(f) => {
-                let parent = &f.parent;
-                let parent_collection = self.folder_data.get_mut(parent).unwrap();
-                parent_collection.remove(&f.uuid);
-                self._modified = true;
-                Ok(())
+                db::remove(&self.db_connection, &f.parent, &f.uuid).unwrap_or({});
             }
         }
+        Ok(())
+    
     }
 }
