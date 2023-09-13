@@ -7,6 +7,7 @@ use nanoid::nanoid;
 use std::result;
 use rusqlite::Connection;
 use crate::db;
+
 #[derive(Serialize, Deserialize, Clone)]
 pub(crate) struct ProjectDocument {
     pub(crate) name: String,
