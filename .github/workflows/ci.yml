@@ -32,7 +32,7 @@ jobs:
       - name: Create and start virtual environment
         run: |
           python3 -m venv .venv
-          echo "source .venv/bin/activate" >> .bash_profile"
+          echo "source .venv/bin/activate" >> .bash_profile
           source .venv/bin/activate
 
       - name: build
