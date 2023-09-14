@@ -156,3 +156,19 @@ jobs:
         with:
           command: upload
           args: --non-interactive --skip-existing *
+
+  release_crates:
+    needs: [run_pytest]
+    name: Release crate
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          override: true
+    - uses: katyo/publish-crates@v2
+      with:
+        token: ${{ secrets.GH_TOKEN }}
+        registry-token: ${{ secrets.CRATES_TOKEN }}
+        ignore-unpublished-changes: true
