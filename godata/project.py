@@ -8,7 +8,7 @@ from .io import get_known_readers, get_known_writers
 manager = project.ProjectManager()
 opened_projects = {}
 
-__all__ = ["open_project", "list_projects", "create_project"]
+__all__ = ["load_project", "list_projects", "create_project"]
 
 
 class GodataProject:
@@ -64,13 +64,12 @@ class GodataProject:
         Not having a writer defined in godata's python io module is not necessarily
         a failure case. Some objects can be converted easily into rust objects (or)
         actually ARE rust objects under the hood, and will be handled by the rust
-        library. If a writer is not found by either python or rust, this will throw
+        library. If a writer is not found by either python pyestor rust, this will throw
         an error.
 
         However one thing to note is that if a writer is found in python, it will
         always be used over a rust writer.
         """
-
         writers = get_known_writers()
         writer_fn, suffix = writers.get(type(object), (None, None))
         self._project.store(object, project_path, writer_fn, suffix)
@@ -95,7 +94,7 @@ def create_project(name, collection=None):
     pname = collection or "default" + "." + name
     # Note, the manager will throw an error if the project already exists
     project = manager.create_project(name, collection)
-    opened_projects[pname] = project
+    opened_projects[pname] = GodataProject(project)
     return GodataProject(project)
 
 
@@ -108,7 +107,7 @@ def remove_project(name, collection=None):
     manager.remove_project(name, collection)
 
 
-def open_project(name, collection=None):
+def load_project(name, collection=None):
     pname = collection or "default" + "." + name
     if pname in opened_projects:
         return opened_projects[pname]

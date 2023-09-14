@@ -1,29 +1,40 @@
 import uuid
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from godata.project import GodataProject
 
 
 def test_add(project_name):
-    from godata import list_projects, open_project
+    from godata import list_projects, load_project
 
     text_file_location = Path(__file__).parent / "test.txt"
-    project = open_project(project_name)
+    project = load_project(project_name)
     project.add_file(str(text_file_location), "test_file")
     file = project.get("test_file")
-    assert file == str(text_file_location)
+    assert file == text_file_location
 
 
 def test_add_in_folder(project_name):
-    from godata import open_project
+    from godata import load_project
 
     text_file_location = Path(__file__).parent / "test.txt"
-    project = open_project(project_name)
+    project = load_project(project_name)
     project.add_file(str(text_file_location), "folder/test_file")
     file = project.get("folder/test_file")
-    assert file == str(text_file_location)
+    assert file == text_file_location
+
+
+def test_store(project_name):
+    from godata import load_project
+
+    project = load_project(project_name)
+    data = np.random.rand(10, 10)
+    project.store(data, "test_data")
+    file = project.get("test_data")
+    assert np.allclose(file, data)
 
 
 @pytest.fixture
