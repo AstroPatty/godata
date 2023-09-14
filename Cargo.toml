@@ -2,6 +2,11 @@
 name = "godata"
 version = "0.1.5"
 edition = "2021"
+description = "Data management for the busy scientists. Designed to be used from python"
+homepage = "https://github.com/PatrickRWells/godata"
+repository = "https://github.com/PatrickRWells/godata"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
