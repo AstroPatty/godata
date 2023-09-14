@@ -7,12 +7,14 @@ homepage = "https://github.com/PatrickRWells/godata"
 repository = "https://github.com/PatrickRWells/godata"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
+exclude = [
+    "godata/*"
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 name = "godata"
 crate-type = ["rlib", "cdylib"]
-
 
 [dependencies]
 directories = "5.0.1"
