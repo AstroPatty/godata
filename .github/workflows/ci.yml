@@ -34,6 +34,8 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           pip install pytest pytest-md pytest-emoji
+          pip install -e godata
+          pip install -r tests/test_requirements.txt
       - name: Run pytest
         uses: pavelzw/pytest-action@v2
         with:
@@ -115,6 +117,8 @@ jobs:
           path: dist
 
   sdist:
+    name: Build sdist
+    needs: [run_pytest]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
