@@ -1,9 +1,11 @@
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
+
 from godata.godata import project
 
-from .io import get_known_readers, get_known_writers
+from .io import get_known_writers, godataIoException, try_to_read
 
 manager = project.ProjectManager()
 opened_projects = {}
@@ -40,23 +42,24 @@ class GodataProject:
         """
         self._project.remove(project_path, recursive)
 
-    def get(self, project_path: str):
+    def get(self, project_path: str, as_path=False):
         """
         Get an object at a given project path. This method will return a python object
         whenever possible. If godata doesn't know how to read in a file of this type,
         it will return a path.
         """
-        obj = self._project.get(project_path)
+        path_str = self._project.get(project_path)
+        path = Path(path_str)
+        if as_path:
+            return path
         try:
-            path = Path(obj)
-            readers = get_known_readers()
-            suffix = path.suffix.strip(".")
-            if suffix not in readers:
-                return path
-            reader_fn = readers[suffix][0]
-            return reader_fn(path)
-        except TypeError:
-            return obj
+            data = try_to_read(path)
+            return data
+        except godataIoException:
+            logger.info(
+                f"Could not find a reader for file {path}. Returning path instead."
+            )
+            return path
 
     def store(self, object: Any, project_path: str):
         """
@@ -70,16 +73,42 @@ class GodataProject:
         However one thing to note is that if a writer is found in python, it will
         always be used over a rust writer.
         """
-        writers = get_known_writers()
-        writer_fn, suffix = writers.get(type(object), (None, None))
-        self._project.store(object, project_path, writer_fn, suffix)
+        # First, see if the object is a path
+        try:
+            to_read = Path(object)
+        except TypeError:
+            to_read = object
 
-    def add_file(self, file_path: Path, project_path: str):
+        if isinstance(to_read, Path):
+            try:
+                obj = try_to_read(to_read)
+                writers = get_known_writers()
+                writer_fn, suffix = writers.get(type(obj), (None, None))
+                self._project.store(
+                    object=obj,
+                    project_path=project_path,
+                    output_function=writer_fn,
+                    suffix=suffix,
+                )
+            except godataIoException:
+                raise godataIoException(
+                    "When storing a path, the file at the given"
+                    " path must be readable by godata. No reader was fond for file"
+                    f" {to_read.suffix}. You can still add it to the project by using"
+                    " the `link` method."
+                )
+        else:
+            writers = get_known_writers()
+            writer_fn, suffix = writers.get(type(object), (None, None))
+            self._project.store(object, project_path, writer_fn, suffix)
+
+    def link(self, file_path: Path, project_path: str):
         """
         Add a file to the project. This will not actually move any data, just create
         a reference to the file.
         """
-        self._project.add_file(file_path, project_path)
+        fp = str(file_path)
+        self._project.add_file(fp, project_path)
 
     def ls(self, project_path: str = None):
         """

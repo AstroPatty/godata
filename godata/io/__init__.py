@@ -1,5 +1,6 @@
 import inspect
 import pkgutil
+from pathlib import Path
 
 _known_writers = {}
 _known_readers = {}
@@ -26,6 +27,11 @@ the suffix of the file that will be delegated to this reader. The "get_reader" f
 (or whatever it's named) should return a function that takes in a single argument: the
 path to the file to read. This function should return the object that was read in.
 """
+
+
+class godataIoException(Exception):
+    pass
+
 
 for loader, module_name, is_pkg in pkgutil.walk_packages(__path__):
     try:
@@ -90,6 +96,15 @@ def get_known_readers():
 
 def get_known_writers():
     return _known_writers
+
+
+def try_to_read(path: Path):
+    readers = get_known_readers()
+    suffix = path.suffix.strip(".")
+    if suffix not in readers:
+        raise godataIoException(f"No reader found for file type {suffix}")
+    reader_fn = readers[suffix][0]
+    return reader_fn(path)
 
 
 __all__ = ["get_known_readers", "get_known_writers"]
