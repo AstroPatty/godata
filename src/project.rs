@@ -1,7 +1,7 @@
 use crate::pdb::{ProjectFileSystemManager};
-use crate::mdb::{MainDBManager, Result, ProjectDocument};
+use crate::mdb::{MainDBManager, ProjectDocument};
 use crate::io::{store, remove_if_internal};
-use crate::ftree::{FileTree, FileTreeObject, FileTreeFolder};
+use crate::ftree::{FileTree, FileTreeObject};
 use std::path::PathBuf;
 use std::clone::Clone;
 use std::str::FromStr;
@@ -92,7 +92,7 @@ impl ProjectManager {
             Ok(p_) => {
                 p_
             }
-            Err(e) => {
+            Err(_e) => {
                 return Err(GodataProjectError::new_err(format!("Project {} does not exist", name)))
             }
         };

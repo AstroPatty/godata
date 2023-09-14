@@ -154,7 +154,7 @@ impl FileTree {
 
 
         match parent_folder {
-            FileTreeObject::File(f) => {
+            FileTreeObject::File(_f) => {
                 return Err(ProjectError {msg: "Path is a file".to_string()})
             }
             FileTreeObject::Folder(f) => {
@@ -201,7 +201,7 @@ impl FileTree {
         match parent {
             Ok(p) => { //The parent already exists!
                 match p {
-                    FileTreeObject::File(f) => {
+                    FileTreeObject::File(_f) => {
                         return Err(ProjectError {msg: format!("Path {} is a file", &parent_path.join("/"))})
                     }
                     FileTreeObject::Folder(f) => {
@@ -263,7 +263,7 @@ impl FileTree {
         };        
         let node = self.root.query(&split)?;
         match node {
-            FileTreeObject::File(f) => {
+            FileTreeObject::File(_f) => {
                 return Err(ProjectError {msg: "Path is a file".to_string()})
             }
             FileTreeObject::Folder(f) => {
@@ -303,7 +303,7 @@ impl FileTreeFolder {
         for child in &self.children {
             children.push(child);
             match child {
-                FileTreeObject::File(f) => {}
+                FileTreeObject::File(_f) => {}
                 FileTreeObject::Folder(f) => {
                     if recursive {
                         let mut child_children = f.get_children(true);
@@ -323,7 +323,7 @@ impl FileTreeFolder {
                     return Ok(&child)
                 }
                 match child {
-                    FileTreeObject::File(f) => {
+                    FileTreeObject::File(_f) => {
                         // We're not at the end of the query path, but we've found
                         // a file
                         return Err(ProjectError { msg: "Path not found".to_string()})
@@ -346,7 +346,7 @@ impl FileTreeFolder {
                     return Ok(child)
                 }
                 match child {
-                    FileTreeObject::File(f) => {
+                    FileTreeObject::File(_f) => {
                         // We're not at the end of the query path, but we've found
                         // a file
                         return Err(ProjectError { msg: "Path not found".to_string()})
@@ -373,7 +373,7 @@ impl FileTreeFolder {
         // Recursive case, we need to find the next folder
         let parent = self.query_mutable(&path[0..path.len()-1])?;
         match parent {
-            FileTreeObject::File(f) => {
+            FileTreeObject::File(_f) => {
                 return Err(ProjectError {msg: "Path not found".to_string()})
             }
             FileTreeObject::Folder(f) => {
@@ -387,7 +387,7 @@ impl FileTreeFolder {
             for (i, child) in self.children.iter().enumerate() {
                 if child.get_name() == path[0] {
                     match child {
-                        FileTreeObject::File(f) => {}
+                        FileTreeObject::File(_f) => {}
                         FileTreeObject::Folder(f) => {
                             if !recursive && f.children.len() != 0{
                                 return Err(ProjectError {msg: "Path is a folder which contains items".to_string()})
@@ -408,7 +408,7 @@ impl FileTreeFolder {
 
                 if child.get_name() == path[0] {
                     match child {
-                        FileTreeObject::File(f) => {
+                        FileTreeObject::File(_f) => {
                             return Err(ProjectError {msg: format!("Path {} is a file", path[0])})
                         }
                         FileTreeObject::Folder(f) => {

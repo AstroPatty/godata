@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
-use std::hash::Hash;
+
 use std::path::{PathBuf, Path};
 use directories::BaseDirs;
 use nanoid::nanoid;
@@ -69,11 +69,11 @@ impl MainDBManager {
     
     pub(crate) fn remove_project(&mut self, name: &str, colname: Option<&str>) -> Result<()> {
         let colname_ = colname.unwrap_or("default");
-        let result = db::remove(&self.data, colname_, name).unwrap();
+        let _result = db::remove(&self.data, colname_, name).unwrap();
         Ok(())
     }
     
-    pub (crate) fn list_collections(&self, show_hidden: bool) -> Option<Vec<String>> {
+    pub (crate) fn list_collections(&self, _show_hidden: bool) -> Option<Vec<String>> {
         let _names = db::list_tables(&self.data);
         if _names.len() == 0 {
             return None
@@ -106,7 +106,7 @@ impl MainDBManager {
         let project: ProjectDocument = serde_json::from_str(&p).unwrap();
         Ok(project)
     }
-    pub(crate) fn list_projects(&self, show_hidden: bool, colname: Option<&str>) -> Result<Vec<String>> {
+    pub(crate) fn list_projects(&self, _show_hidden: bool, colname: Option<&str>) -> Result<Vec<String>> {
         let colname_: &str;
         match colname {
             Some(cname) => {

@@ -1,6 +1,6 @@
-use rusqlite::{Connection, params, types::{ValueRef, Value}};
-use std::{collections::HashMap, hash::Hash};
-use serde::{Serialize, Deserialize};
+use rusqlite::{Connection, params};
+use std::{collections::HashMap};
+use serde::{Serialize};
 
 pub(crate) struct GodataDatabaseError {
     pub(crate) msg: String
@@ -10,7 +10,7 @@ pub(crate) fn table_exists(connection: &Connection, table_name: &str) -> bool {
     let mut stmt = connection.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").unwrap();
     let mut rows = stmt.query(params![table_name]).unwrap();
     let mut count = 0;
-    while let Some(a) = rows.next().unwrap() {
+    while let Some(_a) = rows.next().unwrap() {
         count += 1;
     }
     count == 1
