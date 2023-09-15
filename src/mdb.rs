@@ -25,6 +25,7 @@ pub(crate) type Result<T> = result::Result<T, ProjectError>;
 
 
 pub(crate) struct MainDBManager{
+    #[allow(unused)]
     loc: PathBuf,
     data: Connection,
     _modified: bool,

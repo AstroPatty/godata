@@ -8,7 +8,7 @@ use std::str::FromStr;
 use std::collections::HashMap;
 use pyo3::prelude::*;
 use pyo3::create_exception;
-use pyo3::types::{PyDict, PyList};
+
 
 
 
@@ -123,9 +123,9 @@ impl ProjectManager {
 
 #[pymethods]
 impl Project {
+    /// Remove a file from the project. This will not delete the file
+    /// unless the file has been stored in godata's internal storage.
     pub fn remove(&mut self, project_path: &str, recurisive: Option<bool>) -> PyResult<()> {
-        /// Remove a file from the project. This will not delete the file
-        /// unless the file has been stored in godata's internal storage.
         
         let result = self.tree.remove(project_path, recurisive.unwrap_or(false));
         match result {
@@ -138,9 +138,8 @@ impl Project {
         }
 
     }
-
+    /// Get a file from the project.
     pub fn get(&self, project_path: &str) -> PyResult<String> {
-        /// Get a file from the.
         let result = self.tree.query(project_path);
         match result {
             Ok(item) => {
@@ -159,8 +158,8 @@ impl Project {
         }
     }
 
+    /// Store an object in the project.
     pub fn store(&mut self, object: &PyAny, project_path: &str, output_function: Option<&PyAny>, suffix: Option<&str>) -> PyResult<()> {
-        /// Store an object in the project. The object must be serializable to JSON.
         match (output_function, suffix) {
             (Some(func), Some(suff)) => {
                 let result = self.tree.store(project_path, true, suff);
@@ -178,10 +177,9 @@ impl Project {
             }
         }
     }
-
+    /// Add a file that already exists to the project. If the folder does not exist, it will
+    /// be created recursively. 
     pub fn add_file(&mut self, file_path: &str, project_path: &str) -> PyResult<()> {
-        /// Add a file that already exists to the project. If the folder does not exist, it will
-        /// be created recursively. 
         let path = PathBuf::from_str(file_path).unwrap().canonicalize().unwrap();
         if !path.exists() || !path.is_file() {
             return Err(GodataProjectError::new_err(format!("No file found at `{file_path}`")))
@@ -202,7 +200,7 @@ impl Project {
             Ok(contents) => {
                 for item in contents {
                     match item {
-                        FileTreeObject::Folder(f) => {
+                        FileTreeObject::Folder(_f) => {
                             folders.push(item.get_name().to_string());
                         }
                         FileTreeObject::File(_) => {

@@ -34,12 +34,6 @@ pub(crate) enum FileSystemObject {
 
 impl FileSystemObject {
     
-    fn get_identifier(&self) -> String {
-        match self {
-            FileSystemObject::Folder(f) =>  f.uuid.clone(),
-            FileSystemObject::File(f) => f.uuid.clone()
-        }
-    }
 
     fn get_parent(&self) -> Option<String> {
         match self {
@@ -47,19 +41,6 @@ impl FileSystemObject {
             FileSystemObject::File(f) => Some(f.parent.clone())
         }
     }
-    pub(crate) fn get_name(&self) -> String {
-        match self {
-            FileSystemObject::Folder(f) => f.name.clone(),
-            FileSystemObject::File(f) => f.name.clone()
-        }
-    }
-    fn get_type(&self) -> String {
-        match self {
-            FileSystemObject::Folder(_) => "folder".to_string(),
-            FileSystemObject::File(_) => "file".to_string()
-        }
-    }
-
     pub(crate) fn get_location(&self) -> PathBuf {
         match self {
             FileSystemObject::Folder(f) => f.location.clone(),
@@ -96,17 +77,13 @@ impl ProjectFileSystemManager {
                 location: config.root.clone(),
                 parent: None,
             };
-            db::add_to_table(&data_db, "folder_metadata", &root_folder.uuid, &root_folder);
+            let _ = db::add_to_table(&data_db, "folder_metadata", &root_folder.uuid, &root_folder);
+            // The above should never fail
         }
 
         
         ProjectFileSystemManager { project_config: config, db_connection: data_db }       
     }
-
-    pub(crate) fn remove_all(&self) {
-        fs::remove_dir_all(&self.project_config.root).unwrap();
-    }
-
     pub(crate) fn get_child_records(&self, parent: &FolderDocument) -> Result<Vec<FileSystemObject>> {
         let mut children = Vec::new();
         for child in &parent.children {

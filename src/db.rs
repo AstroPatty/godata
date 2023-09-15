@@ -2,6 +2,7 @@ use rusqlite::{Connection, params};
 use std::{collections::HashMap};
 use serde::{Serialize};
 
+#[allow(dead_code)]
 pub(crate) struct GodataDatabaseError {
     pub(crate) msg: String
 }
