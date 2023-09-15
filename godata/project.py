@@ -29,8 +29,9 @@ class GodataProject:
     user-facing documentation can be done with sphinx.
     """
 
-    def __init__(self, _project):
+    def __init__(self, _project, name):
         self._project = _project
+        self.name = name
 
     def __getattr__(self, name):
         return getattr(self._project, name)
@@ -116,15 +117,39 @@ class GodataProject:
         perform the ls in the folder at the given path. Otherwise, it will perform
         it in the project root.
         """
-        self._project.ls(project_path)
+        contents = self.list(project_path)
+        files = contents["files"]
+        folders = contents["folders"]
+        if not files and not folders:
+            print("No files or folders found at path {}".format(project_path))
+            return
+
+        if not project_path:
+            header_string = f"Project `{self.name}` root:"
+        else:
+            header_string = f"{self.name}/{project_path}:"
+        print(header_string)
+        print("-" * len(header_string))
+        for folder in folders:
+            print(f"  {folder}/")
+        for file in files:
+            print(f"  {file}")
+
+    def list(self, project_path: str = None) -> dict:
+        """
+        A basic ls utility for looking at projects. If a path is given, this will
+        perform the ls in the folder at the given path. Otherwise, it will perform
+        it in the project root.
+        """
+        return self._project.list(project_path)
 
 
 def create_project(name, collection=None):
     pname = collection or "default" + "." + name
     # Note, the manager will throw an error if the project already exists
     project = manager.create_project(name, collection)
-    opened_projects[pname] = GodataProject(project)
-    return GodataProject(project)
+    opened_projects[pname] = GodataProject(project, name)
+    return opened_projects[pname]
 
 
 def delete_project(name, collection=None):
@@ -142,8 +167,8 @@ def load_project(name, collection=None):
         return opened_projects[pname]
 
     project = manager.load_project(name, collection)
-    opened_projects[pname] = project
-    return GodataProject(project)
+    opened_projects[pname] = GodataProject(project, name)
+    return opened_projects[pname]
 
 
 def list_projects(collection=None, show_hidden=False):

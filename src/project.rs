@@ -5,8 +5,10 @@ use crate::ftree::{FileTree, FileTreeObject};
 use std::path::PathBuf;
 use std::clone::Clone;
 use std::str::FromStr;
+use std::collections::HashMap;
 use pyo3::prelude::*;
 use pyo3::create_exception;
+use pyo3::types::{PyDict, PyList};
 
 
 
@@ -190,43 +192,31 @@ impl Project {
             Err(e) => Err(GodataProjectError::new_err(e.msg))
         }
     }
-
-    pub fn ls(&self, folder_path: Option<&str>) -> PyResult<()>{
+    pub fn list(&self, folder_path: Option<&str>) -> PyResult<HashMap<String, Vec<String>>> {
         let contents = self.tree.get_contents(false, folder_path);
-        match contents {
-            Err(e) => Err(GodataProjectError::new_err(e.msg)),
-            Ok(contents) => {
-                let header_string: String;
-                match folder_path {
-                    None => header_string = format!("Project: {}", self.cfg.name),
-                    Some(path) => header_string = format!("Folder: {}", path)
-                }
-                println!("{}", header_string);
-                println!("{}","-".repeat(header_string.len()));
+        let mut files: Vec<String> = Vec::new();
+        let mut folders: Vec<String> = Vec::new();
 
-                let mut files = Vec::new();
-                let mut folders = Vec::new();
+        match contents {
+            Err(e) => return Err(GodataProjectError::new_err(e.msg)),
+            Ok(contents) => {
                 for item in contents {
                     match item {
-                        FileTreeObject::Folder(_) => folders.push(item),
-                        FileTreeObject::File(_) => files.push(item)
+                        FileTreeObject::Folder(f) => {
+                            folders.push(item.get_name().to_string());
+                        }
+                        FileTreeObject::File(_) => {
+                            files.push(item.get_name().to_string());
+                        }
                     }
                 }
-                if folders.len() == 0 && files.len() == 0 {
-                    println!("This folder is empty");
-                    return Ok(())
-                }
-                
-                for folder in folders {
-                    println!("{}/", folder.get_name())
-                }
-        
-                for file in files {
-                    println!("{}", file.get_name());
-                }
-                println!("{}","-".repeat(header_string.len()));
-                Ok(())
             }
         }
+        let mut output = HashMap::new();
+        output.insert(String::from("files"), files);
+        output.insert(String::from("folders"), folders);
+        Ok(output)
+
+
     }
 }
