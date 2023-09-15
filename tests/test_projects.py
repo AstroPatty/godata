@@ -9,10 +9,10 @@ from godata.project import GodataProject
 
 
 def test_add(project_name):
-    from godata import list_projects, load_project
+    from godata import load_project
 
     text_file_location = Path(__file__).parent / "test.txt"
-    project = load_project(project_name)
+    project = load_project(project_name, "pytest")
     project.link(text_file_location, "test_file")
     file = project.get("test_file")
     assert file == text_file_location
@@ -21,22 +21,28 @@ def test_add(project_name):
 def test_add_in_folder(project_name, text_file_location):
     from godata import load_project
 
-    project = load_project(project_name)
+    project = load_project(project_name, "pytest")
     project.link(text_file_location, "folder/test_file")
     file = project.get("folder/test_file")
     assert file == text_file_location
 
 
+def test_has_collection():
+    from godata import has_collection
+
+    assert has_collection("pytest")
+
+
 def test_has_project(project_name):
     from godata import has_project
 
-    assert has_project(project_name)
+    assert has_project(project_name, "pytest")
 
 
 def test_store(project_name):
     from godata import load_project
 
-    project = load_project(project_name)
+    project = load_project(project_name, "pytest")
     data = np.random.rand(10, 10)
     project.store(data, "test_data")
     file = project.get("test_data")
@@ -46,7 +52,7 @@ def test_store(project_name):
 def test_store_invalid(project_name, text_file_location):
     from godata import load_project
 
-    project = load_project(project_name)
+    project = load_project(project_name, "pytest")
     with pytest.raises(godataIoException):
         project.store(text_file_location, "test_data")
 
@@ -54,7 +60,7 @@ def test_store_invalid(project_name, text_file_location):
 def test_store_valid(project_name, npy_file_location):
     from godata import load_project
 
-    project = load_project(project_name)
+    project = load_project(project_name, "pytest")
     project.store(npy_file_location, "test_data")
     file = project.get("test_data")
     assert np.allclose(file, np.load(npy_file_location))
@@ -70,8 +76,8 @@ def project_name():
 def project(project_name):
     from godata import create_project, delete_project
 
-    yield create_project(project_name)
-    delete_project(project_name)
+    yield create_project(project_name, "pytest")
+    delete_project(project_name, "pytest")
 
 
 @pytest.fixture

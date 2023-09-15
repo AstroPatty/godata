@@ -153,6 +153,14 @@ def has_project(name: str, collection: str = None) -> bool:
     return name in projects
 
 
+def has_collection(name: str) -> bool:
+    """
+    Check if a collection exists.
+    """
+    collections = manager.list_collections(True)
+    return name in collections
+
+
 def create_project(name, collection=None):
     pname = collection or "default" + "." + name
     # Note, the manager will throw an error if the project already exists
