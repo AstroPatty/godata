@@ -61,11 +61,11 @@ impl FileTree {
         return self.query(project_path).is_ok();
     } 
 
+    /// This function is used to store a python object in the project's internal storage. 
+    /// It takes in a project path and a suffix, and returns a path to the location the object
+    /// should be stored. In case of failure, it is better for the tree to have a reference to a 
+    /// file that does not exist, then for a file to exist that we have no reference to.
     pub(crate) fn store(&mut self, project_path: &str, recursive: bool, suffix: &str) -> Result<PathBuf> {
-        /// This function is used to store a python object in the project's internal storage. 
-        /// It takes in a project path and a suffix, and returns a path to the location the object
-        /// should be stored. In case of failure, it is better for the tree to have a reference to a 
-        /// file that does not exist, then for a file to exist that we have no reference to.
         let split_project_path = project_path
                                     .strip_suffix("/")
                                     .unwrap_or(project_path)
