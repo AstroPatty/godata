@@ -157,8 +157,12 @@ def has_collection(name: str) -> bool:
     """
     Check if a collection exists.
     """
-    collections = manager.list_collections(True)
-    return name in collections
+    try:
+        collections = manager.list_collections(True)
+    except project.GodataProjectError:
+        return False
+    n_projects = len(manager.list_projects(True, name))
+    return name in collections and n_projects > 0
 
 
 def create_project(name, collection=None):

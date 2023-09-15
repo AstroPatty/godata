@@ -71,6 +71,9 @@ impl MainDBManager {
     pub(crate) fn remove_project(&mut self, name: &str, colname: Option<&str>) -> Result<()> {
         let colname_ = colname.unwrap_or("default");
         let _result = db::remove(&self.data, colname_, name).unwrap();
+        if db::n_records(&self.data, colname_).unwrap_or(1) == 0 {
+            db::delete_kv_table(&self.data, colname_).unwrap();
+        }
         Ok(())
     }
     

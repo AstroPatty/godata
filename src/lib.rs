@@ -20,6 +20,7 @@ fn godata_lib(_py: Python, m: &PyModule) -> PyResult<()> {
 fn _project(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<project::Project>()?;
     m.add_class::<project::ProjectManager>()?;
+    m.add("GodataProjectError", _py.get_type::<project::GodataProjectError>())?;
     Ok(())
 }
 
