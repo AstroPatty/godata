@@ -144,6 +144,15 @@ class GodataProject:
         return self._project.list(project_path)
 
 
+def has_project(name: str, collection: str = None) -> bool:
+    """
+    Check if a project exists in the given collection. If no collection is given,
+    this will check the default collection.
+    """
+    projects = manager.list_projects(True, collection)
+    return name in projects
+
+
 def create_project(name, collection=None):
     pname = collection or "default" + "." + name
     # Note, the manager will throw an error if the project already exists

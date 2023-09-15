@@ -27,6 +27,12 @@ def test_add_in_folder(project_name, text_file_location):
     assert file == text_file_location
 
 
+def test_has_project(project_name):
+    from godata import has_project
+
+    assert has_project(project_name)
+
+
 def test_store(project_name):
     from godata import load_project
 

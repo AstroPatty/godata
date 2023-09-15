@@ -1,6 +1,7 @@
 from .project import (
     create_project,
     delete_project,
+    has_project,
     list_collections,
     list_projects,
     load_project,
@@ -12,4 +13,5 @@ __all__ = [
     "create_project",
     "list_collections",
     "delete_project",
+    "has_project",
 ]
