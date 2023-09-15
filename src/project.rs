@@ -23,7 +23,7 @@ pub(crate) struct ProjectManager {
 
 
 #[pyclass]
-pub(crate) struct Project {
+pub struct Project {
     cfg: ProjectDocument,
     tree: FileTree,
 }

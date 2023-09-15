@@ -4,6 +4,7 @@ mod mdb;
 mod ftree;
 mod io;
 mod db;
+mod api;
 use pyo3::prelude::*;
 use pyo3::wrap_pymodule;
 

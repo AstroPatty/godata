@@ -127,7 +127,7 @@ def create_project(name, collection=None):
     return GodataProject(project)
 
 
-def remove_project(name, collection=None):
+def delete_project(name, collection=None):
     """
     Remove a project and all data stored in godata's internal storage. At present,
     this explicitly forces the user the suply True as an argument as a confirmation.
