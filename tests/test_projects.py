@@ -62,10 +62,10 @@ def project_name():
 
 @pytest.fixture(autouse=True)
 def project(project_name):
-    from godata import create_project, remove_project
+    from godata import create_project, delete_project
 
     yield create_project(project_name)
-    remove_project(project_name)
+    delete_project(project_name)
 
 
 @pytest.fixture
