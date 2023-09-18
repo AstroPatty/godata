@@ -33,9 +33,6 @@ class GodataProject:
         self._project = _project
         self.name = name
 
-    def __getattr__(self, name):
-        return getattr(self._project, name)
-
     def remove(self, project_path: str, recursive: bool = False):
         """
         Remove an file/folder at the given path. If a folder contains other
@@ -103,13 +100,16 @@ class GodataProject:
             writer_fn, suffix = writers.get(type(object), (None, None))
             self._project.store(object, project_path, writer_fn, suffix)
 
-    def link(self, file_path: Path, project_path: str):
+    def link(self, file_path: Path, project_path: str, recursive: bool = False):
         """
         Add a file to the project. This will not actually move any data, just create
         a reference to the file.
         """
-        fp = str(file_path)
-        self._project.add_file(fp, project_path)
+        if file_path.is_dir():
+            self._project.add_folder(str(file_path), project_path, recursive)
+        else:
+            fp = str(file_path)
+            self._project.add_file(fp, project_path)
 
     def ls(self, project_path: str = None):
         """

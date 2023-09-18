@@ -20,7 +20,7 @@ pub(crate) fn remove_if_internal(path: &PathBuf) {
     // Remove a file or folder if it is stored in the internal storage.
     let dirs = get_dirs();
     let data_dir = dirs.get("data_dir").unwrap();
-    if path.starts_with(data_dir) {
+    if path.starts_with(data_dir) && path.exists() {
         if path.is_file() {
             fs::remove_file(&path).unwrap();
             if path.parent().unwrap().read_dir().unwrap().count() == 0 {

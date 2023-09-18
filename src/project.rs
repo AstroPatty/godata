@@ -1,4 +1,4 @@
-use crate::pdb::{ProjectFileSystemManager};
+use crate::pdb::ProjectFileSystemManager;
 use crate::mdb::{MainDBManager, ProjectDocument};
 use crate::io::{store, remove_if_internal};
 use crate::ftree::{FileTree, FileTreeObject};
@@ -8,7 +8,6 @@ use std::str::FromStr;
 use std::collections::HashMap;
 use pyo3::prelude::*;
 use pyo3::create_exception;
-
 
 
 
@@ -190,6 +189,57 @@ impl Project {
             Err(e) => Err(GodataProjectError::new_err(e.msg))
         }
     }
+
+    /// Add a folder to the project recursively. All files will be added to that folder,
+    /// and all subfolders will be added to the project as well.
+    pub fn add_folder(&mut self, file_path: &str, project_path: &str, recurisive: Option<bool>) -> PyResult<()> {
+        let path = PathBuf::from_str(file_path).unwrap().canonicalize().unwrap();
+        if !path.exists() || !path.is_dir() {
+            return Err(GodataProjectError::new_err(format!("No folder found at `{file_path}`")))
+        }
+        let all_children = path.read_dir()?;
+        let mut known_paths: HashMap<String, PathBuf> = HashMap::new();
+        for child_ in all_children {
+            let child_path = child_.unwrap().path();
+
+            if child_path.file_stem().unwrap().to_str().unwrap().starts_with(".") {
+                continue
+            }
+
+            let child_name = child_path.file_stem().unwrap().to_str().unwrap();
+            let ppath = format!("{}/{}", project_path, child_name);
+            let previous_entry = known_paths.insert(child_name.to_string(), child_path.clone());
+            // Use a hash map for speed here
+            match previous_entry {
+                Some(_) => return Err(GodataProjectError::new_err(format!("When bulk adding, all files and folders must have unique names (without extensions). Found \n {} and \n {}", child_path.to_str().unwrap(), known_paths.get(child_name).unwrap().to_str().unwrap()))),
+                None => ()
+            }
+
+            if child_path.is_file() {
+                let result = self.add_file(&child_path.to_str().unwrap(), ppath.as_str());
+                match result {
+                    Ok(_) => (),
+                    Err(e) => {
+                        _ = self.remove(project_path, Some(true));
+                        return Err(e)
+                    }
+                }
+            } else if child_path.is_dir() && recurisive.unwrap_or(false) {
+                let result = self.add_folder(&child_path.to_str().unwrap(), ppath.as_str(), recurisive);
+                match result {
+                    Ok(_) => (),
+                    Err(e) => {
+                        _ = self.remove(project_path, Some(true));
+                        return Err(e)
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+
     pub fn list(&self, folder_path: Option<&str>) -> PyResult<HashMap<String, Vec<String>>> {
         let contents = self.tree.get_contents(false, folder_path);
         let mut files: Vec<String> = Vec::new();

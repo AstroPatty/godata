@@ -87,8 +87,11 @@ impl ProjectFileSystemManager {
     pub(crate) fn get_child_records(&self, parent: &FolderDocument) -> Result<Vec<FileSystemObject>> {
         let mut children = Vec::new();
         for child in &parent.children {
-            let child_record = db::get_record_from_table(&self.db_connection, "folder_metadata", &child).unwrap();
-            let child_record: FolderDocument = serde_json::from_str(&child_record).unwrap();
+            let child_record = db::get_record_from_table(&self.db_connection, "folder_metadata", &child);
+            if child_record.is_none() {
+                continue; // THIS NEEDS TO BE DIFFERENT          
+            }
+            let child_record: FolderDocument = serde_json::from_str(&child_record.unwrap()).unwrap();
             children.push(FileSystemObject::Folder(child_record.clone()));
         }
         let files = db::get_all_records(&self.db_connection, &parent.uuid).unwrap_or(HashMap::new());
