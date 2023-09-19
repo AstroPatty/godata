@@ -9,10 +9,10 @@ from .io import get_known_writers, godataIoException, try_to_read
 
 manager = project.ProjectManager()
 opened_projects = {}
+
 GodataProjectError = project.GodataProjectError
 
-
-__all__ = ["load_project", "list_projects", "create_project"]
+__all__ = ["load_project", "list_projects", "create_project", "GodataProjectError"]
 
 
 class GodataProject:
@@ -161,9 +161,9 @@ def has_collection(name: str) -> bool:
     """
     try:
         collections = manager.list_collections(True)
-    except project.GodataProjectError:
+        n_projects = len(manager.list_projects(True, name))
+    except GodataProjectError:
         return False
-    n_projects = len(manager.list_projects(True, name))
     return name in collections and n_projects > 0
 
 
