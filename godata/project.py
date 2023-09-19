@@ -9,6 +9,8 @@ from .io import get_known_writers, godataIoException, try_to_read
 
 manager = project.ProjectManager()
 opened_projects = {}
+GodataProjectError = project.GodataProjectError
+
 
 __all__ = ["load_project", "list_projects", "create_project"]
 
