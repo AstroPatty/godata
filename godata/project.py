@@ -137,6 +137,12 @@ class GodataProject:
         for file in files:
             print(f"  {file}")
 
+    def has_path(self, project_path: str) -> bool:
+        """
+        Check if a given path exists in the project.
+        """
+        return self._project.has_path(project_path)
+
     def list(self, project_path: str = None) -> dict:
         """
         A basic ls utility for looking at projects. If a path is given, this will

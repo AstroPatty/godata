@@ -264,7 +264,13 @@ impl Project {
         output.insert(String::from("files"), files);
         output.insert(String::from("folders"), folders);
         Ok(output)
+    }
 
-
+    pub fn has_path(&self, project_path: &str) -> bool {
+        let result = self.tree.query(project_path);
+        match result {
+            Ok(_) => true,
+            Err(_) => false
+        }
     }
 }
