@@ -194,15 +194,19 @@ def load_project(name, collection=None):
     return opened_projects[pname]
 
 
-def list_projects(collection=None, show_hidden=False):
+def list_projects(collection=None, show_hidden=False, display=True):
     projects = manager.list_projects(show_hidden, collection)
-    print(f"Projects in collection `{collection or 'default'}`:")
-    for p in projects:
-        print(f"  {p}")
+    if display:
+        print(f"Projects in collection `{collection or 'default'}`:")
+        for p in projects:
+            print(f"  {p}")
+    return projects
 
 
-def list_collections(show_hidden=False):
+def list_collections(show_hidden=False, display=True):
     list_collections = manager.list_collections(show_hidden)
-    print("Collections:")
-    for c in list_collections:
-        print(f"  {c}")
+    if display:
+        print("Collections:")
+        for c in list_collections:
+            print(f"  {c}")
+    return list_collections
