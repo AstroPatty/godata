@@ -191,7 +191,7 @@ def delete_project(name, collection=None):
 
 
 def load_project(name, collection=None):
-    pname = collection or "default" + "." + name
+    pname = (collection or "default") + "." + name
     if pname in opened_projects:
         return opened_projects[pname]
 
