@@ -66,7 +66,7 @@ impl MainDBManager {
         };
         let _collection = collection.unwrap_or("default");
         if !db::table_exists(self.pool.clone(), _collection) {
-            db::create_kv_table(self.pool.clone(), _collection).unwrap();
+             db::create_kv_table(self.pool.clone(), _collection).unwrap();
         }
         db::add_to_table(self.pool.clone(), _collection, name, &project).unwrap();
         Ok(project)

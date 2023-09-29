@@ -18,6 +18,7 @@ pub(crate) fn table_exists(connection: Pool<SqliteConnectionManager>, table_name
     while let Some(_a) = rows.next().unwrap() {
         count += 1;
     }
+    println!("count: {}", count);
     count == 1
 }
 
@@ -106,7 +107,7 @@ pub(crate) fn remove(connection: Pool<SqliteConnectionManager>, table_name: &str
 pub(crate) fn n_records(connection: Pool<SqliteConnectionManager>, table_name: &str) -> Result<usize, rusqlite::Error> {
     let query = &format!("SELECT COUNT(*) FROM \"{}\"", table_name);
     let c = connection.get().unwrap();
-    let mut stmt = c.prepare(&query).unwrap();
+    let mut stmt = c.prepare(&query)?;
 
 
     let mut rows = stmt.query(params![]).unwrap();
@@ -120,7 +121,7 @@ pub(crate) fn n_records(connection: Pool<SqliteConnectionManager>, table_name: &
 pub(crate) fn get_all_records(connection: Pool<SqliteConnectionManager>, table_name: &str) -> Result<HashMap<String, String>, rusqlite::Error> {
     let query = &format!("SELECT * FROM \"{}\"", table_name);
     let c = connection.get().unwrap();
-    let mut stmt = c.prepare(&query).unwrap();
+    let mut stmt = c.prepare(&query)?;
     let mut rows = stmt.query(params![]).unwrap();
     let mut records = HashMap::new();
     while let Some(row) = rows.next().unwrap() {
