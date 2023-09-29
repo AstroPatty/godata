@@ -1,4 +1,4 @@
-use crate::pdb::ProjectFileSystemManager;
+use crate::pdb::{ProjectFileSystemManager, FileSystemObject};
 use crate::mdb::{MainDBManager, ProjectDocument};
 use crate::io::{store, remove_if_internal};
 use crate::ftree::{FileTree, FileTreeObject};
@@ -97,14 +97,14 @@ impl ProjectManager {
                 return Err(GodataProjectError::new_err(format!("Project {} does not exist", name)))
             }
         };
-        let all_children = project_.tree.get_contents(true, None).unwrap();
+        let all_children = project_.tree.get_contents(None).unwrap();
         for child in all_children {
             match child {
-                FileTreeObject::File(f) => {
-                    let path = &f.cfg.location;
+                FileSystemObject::File(f) => {
+                    let path = &f.location;
                     remove_if_internal(path);
                 }
-                FileTreeObject::Folder(_) => ()
+                FileSystemObject::Folder(_) => ()
             }
         }
         let root = project_.cfg.root; // Clean folder tree
@@ -138,7 +138,7 @@ impl Project {
 
     }
     /// Get a file from the project.
-    pub fn get(&self, project_path: &str) -> PyResult<String> {
+    pub fn get(&mut self, project_path: &str) -> PyResult<String> {
         let result = self.tree.query(project_path);
         match result {
             Ok(item) => {
@@ -240,8 +240,8 @@ impl Project {
     }
 
 
-    pub fn list(&self, folder_path: Option<&str>) -> PyResult<HashMap<String, Vec<String>>> {
-        let contents = self.tree.get_contents(false, folder_path);
+    pub fn list(&mut self, folder_path: Option<&str>) -> PyResult<HashMap<String, Vec<String>>> {
+        let contents = self.tree.get_contents(folder_path);
         let mut files: Vec<String> = Vec::new();
         let mut folders: Vec<String> = Vec::new();
 
@@ -250,11 +250,11 @@ impl Project {
             Ok(contents) => {
                 for item in contents {
                     match item {
-                        FileTreeObject::Folder(_f) => {
-                            folders.push(item.get_name().to_string());
+                        FileSystemObject::Folder(_f) => {
+                            folders.push(_f.name.to_string());
                         }
-                        FileTreeObject::File(_) => {
-                            files.push(item.get_name().to_string());
+                        FileSystemObject::File(_f) => {
+                            files.push(_f.name.to_string());
                         }
                     }
                 }
@@ -266,11 +266,7 @@ impl Project {
         Ok(output)
     }
 
-    pub fn has_path(&self, project_path: &str) -> bool {
-        let result = self.tree.query(project_path);
-        match result {
-            Ok(_) => true,
-            Err(_) => false
-        }
+    pub fn has_path(&mut self, project_path: &str) -> bool {
+        self.tree.exists(project_path)    
     }
 }

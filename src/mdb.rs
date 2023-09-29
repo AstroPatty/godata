@@ -1,6 +1,9 @@
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 
+use r2d2_sqlite::SqliteConnectionManager;
+use r2d2::Pool;
+
 use std::path::{PathBuf, Path};
 use directories::BaseDirs;
 use nanoid::nanoid;
@@ -27,7 +30,7 @@ pub(crate) type Result<T> = result::Result<T, ProjectError>;
 pub(crate) struct MainDBManager{
     #[allow(unused)]
     loc: PathBuf,
-    data: Connection,
+    pool: Pool<SqliteConnectionManager>,
     _modified: bool,
 }
 
@@ -35,10 +38,11 @@ pub(crate) struct MainDBManager{
 impl MainDBManager {
     pub(crate) fn get() -> Self {
         let loc = get_database_path();
-        let data = Connection::open(&loc).unwrap();
+        let connection = SqliteConnectionManager::file(&loc);
+        let pool = Pool::new(connection).unwrap();
         MainDBManager {
             loc: loc,
-            data: data,
+            pool,
             _modified: false,
         }
     }
@@ -61,24 +65,24 @@ impl MainDBManager {
             root: path
         };
         let _collection = collection.unwrap_or("default");
-        if !db::table_exists(&self.data, _collection) {
-            db::create_kv_table(&self.data, _collection).unwrap();
+        if !db::table_exists(self.pool.clone(), _collection) {
+            db::create_kv_table(self.pool.clone(), _collection).unwrap();
         }
-        db::add_to_table(&self.data, _collection, name, &project).unwrap();
+        db::add_to_table(self.pool.clone(), _collection, name, &project).unwrap();
         Ok(project)
     }
     
     pub(crate) fn remove_project(&mut self, name: &str, colname: Option<&str>) -> Result<()> {
         let colname_ = colname.unwrap_or("default");
-        let _result = db::remove(&self.data, colname_, name).unwrap();
-        if db::n_records(&self.data, colname_).unwrap_or(1) == 0 {
-            db::delete_kv_table(&self.data, colname_).unwrap();
+        let _result = db::remove(self.pool.clone(), colname_, name).unwrap();
+        if db::n_records(self.pool.clone(), colname_).unwrap_or(1) == 0 {
+            db::delete_kv_table(self.pool.clone(), colname_).unwrap();
         }
         Ok(())
     }
     
     pub (crate) fn list_collections(&self, _show_hidden: bool) -> Option<Vec<String>> {
-        let _names = db::list_tables(&self.data);
+        let _names = db::list_tables(self.pool.clone());
         if _names.len() == 0 {
             return None
         }
@@ -98,7 +102,7 @@ impl MainDBManager {
         if !self.has_collection(colname_) {
             return Err(ProjectError{msg: format!("Collection {} does not exist", colname_)})
         }
-        let p_ = db::get_record_from_table(&self.data, colname_, name);
+        let p_ = db::get_record_from_table(self.pool.clone(), colname_, name);
         let p = match p_ {
             Some(p) => {
                 p
@@ -124,7 +128,7 @@ impl MainDBManager {
             return Err(ProjectError{msg: format!("Collection `{}` does not exist", colname_)})
         }
 
-        let names = db::get_keys(&self.data, colname_);
+        let names = db::get_keys(self.pool.clone(), colname_);
         Ok(names)
     }
 
@@ -142,7 +146,7 @@ impl MainDBManager {
             return false
         }
 
-        let projects = db::get_keys(&self.data, colname_);
+        let projects = db::get_keys(self.pool.clone(), colname_);
         if projects.iter().any(|k| k == name) {
             return true
         }
@@ -150,7 +154,7 @@ impl MainDBManager {
     }
 
     pub(crate) fn has_collection(&self, name: &str) -> bool {
-        let n_records = db::n_records(&self.data, name);
+        let n_records = db::n_records(self.pool.clone(), name);
         match n_records {
             Ok(n) => {
                 return n > 0
