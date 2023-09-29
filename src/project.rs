@@ -97,16 +97,6 @@ impl ProjectManager {
                 return Err(GodataProjectError::new_err(format!("Project {} does not exist", name)))
             }
         };
-        let all_children = project_.tree.get_contents(None).unwrap();
-        for child in all_children {
-            match child {
-                FileSystemObject::File(f) => {
-                    let path = &f.location;
-                    remove_if_internal(path);
-                }
-                FileSystemObject::Folder(_) => ()
-            }
-        }
         let root = project_.cfg.root; // Clean folder tree
         remove_if_internal(&root);
         let _ = match self.db.remove_project(name, colname) {

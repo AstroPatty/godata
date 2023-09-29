@@ -18,7 +18,6 @@ pub(crate) fn table_exists(connection: Pool<SqliteConnectionManager>, table_name
     while let Some(_a) = rows.next().unwrap() {
         count += 1;
     }
-    println!("count: {}", count);
     count == 1
 }
 
