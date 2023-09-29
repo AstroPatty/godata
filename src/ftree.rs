@@ -1,7 +1,12 @@
 use crate::pdb::{FolderDocument, FileDocument, ProjectFileSystemManager, FileSystemObject};
 use crate::mdb::{ProjectError, Result, get_dirs};
+use std::borrow::BorrowMut;
+use std::sync::{Arc};
+use std::cell::{RefCell, Ref};
 use std::path::PathBuf;
 use std::fs;
+
+#[derive(Clone)]
 pub(crate) enum FileTreeObject {
     Folder(FileTreeFolder),
     File(FileTreeFile),
@@ -30,14 +35,17 @@ impl FileTreeObject {
 }
 pub(crate) struct FileTree {
     root: FileTreeFolder,
-    mgr: ProjectFileSystemManager
+    mgr: ProjectFileSystemManager,
 }
 
+#[derive(Clone)]
 pub(crate) struct FileTreeFolder {
     pub(super) cfg: FolderDocument,
-    pub(super) children: Vec<FileTreeObject>,
+    _children: RefCell<Vec<FileTreeObject>>,
+    _child_records: Vec<FileSystemObject>,
 }
 
+#[derive(Clone)]
 pub(crate) struct FileTreeFile {
     pub(super) cfg: FileDocument
 }
@@ -52,12 +60,12 @@ impl FileTree {
         }
     }
 
-    pub(crate) fn query(&self, path: &str) -> Result<&FileTreeObject> {
+    pub(crate) fn query(&mut self, path: &str) -> Result<FileTreeObject> {
         let split = path.split("/").collect::<Vec<&str>>();
-        self.root.query(&split)
+        self.root.query(&split, &self.mgr)
     } 
 
-    fn exists(&self, project_path: &str) -> bool {
+    pub(crate) fn exists(&mut self, project_path: &str) -> bool {
         return self.query(project_path).is_ok();
     } 
 
@@ -77,9 +85,9 @@ impl FileTree {
                                     .join(&self.root.cfg.uuid);
         let uuid = nanoid::nanoid!();
         let path: PathBuf;
-        let parent_uuid: &str;
+        let parent_uuid: String;
         if split_project_path.len() == 1 {
-            parent_uuid = &self.root.cfg.uuid; // Store in root directory
+            parent_uuid = self.root.cfg.uuid.to_string(); // Store in root directory
             path = PathBuf::from(project_storage_directory.join(&uuid).with_extension(suffix).to_str().unwrap());
         }
         else {
@@ -89,14 +97,14 @@ impl FileTree {
                 }
                 self.add_folder(&split_project_path[0..&split_project_path.len() - 1], true)?;
             }
-            let parent_folder_ = self.root.query(&split_project_path[0..&split_project_path.len() - 1])?;
+            let parent_folder_ = self.root.query(&split_project_path[0..&split_project_path.len() - 1], &self.mgr)?;
             match parent_folder_ {
                 FileTreeObject::File(_) => {
                     return Err(ProjectError {msg: "Path is a file".to_string()})
                 }
                 FileTreeObject::Folder(f) => {
                     path = f.cfg.location.join(&uuid).with_extension(suffix);
-                    parent_uuid = &f.cfg.uuid;
+                    parent_uuid = f.cfg.uuid.to_string();
                 }
             }
         }
@@ -113,7 +121,7 @@ impl FileTree {
             }
         };
         self.mgr.add(&FileSystemObject::File(new_file.cfg.clone()))?;
-        self.root.insert(&split_project_path, FileTreeObject::File(new_file))?;
+        self.root.insert(&split_project_path, FileTreeObject::File(new_file), &self.mgr)?;
         Ok(path)
         
     }
@@ -135,16 +143,16 @@ impl FileTree {
                 }
             };
             self.mgr.add(&FileSystemObject::File(new_file.cfg.clone()))?;
-            self.root.children.push(FileTreeObject::File(new_file));
+            self.root.insert(&split_project_path, FileTreeObject::File(new_file), &self.mgr)?;
             return Ok(())
         }
-        let parent_folder =  match self.root.query_mutable(&split_project_path[0..split_project_path.len() - 1]) {
+        let parent_folder =  match self.root.query(&split_project_path[0..split_project_path.len() - 1], &self.mgr) {
             Ok(f) => f,
             Err(e) => {
                 if resursive {
                     self.add_folder(&split_project_path[0..split_project_path.len() - 1], true)?;
 
-                    self.root.query_mutable(&split_project_path[0..split_project_path.len() - 1])?
+                    self.root.query(&split_project_path[0..split_project_path.len() - 1], &self.mgr)?
 
                 } else {
                     return Err(e)
@@ -168,16 +176,16 @@ impl FileTree {
                     }
                 };
                 self.mgr.add(&FileSystemObject::File(new_file.cfg.clone()))?;
-                f.children.push(FileTreeObject::File(new_file));
+                self.root.insert(&split_project_path, FileTreeObject::File(new_file), &self.mgr)?; //TODO: This is a bit of a hack, but it works for now
                 return Ok(())
             }
         }
     }
     fn add_folder(&mut self, split_project_path: &[&str], recursive: bool) -> Result<()> {
         if split_project_path.len() == 1 { //We're adding to the root folder
-            
-            let children = self.root.children.iter().map(|x| x.get_name()).collect::<Vec<&str>>();
-            if children.contains(&split_project_path[0]) {
+            let child_name = split_project_path[0];
+            let children = self.root.get_child_names(&self.mgr);
+            if children.contains(&child_name.to_string()) {
                 return Err(ProjectError {msg: "Path already exists".to_string()})
             }
             let uuid = nanoid::nanoid!();
@@ -189,15 +197,17 @@ impl FileTree {
                     children: Vec::new(),
                     parent: Some(self.root.cfg.uuid.clone()),
                 },
-                children: Vec::new(),
+                _children: RefCell::new(Vec::new()),
+                _child_records: Vec::new(),
             };
             self.mgr.add(&FileSystemObject::Folder(new_folder.cfg.clone()))?;
-            self.root.insert(split_project_path, FileTreeObject::Folder(new_folder))?;
+            self.root.insert(split_project_path, FileTreeObject::Folder(new_folder), &self.mgr)?;
             return Ok(());
         }
 
         let parent_path = &split_project_path[0..split_project_path.len()-1];
-        let parent = self.root.query(&parent_path);
+        let parent = self.root.query(&parent_path, &self.mgr);
+
         match parent {
             Ok(p) => { //The parent already exists!
                 match p {
@@ -205,8 +215,9 @@ impl FileTree {
                         return Err(ProjectError {msg: format!("Path {} is a file", &parent_path.join("/"))})
                     }
                     FileTreeObject::Folder(f) => {
-                        let children = f.children.iter().map(|x| x.get_name()).collect::<Vec<&str>>();
-                        if children.contains(&split_project_path[split_project_path.len() - 1]) {
+                        let children = f.get_child_names(&self.mgr);
+                        let child_name = split_project_path[split_project_path.len() - 1].to_string();
+                        if children.contains(&child_name) {
                             return Err(ProjectError {msg: format!("Path {} already exists", &split_project_path.join("/"))})
                         }
                         let uuid = nanoid::nanoid!();
@@ -218,10 +229,11 @@ impl FileTree {
                                 children: Vec::new(),
                                 parent: Some(f.cfg.uuid.clone()),
                             },
-                            children: Vec::new(),
+                            _children: RefCell::new(Vec::new()),
+                            _child_records: Vec::new(),
                         };
                         self.mgr.add(&FileSystemObject::Folder(new_folder.cfg.clone()))?;
-                        self.root.insert(split_project_path, FileTreeObject::Folder(new_folder))?;
+                        self.root.insert(split_project_path, FileTreeObject::Folder(new_folder), &self.mgr)?;
                         return Ok(())
                     }
                 }
@@ -245,7 +257,7 @@ impl FileTree {
                                     .unwrap_or(project_path)
                                     .split("/")
                                     .collect::<Vec<&str>>();
-        let doc = self.root.remove(&split_project_path, recursive);
+        let doc = self.root.remove(&split_project_path, recursive, &self.mgr);
         match doc {
             Ok(d) => {
                 let cfg = d.get_config();
@@ -255,21 +267,12 @@ impl FileTree {
             Err(e) => Err(ProjectError{msg: e.msg})
         }
     }
-
-    pub(crate) fn get_contents(&self, recursive: bool, path: Option<&str>) -> Result<Vec<&FileTreeObject>> {
+    pub(crate) fn get_contents(&self, path: Option<&str>) -> Result<Vec<FileSystemObject>> {
         let split = match path {
             Some(p) => p.split("/").collect::<Vec<&str>>(),
-            None => return Ok(self.root.get_children(recursive))
-        };        
-        let node = self.root.query(&split)?;
-        match node {
-            FileTreeObject::File(_f) => {
-                return Err(ProjectError {msg: "Path is a file".to_string()})
-            }
-            FileTreeObject::Folder(f) => {
-                return Ok(f.get_children(recursive))
-            }
-        }
+            None => vec![]
+        };
+        return self.root.get_contents(&split, &self.mgr)
     }
 }
 
@@ -277,125 +280,157 @@ impl FileTree {
 impl FileTreeFolder {
     fn new_from_record(cfg: FolderDocument, mgr: &ProjectFileSystemManager) -> FileTreeFolder {
         let children_records = mgr.get_child_records(&cfg).unwrap();
-        let mut children_nodes = Vec::new();
-        for child in children_records {
-            match child {
-                FileSystemObject::Folder(f) => {
-                    let child_node = FileTreeFolder::new_from_record(f, mgr);
-                    children_nodes.push(FileTreeObject::Folder(child_node));
-                }
-                
-                FileSystemObject::File(f) => {
-                    let child_node = FileTreeFile{cfg: f};
-                    children_nodes.push(FileTreeObject::File(child_node));
-                }
-                
-            }
-        }
+        let children_nodes = Vec::new();
         FileTreeFolder {
             cfg: cfg,
-            children: children_nodes,
+            _children: RefCell::new(children_nodes),
+            _child_records: children_records,
         }
     }
-
-    pub(crate) fn get_children(&self, recursive: bool) -> Vec<&FileTreeObject> {
-        let mut children = Vec::new();
-        for child in &self.children {
-            children.push(child);
-            match child {
-                FileTreeObject::File(_f) => {}
-                FileTreeObject::Folder(f) => {
-                    if recursive {
-                        let mut child_children = f.get_children(true);
-                        children.append(&mut child_children);
-                    }
-                }
-            }
-        }
-        children
+    fn is_empty(&self) -> bool {
+        self._child_records.len() == 0 && self._children.borrow().len() == 0
     }
-
-    pub(crate) fn query(&self, query_path: &[&str]) -> Result<&FileTreeObject> {
-        for child in &self.children {
-            if child.get_name() == query_path[0] {
-                if query_path.len() == 1 {
-                    // We're at the end of the query path and we have a match
-                    return Ok(&child)
-                }
-                match child {
-                    FileTreeObject::File(_f) => {
-                        // We're not at the end of the query path, but we've found
-                        // a file
-                        return Err(ProjectError { msg: "Path not found".to_string()})
-                    }
-                    FileTreeObject::Folder(f) => {
-                        // We're not at the end of the query path, but we cound a folder
-                        return f.query(&query_path[1..query_path.len()])
-                    }
-                }
+    fn get_contents(&self, project_path: &[&str], mgr: &ProjectFileSystemManager) -> Result<Vec<FileSystemObject>> {
+        self.load_children(mgr);
+        if project_path.len() == 0 {
+            let children = self._children.borrow();
+            let mut children_records = Vec::new();
+            for child in children.iter() {
+                children_records.push(child.get_config());
             }
+            return Ok(children_records)
         }
-        return Err(ProjectError {msg: "Path not found".to_string()})
-    }
-
-    fn query_mutable(&mut self, query_path: &[&str]) -> Result<&mut FileTreeObject> {
-        for child in &mut self.children {
-            if child.get_name() == query_path[0] {
-                if query_path.len() == 1 {
-                    // We're at the end of the query path and we have a match
-                    return Ok(child)
-                }
-                match child {
-                    FileTreeObject::File(_f) => {
-                        // We're not at the end of the query path, but we've found
-                        // a file
-                        return Err(ProjectError { msg: "Path not found".to_string()})
-                    }
-                    FileTreeObject::Folder(f) => {
-                        // We're not at the end of the query path, but we cound a folder
-                        return f.query_mutable(&query_path[1..query_path.len()])
-                    }
-                }
-            }
+        let child_index = self._children.borrow().iter().position(|x| x.get_name() == project_path[0]);
+        if child_index.is_none() {
+            return Err(ProjectError {msg: "Path not found".to_string()})
         }
-        return Err(ProjectError {msg: "Path not found".to_string()})
-    }    
-    pub(crate) fn insert(&mut self, path: &[&str], obj: FileTreeObject) -> Result<()> {
-        if path.len() == 1 {
-            // Base case, we have the last already-extant folder
-            let child_names: Vec<&str> = self.children.iter().map(|x| x.get_name()).collect();
-            if child_names.contains(&path[0]) {
-                return Err(ProjectError {msg: "Path already exists".to_string()})
-            }
-            self.children.push(obj);
-            return Ok(())
-        }
-        // Recursive case, we need to find the next folder
-        let parent = self.query_mutable(&path[0..path.len()-1])?;
-        match parent {
+        let child_index = child_index.unwrap().clone();
+        let children = self._children.borrow();
+        let c = children.get(child_index).unwrap();
+        match c {
             FileTreeObject::File(_f) => {
                 return Err(ProjectError {msg: "Path not found".to_string()})
             }
             FileTreeObject::Folder(f) => {
-                return f.insert(&path[path.len() - 1..path.len()], obj)
+                let sub_path = &project_path[1..project_path.len()];
+                return f.get_contents(sub_path, mgr)
+            }
+        };        
+
+    }
+    
+    fn load_children(&self, mgr: &ProjectFileSystemManager) {
+        if self._child_records.len() == 0 || self._children.borrow().len() > 0 {
+            return
+        }
+
+        for child in &self._child_records {
+            match child {
+                FileSystemObject::File(f) => {
+                    let file_obj = FileTreeFile {
+                        cfg: f.clone()
+                    };
+                    self._children.borrow_mut().push(FileTreeObject::File(file_obj));
+                }
+                FileSystemObject::Folder(f) => {
+                    let folder_obj = FileTreeFolder::new_from_record(f.clone(), mgr);
+                    self._children.borrow_mut().push(FileTreeObject::Folder(folder_obj));
+                }
             }
         }
+
+
+
     }
-    pub(crate) fn remove(&mut self, path: &[&str], recursive: bool) -> Result<FileTreeObject> {
+    
+    pub(crate) fn get_children(&self, mgr: &ProjectFileSystemManager) -> Vec<FileSystemObject> {
+        self.load_children(mgr);
+        let mut children = Vec::new();
+        for child in self._children.borrow().iter() {
+            children.push(child.get_config());
+        }
+        children
+    }
+
+    pub(crate) fn get_child_names(&self, mgr: &ProjectFileSystemManager) -> Vec<String> {
+        self.load_children(mgr);
+        let mut names = Vec::new();
+        for child in self._children.borrow().iter() {
+            names.push(child.get_name().to_string());
+        }
+        names
+    }
+
+    pub(crate) fn query(&self, query_path: &[&str], mgr: &ProjectFileSystemManager) -> Result<FileTreeObject> {
+        self.load_children(mgr);
+        let child_index = self._children.borrow().iter().position(|x| x.get_name() == query_path[0]);
+        if child_index.is_none() {
+            return Err(ProjectError {msg: "Path not found".to_string()})
+        }
+        let child_index = child_index.unwrap().clone();
+        let children = self._children.borrow();
+        let c = children.get(child_index).unwrap();
+        if query_path.len() == 1 {
+            // We're at the end of the query path and we have a match
+            return Ok(c.clone())
+        }
+        match c {
+            FileTreeObject::File(_f) => {
+                // We're not at the end of the query path, but we've found
+                // a file
+                return Err(ProjectError { msg: "Path not found".to_string()})
+            }
+            FileTreeObject::Folder(ref f) => {
+                // We're not at the end of the query path, but we cound a folder
+                let sub_path = &query_path[1..query_path.len()];
+                return f.query(sub_path, mgr)
+            }
+        };
+    }
+
+    pub(crate) fn insert(&mut self, path: &[&str], obj: FileTreeObject, mgr: &ProjectFileSystemManager) -> Result<()> {
+        self.load_children(mgr);
+        let child_names = self.get_child_names(mgr);
+        let child_index = child_names.iter().position(|x| x == path[0]);
+
+        if path.len() == 1 && child_index.is_none() {
+            // Base case, we have the last already-extant folder
+            self._children.borrow_mut().push(obj);
+            return Ok(())
+        }
+        // Recursive case, we need to find the next folder
+        else if path.len() > 1 && child_index.is_some() {
+            let mut children = self._children.borrow_mut();
+            let child = children.get_mut(child_index.unwrap()).unwrap();
+            match child {
+                FileTreeObject::File(_f) => {
+                    return Err(ProjectError {msg: "Path not found".to_string()})
+                }
+                FileTreeObject::Folder(f) => {
+                    return f.insert(&path[1..path.len()], obj, mgr)
+                }
+            }
+        }
+        else {
+            return Err(ProjectError {msg: "Path not found".to_string()})
+        }
+
+    }
+    pub(crate) fn remove(&mut self, path: &[&str], recursive: bool, mgr: &ProjectFileSystemManager) -> Result<FileTreeObject> {
+        let children = self._children.get_mut();
         if path.len() == 1 {
             //check children for path[0]
-            for (i, child) in self.children.iter().enumerate() {
+            for (i, child) in children.iter().enumerate() {
                 if child.get_name() == path[0] {
                     match child {
                         FileTreeObject::File(_f) => {}
                         FileTreeObject::Folder(f) => {
-                            if !recursive && f.children.len() != 0{
+                            if !recursive && !f.is_empty() {
                                 return Err(ProjectError {msg: "Path is a folder which contains items".to_string()})
                             }
                         }
                     }
-
-                    return Ok(self.children.remove(i))
+                    return Ok(children.remove(i))
                 }
             }
             return Err(ProjectError {msg: "Path not found".to_string()})
@@ -404,7 +439,7 @@ impl FileTreeFolder {
         }
 
         else {
-            for child in self.children.iter_mut() {
+            for child in children.iter_mut() {
 
                 if child.get_name() == path[0] {
                     match child {
@@ -412,7 +447,7 @@ impl FileTreeFolder {
                             return Err(ProjectError {msg: format!("Path {} is a file", path[0])})
                         }
                         FileTreeObject::Folder(f) => {
-                            return f.remove(&path[1..path.len()], recursive)
+                            return f.remove(&path[1..path.len()], recursive, mgr)
                         }
                     }
                 }
