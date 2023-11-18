@@ -1,13 +1,10 @@
-use crate::pdb::{ProjectFileSystemManager, FileSystemObject};
-use crate::mdb::{MainDBManager, ProjectDocument};
-use crate::io::{store, remove_if_internal};
-use crate::ftree::{FileTree, FileTreeObject};
-use std::path::PathBuf;
-use std::clone::Clone;
-use std::str::FromStr;
-use std::collections::HashMap;
+use crate::fsystem::{FileSystem, is_empty};
+use crate::locations::{create_project_dir, load_project_dir, load_collection_dir, delete_project_dir};
+use crate::storage::{StorageEndpoint, LocalEndpoint, StorageManager};
 use pyo3::prelude::*;
 use pyo3::create_exception;
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 
 
@@ -16,247 +13,167 @@ create_exception!(project, GodataProjectError, pyo3::exceptions::PyException);
 
 
 #[pyclass]
-pub(crate) struct ProjectManager {
-    db: MainDBManager,
-}
-
-
-
-
-#[pyclass]
 pub struct Project {
-    cfg: ProjectDocument,
-    tree: FileTree,
-}
-
-#[pymethods]
-impl ProjectManager {
-    #[new]
-    pub(crate) fn new() -> ProjectManager {
-        let db = MainDBManager::get();
-        ProjectManager {
-            db: db,
-        }        
-    }
-
-    pub(crate) fn list_collections(&self, show_hidden: bool) -> PyResult<Vec<String>> {
-        let collections = self.db.list_collections(show_hidden);
-        match collections {
-            Some(collections) => {Ok(collections)},
-            None => {Err(GodataProjectError::new_err("No collections found, or collections are hidden"))}
-        }
-    }
-
-    pub(crate) fn list_projects(&self, show_hidden: bool, colname: Option<&str>) -> PyResult<Vec<String>> {
-        let projects = self.db.list_projects(show_hidden, colname);
-        match projects {
-            Ok(projects) => {Ok(projects)},
-            Err(e) => {Err(GodataProjectError::new_err(e.msg))}
-        }
-    }
-
-    pub(crate) fn load_project(&self, name: &str, colname: Option<&str>) -> PyResult<Project> {
-        let pconfig = self.db.get_project(name, colname);
-        match pconfig {
-            Ok(config) => {
-                let fs = ProjectFileSystemManager::open(config.clone());
-                let tree = FileTree::new_from_db(fs);
-                Ok(Project {
-                    cfg: config,
-                    tree: tree
-                })
-            }
-            Err(e) => Err(GodataProjectError::new_err(e.msg))
-        }
-
-    }
-
-    pub(crate) fn create_project(&mut self, name: &str, colname: Option<&str>) -> PyResult<Project> {
-        let pconfig = self.db.create_project(name, colname);
-        match pconfig {
-            Ok(config) => {
-                let fs = ProjectFileSystemManager::open(config.clone());
-                let tree = FileTree::new_from_db(fs);
-                Ok(Project {
-                    cfg: config,
-                    tree: tree
-                })
-            }
-            Err(e) => Err(GodataProjectError::new_err(e.msg))
-
-        }
-    }
-    pub(crate) fn remove_project(&mut self, name: &str, colname: Option<&str>) -> PyResult<()> {
-        let project = self.load_project(name, colname);
-        // Make sure the project exists
-        let project_ = match project {
-            Ok(p_) => {
-                p_
-            }
-            Err(_e) => {
-                return Err(GodataProjectError::new_err(format!("Project {} does not exist", name)))
-            }
-        };
-        let root = project_.cfg.root; // Clean folder tree
-        remove_if_internal(&root);
-        let _ = match self.db.remove_project(name, colname) {
-            Err(e) => Err(GodataProjectError::new_err(e.msg)),
-            Ok(_) => Ok(())            
-        };
-
-        Ok(())
-        // Check for data stored internally
-
-    }
+    pub(crate) tree: FileSystem,
+    name: String,
+    collection: String,
+    _endpoint: Box<dyn StorageEndpoint + Send>,
 }
 
 #[pymethods]
 impl Project {
-    /// Remove a file from the project. This will not delete the file
-    /// unless the file has been stored in godata's internal storage.
-    pub fn remove(&mut self, project_path: &str, recurisive: Option<bool>) -> PyResult<()> {
-        
-        let result = self.tree.remove(project_path, recurisive.unwrap_or(false));
-        match result {
-            Ok(fso) => {
-                let path = fso.get_location();
-                remove_if_internal(&path);
-                Ok(())
-            }
-            Err(e) => Err(GodataProjectError::new_err(e.msg))
-        }
-
-    }
-    /// Get a file from the project.
-    pub fn get(&mut self, project_path: &str) -> PyResult<String> {
-        let result = self.tree.query(project_path);
-        match result {
-            Ok(item) => {
-                let path = item.get_path();
-                match item {
-                    FileTreeObject::File(_) => {
-                        let path_str = &path.to_str().unwrap();
-                        Ok(path_str.to_string())
-                    }
-                    FileTreeObject::Folder(_) => {
-                        Err(GodataProjectError::new_err(format!("`{}` is a folder", project_path)))
-                    }
-                }
-            }
-            Err(e) => Err(GodataProjectError::new_err(e.msg))
-        }
+    #[getter]
+    fn get_name(&self) -> PyResult<String> {
+        Ok(self.name.clone())
     }
 
-    /// Store an object in the project.
-    pub fn store(&mut self, object: &PyAny, project_path: &str, output_function: Option<&PyAny>, suffix: Option<&str>) -> PyResult<()> {
-        match (output_function, suffix) {
-            (Some(func), Some(suff)) => {
-                let result = self.tree.store(project_path, true, suff);
-                match result {
-                    Ok(path) => {
-                        let path_str = path.to_str().unwrap();
-                        store(object, func, path_str)?;
-                        Ok(())
-                    }
-                    Err(e) => Err(GodataProjectError::new_err(e.msg))
-                }
-            }
-            _ => {
-                Err(GodataProjectError::new_err("Rust io for internally stored files is not yet implemented"))
-            }
-        }
-    }
-    /// Add a file that already exists to the project. If the folder does not exist, it will
-    /// be created recursively. 
-    pub fn add_file(&mut self, file_path: &str, project_path: &str) -> PyResult<()> {
-        let path = PathBuf::from_str(file_path).unwrap().canonicalize().unwrap();
-        if !path.exists() || !path.is_file() {
-            return Err(GodataProjectError::new_err(format!("No file found at `{file_path}`")))
-        }
-        let result = self.tree.add_file(path, project_path, true);
-        match result {
-            Ok(_) => Ok(()),
-            Err(e) => Err(GodataProjectError::new_err(e.msg))
-        }
+    #[getter]
+    fn get_collection(&self) -> PyResult<String> {
+        Ok(self.collection.clone())
     }
 
-    /// Add a folder to the project recursively. All files will be added to that folder,
-    /// and all subfolders will be added to the project as well.
-    pub fn add_folder(&mut self, file_path: &str, project_path: &str, recurisive: Option<bool>) -> PyResult<()> {
-        let path = PathBuf::from_str(file_path).unwrap().canonicalize().unwrap();
-        if !path.exists() || !path.is_dir() {
-            return Err(GodataProjectError::new_err(format!("No folder found at `{file_path}`")))
-        }
-        let all_children = path.read_dir()?;
-        let mut known_paths: HashMap<String, PathBuf> = HashMap::new();
-        for child_ in all_children {
-            let child_path = child_.unwrap().path();
-
-            if child_path.file_stem().unwrap().to_str().unwrap().starts_with(".") {
-                continue
-            }
-
-            let child_name = child_path.file_stem().unwrap().to_str().unwrap();
-            let ppath = format!("{}/{}", project_path, child_name);
-            let previous_entry = known_paths.insert(child_name.to_string(), child_path.clone());
-            // Use a hash map for speed here
-            match previous_entry {
-                Some(_) => return Err(GodataProjectError::new_err(format!("When bulk adding, all files and folders must have unique names (without extensions). Found \n {} and \n {}", child_path.to_str().unwrap(), known_paths.get(child_name).unwrap().to_str().unwrap()))),
-                None => ()
-            }
-
-            if child_path.is_file() {
-                let result = self.add_file(&child_path.to_str().unwrap(), ppath.as_str());
-                match result {
-                    Ok(_) => (),
-                    Err(e) => {
-                        _ = self.remove(project_path, Some(true));
-                        return Err(e)
-                    }
-                }
-            } else if child_path.is_dir() && recurisive.unwrap_or(false) {
-                let result = self.add_folder(&child_path.to_str().unwrap(), ppath.as_str(), recurisive);
-                match result {
-                    Ok(_) => (),
-                    Err(e) => {
-                        _ = self.remove(project_path, Some(true));
-                        return Err(e)
-                    }
-                }
-            }
-        }
-
+    fn add_file(&mut self, name: String, real_path: String, project_path: String) -> PyResult<()> {
+        self.tree.insert(name, real_path, &project_path)?;
         Ok(())
     }
 
+    fn get_file(&self, project_path: String) -> PyResult<String> {
+        let file = self.tree.get(&project_path)?;
+        Ok(file)
+    }
 
-    pub fn list(&mut self, folder_path: Option<&str>) -> PyResult<HashMap<String, Vec<String>>> {
-        let contents = self.tree.get_contents(folder_path);
-        let mut files: Vec<String> = Vec::new();
-        let mut folders: Vec<String> = Vec::new();
+    fn list(&self, project_path: Option<String>) -> PyResult<HashMap<String, Vec<String>>> {
+        let list = self.tree.list(project_path)?;
+        Ok(list)
+    }
 
-        match contents {
-            Err(e) => return Err(GodataProjectError::new_err(e.msg)),
-            Ok(contents) => {
-                for item in contents {
-                    match item {
-                        FileSystemObject::Folder(_f) => {
-                            folders.push(_f.name.to_string());
-                        }
-                        FileSystemObject::File(_f) => {
-                            files.push(_f.name.to_string());
-                        }
-                    }
-                }
+    fn remove_file(&mut self, project_path: String) -> PyResult<()> {
+        self.tree.remove(&project_path)?;
+        Ok(())
+    }
+
+    fn exists(&self, project_path: String) -> PyResult<bool> {
+        let exists = self.tree.exists(&project_path);
+        Ok(exists)
+    }
+}
+
+#[pyfunction]
+pub fn get_project_manager() -> PyResult<ProjectManager> {
+    let storage_manager = StorageManager::get_manager();
+    Ok(ProjectManager {
+        storage_manager,
+    })
+}
+
+
+#[pyclass]
+pub struct ProjectManager {
+    storage_manager: StorageManager,
+}
+
+#[pymethods]
+impl ProjectManager {
+    #[pyo3(signature = (name, collection, force = false, storage_location = None)) ]
+    pub fn create_project(&self, name: String, collection: String, force: bool, storage_location: Option<String>) -> PyResult<Project> {
+        let project_dir = create_project_dir(&name, &collection, force)?;
+        let tree = FileSystem::new(name.clone(), project_dir)?;
+        let base_path = match storage_location {
+            Some(path) => PathBuf::from(path),
+            None => crate::locations::get_default_project_storage_dir(&name, &collection)?,
+        };
+        self.storage_manager.add(&name, &collection, "local", base_path.clone())?;
+        let endpoint = LocalEndpoint::new(base_path);
+        Ok(Project {
+            tree,
+            name: name, 
+            collection: collection.to_string(),
+            _endpoint: Box::new(endpoint),
+        })
+    }
+
+    pub fn load_project(&self, name: String, collection: String) -> PyResult<Project> {
+
+        let project_dir = load_project_dir(&name, &collection)?;
+        let storage_dir = self.storage_manager.get(&name, &collection)?;
+        let tree = FileSystem::load(name.clone(), project_dir)?;
+        let endpoint = LocalEndpoint::new(storage_dir.1);
+
+        Ok(Project {
+            tree,
+            name: name, 
+            collection: collection.to_string(),
+            _endpoint: Box::new(endpoint),
+        })
+    }
+
+    #[pyo3(signature = (name, collection, force = false)) ]
+    pub fn delete_project(&self, name: String, collection: String, force: bool) -> PyResult<()> {
+        let project_dir = load_project_dir(&name, &collection)?;
+        let storage_dir = self.storage_manager.get(&name, &collection);
+        let project_is_empty = is_empty(&project_dir);
+        let mut storage_is_empty = storage_dir.is_err();
+        if storage_dir.is_ok() {
+            let storage_dir = storage_dir.unwrap();
+            let storage_path = storage_dir.1;
+            let mut files_in_storage = std::fs::read_dir(storage_path)?;
+            storage_is_empty = files_in_storage.next().is_none();
+        }
+
+        if (project_is_empty && storage_is_empty) || force {
+            delete_project_dir(&name, &collection)?;
+            let storage_dir = self.storage_manager.get(&name, &collection);
+            if storage_dir.is_ok() {
+                println!("DELETE STORAGE");
+                _ = self.storage_manager.delete(&name, &collection)?;
+            }
+            return Ok(())
+        } 
+        
+        Err(GodataProjectError::new_err("Project is not empty"))
+    }
+     
+}
+
+
+
+
+
+#[pyfunction]
+pub fn get_project_names(collection: String, show_hidden: bool) -> PyResult<Vec<String>> {
+    let collection_dir = load_collection_dir(&collection);
+    if collection_dir.is_err() {
+        return Err(GodataProjectError::new_err(format!("Collection `{}` does not exist", collection)));
+    }
+    let collection_dir = collection_dir.unwrap();
+
+    let mut names = Vec::new();
+    for entry in std::fs::read_dir(collection_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            if !path.file_name().unwrap().to_str().unwrap().starts_with(".") || show_hidden {
+                let name = path.file_name().unwrap().to_str().unwrap().to_string();
+                names.push(name);
             }
         }
-        let mut output = HashMap::new();
-        output.insert(String::from("files"), files);
-        output.insert(String::from("folders"), folders);
-        Ok(output)
     }
+    Ok(names)
+}
 
-    pub fn has_path(&mut self, project_path: &str) -> bool {
-        self.tree.exists(project_path)    
+#[pyfunction]
+pub fn get_collection_names(show_hidden: bool) -> PyResult<Vec<String>> {
+    let main_dir = crate::locations::get_main_dir();
+    let mut names = Vec::new();
+    for entry in std::fs::read_dir(main_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            if !path.file_name().unwrap().to_str().unwrap().starts_with(".") || show_hidden {
+                let name = path.file_name().unwrap().to_str().unwrap().to_string();
+                names.push(name);
+            }
+        }
     }
+    Ok(names)
 }

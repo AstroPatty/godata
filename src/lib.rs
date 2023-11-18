@@ -1,10 +1,7 @@
-mod pdb;
 mod project;
-mod mdb;
-mod ftree;
-mod io;
-mod db;
-mod api;
+mod fsystem;
+mod storage;
+mod locations;
 use pyo3::prelude::*;
 use pyo3::wrap_pymodule;
 
@@ -19,8 +16,10 @@ fn godata_lib(_py: Python, m: &PyModule) -> PyResult<()> {
 #[pyo3(name = "project")]
 fn _project(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<project::Project>()?;
-    m.add_class::<project::ProjectManager>()?;
     m.add("GodataProjectError", _py.get_type::<project::GodataProjectError>())?;
+    m.add_function(wrap_pyfunction!(project::get_project_names, m)?)?;
+    m.add_function(wrap_pyfunction!(project::get_collection_names, m)?)?;
+    m.add_function(wrap_pyfunction!(project::get_project_manager, m)?)?;
     Ok(())
 }
 
