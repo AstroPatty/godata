@@ -123,6 +123,7 @@ impl FileSystem {
     }
 
     pub(crate) fn list(&self, virtual_path: Option<String>) -> Result<HashMap<String, Vec<String>>> {
+        
         let folder = match virtual_path {
             Some(p) => self.root.get_folder(&p)?,
             None => &self.root
@@ -149,6 +150,18 @@ impl FileSystem {
     pub(crate) fn insert(&mut self, name: String, real_path: String, virtual_path: &str) -> Result<()> {
         let file = File::new(real_path, name);
         self.root.insert(FSObject::File(file), virtual_path)?;
+        Ok(())
+    }
+
+    pub(crate) fn insert_many<I>(&mut self, files: I, virtual_path: &str) -> Result<()>
+    where I: Iterator<Item = PathBuf>
+    {
+        let file_objects = files.map(|x| {
+            let name = x.file_name().unwrap().to_str().unwrap().to_string();
+            let real_path = x.to_str().unwrap().to_string();
+            File::new(real_path, name)
+        });
+        self.root.insert_many(file_objects, virtual_path)?;
         Ok(())
     }
 
@@ -219,6 +232,55 @@ impl Folder {
                 FSObject::Folder(f) => f.to_tree(db)
             }
         }
+    }
+
+    fn insert_many<I>(&mut self, files: I, virtual_path: &str) -> Result<()> 
+    where I: Iterator<Item = File>
+    {   
+        let path_parts = virtual_path.split("/");
+        self._insert_many(files, path_parts)
+    }
+
+    fn _insert_many<I>(&mut self, files: I, mut path_parts: std::str::Split<&str>) -> Result<()> 
+    where I: Iterator<Item = File>
+    {   
+        let path_part = path_parts.next();
+        let child = match path_part { 
+            None => { //We're at the end, try to insert it here
+                return self._insert_all(files)
+            },
+            Some(part) => {
+               self.children.get_mut(part) 
+            }
+        };
+        match child {
+            Some(item) => {
+                match item {
+                    FSObject::File(_) => return Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "Path is a file")), // We have a file with this name, and nothing is left in the path
+                    FSObject::Folder(f) => return f._insert_many(files, path_parts) // We have a folder with this name, and we need to check the rest of the path
+                }
+            },
+            None => {
+                let mut folder = Folder::new(path_part.unwrap().to_string());
+                folder._insert_many(files, path_parts)?;
+                self.children.insert(folder.name.clone(), FSObject::Folder(folder));
+                self._modified = true;
+                Ok(())
+            }
+
+
+        }
+
+    }
+
+    fn _insert_all<I>(&mut self, files: I) -> Result<()> 
+    where I: Iterator<Item = File>
+    {   
+        for file in files {
+            self.children.insert(file.name.clone(), FSObject::File(file));
+        }
+        self._modified = true;
+        Ok(())
     }
 
     
@@ -336,7 +398,7 @@ impl Folder {
 
         let path_part = path_parts.next();
         let child = match path_part { 
-            None => return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Folder not found")),
+            None => return Ok(self),
             Some(part) => {
                 self.children.get(part)
             }
@@ -348,11 +410,7 @@ impl Folder {
                 match f {
                     FSObject::File(_) => return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Folder not found")), // We have a file with this name, and nothing is left in the path
                     FSObject::Folder(f) => {
-                        if path_parts.next() == None {
-                            return Ok(f)
-                        } else {
-                            return f._get_folder(path_parts) // We have a folder with this name, and we need to check the rest of the path
-                        }
+                        return f._get_folder(path_parts) // We have a folder with this name, and we need to check the rest of the path
                     }
                 }
             }

@@ -1,6 +1,6 @@
 use crate::fsystem::{FileSystem, is_empty};
 use crate::locations::{create_project_dir, load_project_dir, load_collection_dir, delete_project_dir};
-use crate::storage::{StorageEndpoint, LocalEndpoint, StorageManager, self};
+use crate::storage::{StorageEndpoint, LocalEndpoint, StorageManager};
 use pyo3::prelude::*;
 use pyo3::create_exception;
 use std::collections::HashMap;
@@ -34,6 +34,36 @@ impl Project {
 
     fn add_file(&mut self, name: String, real_path: String, project_path: String) -> PyResult<()> {
         self.tree.insert(name, real_path, &project_path)?;
+        Ok(())
+    }
+
+    fn add_folder(&mut self, real_path: String, project_path: String, recursive: bool) -> PyResult<()> {
+        let mut folders: Vec<PathBuf> = Vec::new();
+        let files = std::fs::read_dir(&real_path)?
+                                    .filter(|x| x.is_ok())
+                                    .filter_map(|x| {
+                                        let path = x.unwrap().path();
+                                        if path.is_file() {
+                                            Some(path)
+                                        } else {
+                                            if recursive {
+                                                folders.push(path);
+                                            }
+                                            None
+                                        }
+                                    });
+        
+        self.tree.insert_many(files, &project_path)?;
+        if recursive {
+            for folder in folders {
+                let folder_name = folder.file_name().unwrap().to_str().unwrap().to_string();
+                let folder_path = folder.to_str().unwrap().to_string();
+                let folder_project_path = format!("{}/{}", project_path, folder_name);
+                self.add_folder(folder_path, folder_project_path, recursive)?;
+            }
+        }
+
+
         Ok(())
     }
 

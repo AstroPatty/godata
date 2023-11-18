@@ -140,7 +140,7 @@ class GodataProject:
 
         fpath = Path(file_path)
         if not fpath.exists() and not force:
-            raise FileNotFoundError(f"Could not find file {file_path}")
+            raise FileNotFoundError(f"Nothing found at {file_path}")
         fpath = fpath.resolve()
 
         if fpath.is_dir():
