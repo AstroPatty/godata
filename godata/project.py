@@ -90,17 +90,15 @@ class GodataProject:
         except TypeError:
             to_read = object
 
+        # We link first, because it's better to have be tracking a file that doesn't
+        # exist than to have a file that exists but isn't tracked.
+
         if isinstance(to_read, Path):
             try:
-                obj = try_to_read(to_read)
+                obj = try_to_read(to_read)  # This can be very slow... Could be improved
                 writers = get_known_writers()
                 writer_fn, suffix = writers.get(type(obj), (None, None))
-                self._project.store(
-                    object=obj,
-                    project_path=project_path,
-                    output_function=writer_fn,
-                    suffix=suffix,
-                )
+
             except godataIoException:
                 raise godataIoException(
                     "When storing a path, the file at the given"
@@ -109,20 +107,39 @@ class GodataProject:
                     " the `link` method."
                 )
         else:
+            obj = object
             writers = get_known_writers()
             writer_fn, suffix = writers.get(type(object), (None, None))
-            self._project.store(object, project_path, writer_fn, suffix)
-            return True
+            if writer_fn is None:
+                self.remove(project_path)
+                raise godataIoException(
+                    f"No writer found for object of type {type(object)}"
+                )
+
+        if suffix is None:
+            raise godataIoException(
+                f"No writer found for object of type {type(object)}"
+            )
+
+        storage_path = Path(self._project.generate_path(project_path))
+        storage_path = storage_path.with_suffix("." + suffix)
+        storage_path.parent.mkdir(parents=True, exist_ok=True)
+        self.link(storage_path, project_path, force=True)
+        writer_fn(obj, storage_path)
+
+        return True
 
     @sanitize_project_path
-    def link(self, file_path: str, project_path: str, recursive: bool = False) -> bool:
+    def link(
+        self, file_path: str, project_path: str, recursive: bool = False, force=True
+    ) -> bool:
         """
         Add a file to the project. This will not actually move any data, just create
         a reference to the file.
         """
 
         fpath = Path(file_path)
-        if not fpath.exists():
+        if not fpath.exists() and not force:
             raise FileNotFoundError(f"Could not find file {file_path}")
         fpath = fpath.resolve()
 

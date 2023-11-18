@@ -1,6 +1,6 @@
 use crate::fsystem::{FileSystem, is_empty};
 use crate::locations::{create_project_dir, load_project_dir, load_collection_dir, delete_project_dir};
-use crate::storage::{StorageEndpoint, LocalEndpoint, StorageManager};
+use crate::storage::{StorageEndpoint, LocalEndpoint, StorageManager, self};
 use pyo3::prelude::*;
 use pyo3::create_exception;
 use std::collections::HashMap;
@@ -55,6 +55,11 @@ impl Project {
     fn exists(&self, project_path: String) -> PyResult<bool> {
         let exists = self.tree.exists(&project_path);
         Ok(exists)
+    }
+
+    fn generate_path(&self, project_path: String) -> PyResult<String> {
+        let path = self._endpoint.generate_path(&project_path)?;
+        Ok(path.to_str().unwrap().to_owned())
     }
 }
 
@@ -124,8 +129,7 @@ impl ProjectManager {
             delete_project_dir(&name, &collection)?;
             let storage_dir = self.storage_manager.get(&name, &collection);
             if storage_dir.is_ok() {
-                println!("DELETE STORAGE");
-                _ = self.storage_manager.delete(&name, &collection)?;
+                 _ = self.storage_manager.delete(&name, &collection)?;
             }
             return Ok(())
         } 
