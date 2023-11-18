@@ -1,3 +1,4 @@
+import importlib
 import inspect
 import pkgutil
 from pathlib import Path
@@ -35,7 +36,9 @@ class godataIoException(Exception):
 
 for loader, module_name, is_pkg in pkgutil.walk_packages(__path__):
     try:
-        module = loader.find_module(module_name).load_module(module_name)
+        spec = loader.find_spec(module_name)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
     except ImportError:
         continue
     children = [getattr(module, child) for child in dir(module)]
