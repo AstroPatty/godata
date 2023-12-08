@@ -1,11 +1,9 @@
 use crate::project::{get_project_manager, ProjectManager};
-use crate::connections::Connection;
-use crate::commands::{GodataCommand, ManagementCommand, ProjectCommand};
 use crate::routes;
 
 use std::sync::{Arc, Mutex};
-use std::io::Result;
 use tokio_stream::wrappers::UnixListenerStream;
+use tokio::signal;
 
 
 
@@ -22,9 +20,18 @@ impl Server {
     pub async fn start(&self) {
         let listener = tokio::net::UnixListener::bind("/tmp/godata.sock").unwrap();
         let incoming = UnixListenerStream::new(listener);
-        warp::serve(routes::routes(self.state_manger.project_manager.clone()))
-            .run_incoming(incoming)
-            .await;
+        let server = warp::serve(routes::routes(self.state_manger.project_manager.clone()))
+            .serve_incoming_with_graceful_shutdown(incoming, async {
+                signal::ctrl_c().await.unwrap();
+            });
+        server.await;
+    }
+}
+
+impl Drop for Server {
+    fn drop(&mut self) {
+        println!("Shutting down server...");
+        std::fs::remove_file("/tmp/godata.sock").unwrap();
     }
 }
 
