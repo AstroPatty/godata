@@ -102,7 +102,7 @@ impl FileSystem {
         })
     }
 
-    pub(crate) fn load(name: String, root_dir: PathBuf) -> Result<FileSystem> {
+    pub(crate) fn load(name: &str, root_dir: PathBuf) -> Result<FileSystem> {
 
         let db = sled::open(root_dir)?;
         let root_folder = db.get("root".as_bytes()).unwrap();
@@ -117,7 +117,7 @@ impl FileSystem {
         };
         Ok(FileSystem {
             root,
-            _name: name,
+            _name: name.to_string(),
             db
         })
     }

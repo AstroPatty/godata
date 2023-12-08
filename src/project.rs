@@ -120,19 +120,19 @@ impl ProjectManager {
         return Ok(project);
     }
 
-    pub fn load_project(&mut self, name: String, collection: String) -> Result<Arc<Mutex<Project>>> {
+    pub fn load_project(&mut self, name: &str, collection: &str) -> Result<Arc<Mutex<Project>>> {
         let key = format!("{}/{}", name, collection);
         if self.projects.contains_key(&key) {
             return Ok(self.projects.get(&key).unwrap().clone());
         }
-        let project_dir = load_project_dir(&name, &collection)?;
+        let project_dir = load_project_dir(name, collection)?;
         let storage_dir = self.storage_manager.get(&name, &collection)?;
-        let tree = FileSystem::load(name.clone(), project_dir)?;
+        let tree = FileSystem::load(name, project_dir)?;
         let endpoint = LocalEndpoint::new(storage_dir.1);
 
         let project = Project {
             tree,
-            name: name, 
+            name: name.to_string(), 
             collection: collection.to_string(),
             _endpoint: Box::new(endpoint),
         };

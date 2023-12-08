@@ -13,12 +13,11 @@ version = "0.4.0"
 requires-python = ">=3.10"
 dependencies = [
     "loguru>=0.7.0",
+    "aiohttp>=3.9.1"
 ]
-
-
 [project.optional-dependencies]
 develop = [
-    "black>=23.7.0",cd 
+    "black>=23.7.0",
     "isort>=5.12.0",
     "ruff>=0.0.285",
     "pre-commit>=3.3.3"

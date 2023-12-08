@@ -6,7 +6,6 @@ mod locations;
 mod server;
 mod commands;
 mod connections;
-mod operations;
 mod routes;
 mod handlers;
 
