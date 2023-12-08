@@ -8,21 +8,19 @@ use tokio::signal;
 
 
 pub struct Server {
-    state_manger: ServerState
-}
-
-struct ServerState {
     project_manager: Arc<Mutex<ProjectManager>>
 }
+
+
 
 
 impl Server {
     pub async fn start(&self) {
         let listener = tokio::net::UnixListener::bind("/tmp/godata.sock").unwrap();
         let incoming = UnixListenerStream::new(listener);
-        let server = warp::serve(routes::routes(self.state_manger.project_manager.clone()))
+        let server = warp::serve(routes::routes(self.project_manager.clone()))
             .serve_incoming_with_graceful_shutdown(incoming, async {
-                signal::ctrl_c().await.unwrap();
+                signal::ctrl_c().await.unwrap()
             });
         server.await;
     }
@@ -37,9 +35,7 @@ impl Drop for Server {
 
 pub fn get_server() -> Server {
     let server = Server {
-        state_manger: ServerState {
-            project_manager: Arc::new(Mutex::new(get_project_manager()))
-        }
+        project_manager: Arc::new(Mutex::new(get_project_manager()))
     };
     server
 }
