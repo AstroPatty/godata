@@ -4,8 +4,6 @@ mod fsystem;
 mod storage;
 mod locations;
 mod server;
-mod commands;
-mod connections;
 mod routes;
 mod handlers;
 

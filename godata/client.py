@@ -2,6 +2,8 @@ from urllib import parse
 
 import aiohttp
 
+from godata.utils import sanitize_project_path
+
 """
 The client connects to the godata server and communicates with it on behalf of the 
 project. On Mac and Linux, this communication is done via a unix socket with a 
@@ -33,10 +35,11 @@ async def parse_response(resp):
         raise NotFound(f"{await resp.text()}")
 
 
-async def list_collections():
+async def list_collections(show_hidden=False):
     session = await get_client()
     async with session as client:
-        async with client.get(f"{SERVER_URL}/collections") as resp:
+        payload = parse.urlencode({"show_hidden": show_hidden}).lower()
+        async with client.get(f"{SERVER_URL}/collections?{payload}") as resp:
             return await parse_response(resp)
 
 
@@ -52,6 +55,89 @@ async def list_projects(collection_name: str, show_hidden: bool = False):
             return await parse_response(resp)
 
 
+async def create_project(
+    collection_name: str,
+    project_name: str,
+    force: bool = False,
+    storage_location: str = None,
+):
+    session = await get_client()
+    async with session as client:
+        args = {"force": force}
+        if storage_location:
+            args["storage_path"] = storage_location
+        payload = parse.urlencode(args).lower()
+        async with client.post(
+            f"{SERVER_URL}/create/{collection_name}/{project_name}?{payload}"
+        ) as resp:
+            return await parse_response(resp)
+
+
+async def delete_project(collection_name: str, project_name: str, force: bool = False):
+    session = await get_client()
+    async with session as client:
+        payload = parse.urlencode({"force": force}).lower()
+        async with client.delete(
+            f"{SERVER_URL}/projects/{collection_name}/{project_name}?{payload}"
+        ) as resp:
+            return await parse_response(resp)
+
+
+async def path_exists(collection_name: str, project_name: str, project_path: str):
+    session = await get_client()
+    params = {"project_path": project_path}
+    # encode the payload as a query string
+    payload = parse.urlencode(params)
+    async with session as client:
+        async with client.get(
+            f"{SERVER_URL}/projects/{collection_name}/{project_name}/exists?{payload}"
+        ) as resp:
+            return await parse_response(resp)
+
+
+@sanitize_project_path
+async def link_file(
+    collection_name: str,
+    project_name: str,
+    project_path: str,
+    file_path: str,
+    force: bool = False,
+):
+    session = await get_client()
+    params = {
+        "project_path": project_path,
+        "real_path": file_path,
+        "force": str(force).lower(),
+    }
+    # encode the payload as a query string
+    payload = parse.urlencode(params)
+    async with session as client:
+        async with client.post(
+            f"{SERVER_URL}/projects/{collection_name}/{project_name}/files?{payload}"
+        ) as resp:
+            return await parse_response(resp)
+
+
+@sanitize_project_path
+async def link_folder(
+    collection_name: str, project_name: str, project_path: str, folder_path: str
+):
+    session = await get_client()
+    params = {
+        "project_path": project_path,
+        "folder_path": folder_path,
+        "type": "folder",
+    }
+    # encode the payload as a query string
+    payload = parse.urlencode(params)
+    async with session as client:
+        async with client.post(
+            f"{SERVER_URL}/projects/{collection_name}/{project_name}/files?{payload}"
+        ) as resp:
+            return await parse_response(resp)
+
+
+@sanitize_project_path
 async def list_project_contents(
     collection_name: str,
     project_name: str,
@@ -67,6 +153,46 @@ async def list_project_contents(
     payload = parse.urlencode(params).lower()
     async with session as client:
         async with client.get(
-            f"{SERVER_URL}/projects/{collection_name}/{project_name}?{payload}"
+            f"{SERVER_URL}/projects/{collection_name}/{project_name}/list?{payload}"
+        ) as resp:
+            return await parse_response(resp)
+
+
+async def get_file(collection_name: str, project_name: str, project_path: str):
+    session = await get_client()
+    params = {"project_path": project_path}
+    # encode the payload as a query string
+    payload = parse.urlencode(params)
+    async with session as client:
+        async with client.get(
+            f"{SERVER_URL}/projects/{collection_name}/{project_name}/get?{payload}"
+        ) as resp:
+            if resp.status == 200:
+                result = await resp.read()
+                return result.decode()
+            else:
+                raise NotFound(f"{await resp.text()}")
+
+
+async def generate_path(collection_name: str, project_name: str, project_path: str):
+    session = await get_client()
+    params = {"project_path": project_path}
+    # encode the payload as a query string
+    payload = parse.urlencode(params)
+    async with session as client:
+        async with client.get(
+            f"{SERVER_URL}/projects/{collection_name}/{project_name}/generate?{payload}"
+        ) as resp:
+            return await parse_response(resp)
+
+
+async def remove_file(collection_name: str, project_name: str, project_path: str):
+    session = await get_client()
+    params = {"project_path": project_path}
+    # encode the payload as a query string
+    payload = parse.urlencode(params)
+    async with session as client:
+        async with client.delete(
+            f"{SERVER_URL}/projects/{collection_name}/{project_name}/files?{payload}"
         ) as resp:
             return await parse_response(resp)

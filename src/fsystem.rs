@@ -147,9 +147,16 @@ impl FileSystem {
         Ok(file.real_path.clone())
     }
 
-    pub(crate) fn insert(&mut self, name: String, real_path: String, virtual_path: &str) -> Result<()> {
-        let file = File::new(real_path, name);
-        self.root.insert(FSObject::File(file), virtual_path)?;
+    pub(crate) fn insert(&mut self, project_path: &str, real_path: &str, overwrite: bool) -> Result<()> {
+        let name = project_path.split("/").last().unwrap().to_string();
+        if name == project_path {
+            let file = File::new(real_path.to_string(), name);
+            self.root.insert(FSObject::File(file), "", overwrite)?;
+            return Ok(())
+        }
+        let ppath = project_path.strip_suffix(format!("/{}", name).as_str()).unwrap();
+        let file = File::new(real_path.to_string(), name);
+        self.root.insert(FSObject::File(file), ppath, overwrite)?;
         Ok(())
     }
 
@@ -418,18 +425,18 @@ impl Folder {
     }
 
 
-    fn insert(&mut self, fs_object: FSObject, virtual_path: &str) -> Result<()> {
+    fn insert(&mut self, fs_object: FSObject, virtual_path: &str, overwrite: bool) -> Result<()> {
         // Insert a file or folder into the folder.
         // If path is this folder's name, insert it here
         // If path is a subfolder, insert it into the subfolder
 
         // split up the path
         let path_parts = virtual_path.split("/");
-        self._insert(fs_object, path_parts)?;
+        self._insert(fs_object, path_parts, overwrite)?;
         Ok(())
     }
 
-    fn _insert(&mut self, fs_object: FSObject, mut path_parts: std::str::Split<&str>) -> Result<()> {
+    fn _insert(&mut self, fs_object: FSObject, mut path_parts: std::str::Split<&str>, overwrite: bool) -> Result<()> {
         // Insert a file or folder into the folder.
         // If path is this folder's name, insert it here
         // If path is a subfolder, insert it into the subfolder
@@ -438,7 +445,7 @@ impl Folder {
         let path_part = path_parts.next();
         let child = match path_part { 
             None => { //We're at the end, try to insert it here
-                if self.children.contains_key(fs_object.get_name()) {
+                if self.children.contains_key(fs_object.get_name()) && !overwrite {
                     return Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "File already exists"))
                 } else {
                     self.children.insert(fs_object.get_name().to_string(), fs_object);
@@ -454,7 +461,7 @@ impl Folder {
         match child {
             None => { // child doesn't exist, create it
                 let mut folder = Folder::new(path_part.unwrap().to_string());
-                folder._insert(fs_object, path_parts).unwrap();
+                folder._insert(fs_object, path_parts, overwrite).unwrap();
                 self.children.insert(folder.name.clone(), FSObject::Folder(folder));
                 self._modified = true;
                 return Ok(())
@@ -462,7 +469,7 @@ impl Folder {
             Some(f) => {
                 match f {
                     FSObject::File(_) => return Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "Invalid path")), // We have a file with this name, and nothing is left in the path
-                    FSObject::Folder(f) => return f._insert(fs_object, path_parts) // We have a folder with this name, and we need to check the rest of the path
+                    FSObject::Folder(f) => return f._insert(fs_object, path_parts, overwrite) // We have a folder with this name, and we need to check the rest of the path
                 }
             }
         }
