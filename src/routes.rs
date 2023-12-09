@@ -9,14 +9,35 @@ use warp::http::StatusCode;
 pub(crate) fn routes(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     list_collections()
         .or(list_projects(project_manager.clone()))
-        .or(projects_list(project_manager.clone()))
+        .or(project_list(project_manager.clone()))
         .or(create_project(project_manager.clone()))
         .or(delete_project(project_manager.clone()))
         .or(project_path_exists(project_manager.clone()))
-        .or(projects_link(project_manager.clone()))
+        .or(project_link(project_manager.clone()))
         .or(projects_get(project_manager.clone()))
         .or(project_generate_path(project_manager.clone()))
-        .or(remove_file(project_manager.clone()))
+        .or(project_remove_file(project_manager.clone()))
+}
+
+fn list_collections() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path!("collections")
+        .and(warp::get())
+        .and(warp::query::<HashMap<String, bool>>())
+        .map(move |p: HashMap<String, bool>| match p.get("show_hidden") {
+            Some(show_hidden) => handlers::list_collections(*show_hidden),
+            None => handlers::list_collections(false)
+        })
+}
+
+fn list_projects(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path!("projects" / String)
+        .and(warp::get())
+        .and(warp::query::<HashMap<String, bool>>())
+        .map(move |collection, p: HashMap<String, bool>| match p.get("show_hidden") {
+            Some(show_hidden) => handlers::list_projects(project_manager.clone(), collection, *show_hidden),
+            None => handlers::list_projects(project_manager.clone(), collection, false)
+        })
+        
 }
 
 fn create_project(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
@@ -51,29 +72,7 @@ fn delete_project(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Ex
         })
 }
 
-
-fn list_collections() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    warp::path!("collections")
-        .and(warp::get())
-        .and(warp::query::<HashMap<String, bool>>())
-        .map(move |p: HashMap<String, bool>| match p.get("show_hidden") {
-            Some(show_hidden) => handlers::list_collections(*show_hidden),
-            None => handlers::list_collections(false)
-        })
-    }
-
-fn list_projects(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    warp::path!("projects" / String)
-        .and(warp::get())
-        .and(warp::query::<HashMap<String, bool>>())
-        .map(move |collection, p: HashMap<String, bool>| match p.get("show_hidden") {
-            Some(show_hidden) => handlers::list_projects(project_manager.clone(), collection, *show_hidden),
-            None => handlers::list_projects(project_manager.clone(), collection, false)
-        })
-        
-}
-
-fn projects_link(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+fn project_link(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     warp::path!("projects" / String / String / "files")
         .and(warp::post())
         .and(warp::query::<HashMap<String, String>>())
@@ -106,7 +105,7 @@ fn projects_link(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Ext
         })
 }
 
-fn projects_list(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+fn project_list(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     warp::path!("projects" / String / String / "list")
         .and(warp::get())
         .and(warp::query::<HashMap<String, String>>())
@@ -162,7 +161,7 @@ fn project_generate_path(project_manager: Arc<Mutex<ProjectManager>>) -> impl Fi
 
     }
     
-fn remove_file(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+fn project_remove_file(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     warp::path!("projects" / String / String / "files")
         .and(warp::delete())
         .and(warp::query::<HashMap<String, String>>())
