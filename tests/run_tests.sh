@@ -1,4 +1,4 @@
 #!/bin/bash
 godata_server &
-poetry run python tests/test_projects.py
+poetry run pytest
 pkill godata_server

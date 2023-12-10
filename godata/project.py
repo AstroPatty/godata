@@ -243,11 +243,12 @@ def create_project(name, collection="default", storage_location=None) -> GodataP
     """
 
     # Note, the manager will throw an error if the project already exists
-    _ = asyncio.run(
+    response = asyncio.run(
         client.create_project(
             collection, name, force=True, storage_location=storage_location
         )
     )
+    print(response)
     return GodataProject(collection, name)
 
 

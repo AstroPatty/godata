@@ -11,16 +11,18 @@ ENV PATH="~/.local/bin:${PATH}"
 
 # copy the server binary into the container
 COPY --from=0 /app/target/release/godata_server /bin
+#install poetry
+RUN curl -sSL https://install.python-poetry.org | python3 -
 
 # copy the python code into the container
-COPY godata /app/godata
 COPY pyproject.toml /app/pyproject.toml
 COPY poetry.lock /app/poetry.lock
 COPY README.md /app/README.md
+COPY godata /app/godata
 
-#install poetry and dependencies
-RUN curl -sSL https://install.python-poetry.org | python3 -
+
 WORKDIR /app
+#install dependencies
 RUN ~/.local/bin/poetry install
 
 COPY ./tests /app/tests

@@ -70,7 +70,11 @@ async def create_project(
         async with client.post(
             f"{SERVER_URL}/create/{collection_name}/{project_name}?{payload}"
         ) as resp:
-            return await parse_response(resp)
+            if resp.status == 201:
+                return await resp.text()
+            else:
+                print(resp.status)
+                raise NotFound(f"{await resp.text()}")
 
 
 async def delete_project(collection_name: str, project_name: str, force: bool = False):
