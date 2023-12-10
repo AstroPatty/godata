@@ -23,6 +23,10 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 WORKDIR /app
 RUN ~/.local/bin/poetry install
 
+COPY ./tests /app/tests
+RUN mv /app/tests/run_tests.sh /app/run_tests.sh
+RUN chmod +x run_tests.sh
+CMD ["./run_tests.sh"]
 
 
 
