@@ -115,8 +115,8 @@ pub(crate) fn link_folder(project_manager: Arc<Mutex<ProjectManager>>, collectio
                 format!("Folder {folder_path} linked to {project_path} in project {project_name} in collection {collection}"),
                 StatusCode::CREATED)),
  
-            Err(_) => return Ok(warp::reply::with_status(
-                format!("Folder {folder_path} does not exist!"),
+            Err(e) => return Ok(warp::reply::with_status(
+                e.to_string(),
                 StatusCode::NOT_FOUND)),
         }
     }

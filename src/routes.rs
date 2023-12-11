@@ -53,8 +53,6 @@ fn create_project(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Ex
                 Some(storage_location) => Some(storage_location.to_owned()),
                 None => None
             };
-            println!("{:?}", collection);
-            println!("{:?}", project_name);
             handlers::create_project(project_manager.clone(), collection, project_name, force, storage_location)
         })
 }

@@ -121,12 +121,12 @@ class GodataProject:
             )
 
         storage_path = asyncio.run(
-            client.get_file(self.collection, self.name, project_path)
+            client.generate_path(self.collection, self.name, project_path)
         )
         storage_path = Path(storage_path)
         storage_path = storage_path.with_suffix("." + suffix)
         storage_path.parent.mkdir(parents=True, exist_ok=True)
-        self.link(storage_path, project_path, overwrite=overwrite)
+        self.link(storage_path, project_path, overwrite=overwrite, force=True)
         writer_fn(obj, storage_path)
 
         return True
@@ -138,6 +138,7 @@ class GodataProject:
         project_path: str,
         recursive: bool = False,
         overwrite=False,
+        force=False,
     ) -> bool:
         """
         Add a file to the project. This will not actually move any data, just create
@@ -145,14 +146,14 @@ class GodataProject:
         """
 
         fpath = Path(file_path)
-        if not fpath.exists():
+        if not fpath.exists() and not force:
             raise FileNotFoundError(f"Nothing found at {file_path}")
         fpath = fpath.resolve()
 
         if fpath.is_dir():
             asyncio.run(
                 client.link_folder(
-                    self.colleciton, self.name, project_path, str(fpath), recursive
+                    self.collection, self.name, project_path, str(fpath), recursive
                 )
             )
         else:
@@ -234,7 +235,9 @@ def has_collection(name: str) -> bool:
     return name in collections and n_projects > 0
 
 
-def create_project(name, collection="default", storage_location=None) -> GodataProject:
+def create_project(
+    name: str, collection: str = "default", storage_location: str = None
+) -> GodataProject:
     """
     Create a new project in the given collection. If no collection is given, this
     will create a project in the default collection. If the collection does not
@@ -243,11 +246,16 @@ def create_project(name, collection="default", storage_location=None) -> GodataP
     """
 
     # Note, the manager will throw an error if the project already exists
-    response = asyncio.run(
-        client.create_project(
-            collection, name, force=True, storage_location=storage_location
+    try:
+        response = asyncio.run(
+            client.create_project(
+                collection, name, force=True, storage_location=storage_location
+            )
         )
-    )
+    except client.AlreadyExists:
+        raise GodataProjectError(
+            f"Project {name} already exists in collection {collection}"
+        )
     print(response)
     return GodataProject(collection, name)
 

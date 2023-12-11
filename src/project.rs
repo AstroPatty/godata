@@ -29,7 +29,7 @@ impl Project {
         Ok(())
     }
 
-    pub(crate) fn add_folder(&mut self, real_path: &str, project_path: &str, recursive: bool) -> Result<()> {
+    pub(crate) fn add_folder(&mut self, project_path: &str, real_path: &str,  recursive: bool) -> Result<()> {
         let mut folders: Vec<PathBuf> = Vec::new();
         let files = std::fs::read_dir(&real_path)?
                                     .filter(|x| x.is_ok())

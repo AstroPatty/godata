@@ -20,6 +20,10 @@ class NotFound(Exception):
     pass
 
 
+class AlreadyExists(Exception):
+    pass
+
+
 async def get_client():
     connection = aiohttp.UnixConnector(path=SERVER_PATH)
     session = aiohttp.ClientSession(connector=connection)
@@ -73,8 +77,7 @@ async def create_project(
             if resp.status == 201:
                 return await resp.text()
             else:
-                print(resp.status)
-                raise NotFound(f"{await resp.text()}")
+                raise AlreadyExists(f"{await resp.text()}")
 
 
 async def delete_project(collection_name: str, project_name: str, force: bool = False):
@@ -119,18 +122,25 @@ async def link_file(
         async with client.post(
             f"{SERVER_URL}/projects/{collection_name}/{project_name}/files?{payload}"
         ) as resp:
-            return await parse_response(resp)
+            if resp.status == 201:
+                return await resp.text()
+            else:
+                raise AlreadyExists(f"{await resp.text()}")
 
 
-@sanitize_project_path
 async def link_folder(
-    collection_name: str, project_name: str, project_path: str, folder_path: str
+    collection_name: str,
+    project_name: str,
+    project_path: str,
+    folder_path: str,
+    recursive: bool = False,
 ):
     session = await get_client()
     params = {
         "project_path": project_path,
-        "folder_path": folder_path,
+        "real_path": folder_path,
         "type": "folder",
+        "recursive": str(recursive).lower(),
     }
     # encode the payload as a query string
     payload = parse.urlencode(params)
@@ -138,7 +148,10 @@ async def link_folder(
         async with client.post(
             f"{SERVER_URL}/projects/{collection_name}/{project_name}/files?{payload}"
         ) as resp:
-            return await parse_response(resp)
+            if resp.status == 201:
+                return await resp.text()
+            else:
+                raise AlreadyExists(f"{await resp.text()}")
 
 
 @sanitize_project_path
@@ -169,7 +182,7 @@ async def get_file(collection_name: str, project_name: str, project_path: str):
     payload = parse.urlencode(params)
     async with session as client:
         async with client.get(
-            f"{SERVER_URL}/projects/{collection_name}/{project_name}/get?{payload}"
+            f"{SERVER_URL}/projects/{collection_name}/{project_name}/files?{payload}"
         ) as resp:
             if resp.status == 200:
                 result = await resp.read()
@@ -187,7 +200,10 @@ async def generate_path(collection_name: str, project_name: str, project_path: s
         async with client.get(
             f"{SERVER_URL}/projects/{collection_name}/{project_name}/generate?{payload}"
         ) as resp:
-            return await parse_response(resp)
+            if resp.status == 200:
+                return await resp.text()
+            else:
+                raise NotFound(f"{await resp.text()}")
 
 
 async def remove_file(collection_name: str, project_name: str, project_path: str):
