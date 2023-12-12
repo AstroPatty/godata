@@ -149,7 +149,7 @@ async def link_folder(
             f"{SERVER_URL}/projects/{collection_name}/{project_name}/files?{payload}"
         ) as resp:
             if resp.status == 201:
-                return await resp.text()
+                return await resp.json()
             else:
                 raise AlreadyExists(f"{await resp.text()}")
 

@@ -119,9 +119,13 @@ pub(crate) fn link_folder(project_manager: Arc<Mutex<ProjectManager>>, collectio
         let project = project.unwrap();
         let result = project.lock().unwrap().add_folder(&project_path, &folder_path, recursive);
         match result {
-            Ok(_) => return Ok(warp::reply::with_status(
-                warp::reply::json(&format!("Folder {folder_path} linked to {project_path} in project {project_name} in collection {collection}")),
-                StatusCode::CREATED)),
+            Ok(_) => {
+                let mut out = HashMap::new();
+                out.insert("message".to_string(), format!("Folder {folder_path} linked to {project_path} in project {project_name} in collection {collection}"));
+                return Ok(warp::reply::with_status(
+                warp::reply::json(&out),
+                StatusCode::CREATED))
+            },
  
             Err(e) => return Ok(warp::reply::with_status(
                 warp::reply::json(&e.to_string()),
