@@ -147,17 +147,30 @@ impl FileSystem {
         Ok(file.real_path.clone())
     }
 
-    pub(crate) fn insert(&mut self, project_path: &str, real_path: &str, overwrite: bool) -> Result<()> {
+    pub(crate) fn insert(&mut self, project_path: &str, real_path: &str, overwrite: bool) -> Result<Option<String>> {
         let name = project_path.split("/").last().unwrap().to_string();
+        let result;
         if name == project_path {
             let file = File::new(real_path.to_string(), name);
-            self.root.insert(FSObject::File(file), "", overwrite)?;
-            return Ok(())
+            result = self.root.insert(FSObject::File(file), "", overwrite).unwrap();
         }
-        let ppath = project_path.strip_suffix(format!("/{}", name).as_str()).unwrap();
-        let file = File::new(real_path.to_string(), name);
-        self.root.insert(FSObject::File(file), ppath, overwrite)?;
-        Ok(())
+        else {
+            let ppath = project_path.strip_suffix(format!("/{}", name).as_str()).unwrap();
+            let file = File::new(real_path.to_string(), name);
+            result = self.root.insert(FSObject::File(file), ppath, overwrite).unwrap();
+        }
+        let path = match result {
+            Some(f) => {
+                match f {
+                    FSObject::File(f) => Some(f.real_path),
+                    FSObject::Folder(_) => {
+                        panic!("Cannot overwrite a folder, but somehow we did!")
+                    }
+                }
+            },
+            None => None
+        };
+        Ok(path)
     }
 
     pub(crate) fn insert_many<I>(&mut self, files: I, virtual_path: &str) -> Result<()>
@@ -425,18 +438,17 @@ impl Folder {
     }
 
 
-    fn insert(&mut self, fs_object: FSObject, virtual_path: &str, overwrite: bool) -> Result<()> {
+    fn insert(&mut self, fs_object: FSObject, virtual_path: &str, overwrite: bool) -> Result<Option<FSObject>> {
         // Insert a file or folder into the folder.
         // If path is this folder's name, insert it here
         // If path is a subfolder, insert it into the subfolder
 
         // split up the path
         let path_parts = virtual_path.split("/");
-        self._insert(fs_object, path_parts, overwrite)?;
-        Ok(())
+        return self._insert(fs_object, path_parts, overwrite)
     }
 
-    fn _insert(&mut self, fs_object: FSObject, mut path_parts: std::str::Split<&str>, overwrite: bool) -> Result<()> {
+    fn _insert(&mut self, fs_object: FSObject, mut path_parts: std::str::Split<&str>, overwrite: bool) -> Result<Option<FSObject>> {
         // Insert a file or folder into the folder.
         // If path is this folder's name, insert it here
         // If path is a subfolder, insert it into the subfolder
@@ -445,12 +457,27 @@ impl Folder {
         let path_part = path_parts.next();
         let child = match path_part { 
             None => { //We're at the end, try to insert it here
-                if self.children.contains_key(fs_object.get_name()) && !overwrite {
-                    return Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "File already exists"))
+                if self.children.contains_key(fs_object.get_name()) {
+                    if ! overwrite {
+                        return Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "Something already exists at that path!"))
+                    }
+                    else {
+                        let previous = self.children.get(fs_object.get_name()).unwrap();
+                        match previous {
+                            FSObject::File(_) => (),
+                            FSObject::Folder(_) => {
+                                return Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "Cannot overwrite a folder!"))
+                            }
+                        }
+                        let previous_ = self.children.remove(fs_object.get_name()).unwrap();
+                        self.children.insert(fs_object.get_name().to_string(), fs_object);
+                        self._modified = true;
+                        return Ok(Some(previous_))
+                    }
                 } else {
                     self.children.insert(fs_object.get_name().to_string(), fs_object);
                     self._modified = true;
-                    return Ok(())
+                    return Ok(None)
                 }
             },
             Some(part) => {
@@ -464,7 +491,7 @@ impl Folder {
                 folder._insert(fs_object, path_parts, overwrite).unwrap();
                 self.children.insert(folder.name.clone(), FSObject::Folder(folder));
                 self._modified = true;
-                return Ok(())
+                return Ok(None)
             },
             Some(f) => {
                 match f {

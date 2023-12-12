@@ -82,6 +82,7 @@ pub(crate) trait StorageEndpoint {
     fn move_file(&self, from: &str, to: &str) -> Result<()>;
     fn copy_file(&self, from: &str, to: &str) -> Result<()>;
     fn delete_file(&self, path: &str) -> Result<()>;
+    fn is_internal(&self, path: &PathBuf) -> bool;
 
 }
 
@@ -104,6 +105,12 @@ impl StorageEndpoint for LocalEndpoint {
         // on the local disk.
         let path = self.root_path.join(project_path);
         Ok(path)
+    }
+
+    fn is_internal(&self, path: &PathBuf) -> bool {
+        // Check if a path is internal to the project. This means that it is a path
+        // that is not a symlink to a file outside the project.
+        path.starts_with(&self.root_path)
     }
 
     fn is_available(&self) -> Result<()> {

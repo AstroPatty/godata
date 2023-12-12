@@ -81,11 +81,11 @@ fn project_link(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extr
             };
             let ppath = match params.get("project_path") {
                 Some(project_path) => project_path.to_owned(),
-                None => return Ok(warp::reply::with_status(format!("Missing project_path argument"), StatusCode::BAD_REQUEST))     // invalid request
+                None => return Ok(warp::reply::with_status(warp::reply::json(&format!("Missing project_path argument")), StatusCode::BAD_REQUEST))     // invalid request
             };
             let rpath = match params.get("real_path") {
                 Some(storage_location) => storage_location.to_owned(),
-                None => return Ok(warp::reply::with_status(format!("Missing real_path argument"), StatusCode::BAD_REQUEST))     // invalid request
+                None => return Ok(warp::reply::with_status(warp::reply::json(&format!("Missing real_path argument")), StatusCode::BAD_REQUEST))     // invalid request
             };
             let type_ = match params.get("type") {
                 Some(type_) => type_.to_owned(),
@@ -98,7 +98,7 @@ fn project_link(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extr
                 return handlers::link_folder(project_manager.clone(), collection, project_name, ppath, rpath, force)
             }
             else {
-                return Ok(warp::reply::with_status(format!("Invalid type argument {}", type_), StatusCode::BAD_REQUEST))     // invalid request
+                return Ok(warp::reply::with_status(warp::reply::json(&format!("Invalid type argument {}", type_)), StatusCode::BAD_REQUEST))     // invalid request
             }
         })
 }

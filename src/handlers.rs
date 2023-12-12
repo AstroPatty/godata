@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::convert::Infallible;
 use warp::http::StatusCode;
 use warp::reply::WithStatus;
+use std::collections::HashMap;
 
 pub(crate) fn list_collections(show_hidden: bool) -> Result<impl warp::Reply, Infallible> {
     let collections = get_collection_names(show_hidden);
@@ -84,44 +85,51 @@ pub(crate) fn delete_project(project_manager: Arc<Mutex<ProjectManager>>, collec
     }
 }
 
-pub(crate) fn link_file(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, project_path: String, file_path: String, force: bool) -> Result<WithStatus<std::string::String>,  Infallible> {
+pub(crate) fn link_file(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, project_path: String, file_path: String, force: bool) -> Result<WithStatus<warp::reply::Json>,  Infallible> {
     let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
     if project.is_ok() {
         let project = project.unwrap();
         let result = project.lock().unwrap().add_file(&project_path, &file_path, force);
         match result {
-            Ok(_) => return Ok(warp::reply::with_status(
-                format!("File {file_path} linked to {project_path} in project {project_name} in collection {collection}"),
-                StatusCode::CREATED)),
- 
-            Err(_) => return Ok(warp::reply::with_status(
-                format!("File {file_path} does not exist!"),
+            Ok(r) => {
+                let pervious_path = r.0;
+                let was_internal = r.1;
+                let mut output: HashMap<String, String> = HashMap::new();
+                output.insert("previous_path".to_string(), pervious_path.unwrap_or("none".to_string()));
+                output.insert("was_internal".to_string(), was_internal.to_string());
+                output.insert("message".to_string(), format!("File {file_path} linked to {project_path} in project {project_name} in collection {collection}"));
+
+                return Ok(warp::reply::with_status(warp::reply::json(&output), StatusCode::CREATED));
+            },   
+            Err(e) => return Ok(warp::reply::with_status(
+                warp::reply::json(&e.to_string()),
                 StatusCode::NOT_FOUND)),
         }
     }
     return Ok(warp::reply::with_status(
-       format!("No project named {project_name} in collection {collection}"),
+       warp::reply::json(&format!("No project named {project_name} in collection {collection}")),
        StatusCode::NOT_FOUND))
 
 }
 
-pub(crate) fn link_folder(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, project_path: String, folder_path: String, recursive: bool) -> Result<WithStatus<std::string::String>,  Infallible> {
+pub(crate) fn link_folder(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, project_path: String, folder_path: String, recursive: bool) -> Result<WithStatus<warp::reply::Json
+>,  Infallible> {
     let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
     if project.is_ok() {
         let project = project.unwrap();
         let result = project.lock().unwrap().add_folder(&project_path, &folder_path, recursive);
         match result {
             Ok(_) => return Ok(warp::reply::with_status(
-                format!("Folder {folder_path} linked to {project_path} in project {project_name} in collection {collection}"),
+                warp::reply::json(&format!("Folder {folder_path} linked to {project_path} in project {project_name} in collection {collection}")),
                 StatusCode::CREATED)),
  
             Err(e) => return Ok(warp::reply::with_status(
-                e.to_string(),
+                warp::reply::json(&e.to_string()),
                 StatusCode::NOT_FOUND)),
         }
     }
     return Ok(warp::reply::with_status(
-       format!("No project named {project_name} in collection {collection}"),
+       warp::reply::json(&format!("No project named {project_name} in collection {collection}")),
        StatusCode::NOT_FOUND))
 
 }

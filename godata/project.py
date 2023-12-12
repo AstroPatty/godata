@@ -126,7 +126,7 @@ class GodataProject:
         storage_path = Path(storage_path)
         storage_path = storage_path.with_suffix("." + suffix)
         storage_path.parent.mkdir(parents=True, exist_ok=True)
-        self.link(storage_path, project_path, overwrite=overwrite, force=True)
+        self.link(storage_path, project_path, overwrite=overwrite, _force=True)
         writer_fn(obj, storage_path)
 
         return True
@@ -138,7 +138,7 @@ class GodataProject:
         project_path: str,
         recursive: bool = False,
         overwrite=False,
-        force=False,
+        _force=False,
     ) -> bool:
         """
         Add a file to the project. This will not actually move any data, just create
@@ -146,22 +146,23 @@ class GodataProject:
         """
 
         fpath = Path(file_path)
-        if not fpath.exists() and not force:
+        if not fpath.exists() and not _force:
             raise FileNotFoundError(f"Nothing found at {file_path}")
         fpath = fpath.resolve()
 
         if fpath.is_dir():
-            asyncio.run(
+            result = asyncio.run(
                 client.link_folder(
                     self.collection, self.name, project_path, str(fpath), recursive
                 )
             )
         else:
-            asyncio.run(
+            result = asyncio.run(
                 client.link_file(
                     self.collection, self.name, project_path, str(fpath), overwrite
                 )
             )
+        print(result["message"])
         return True
 
     def ls(self, project_path: str = None) -> None:

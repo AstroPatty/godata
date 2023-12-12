@@ -23,10 +23,18 @@ impl Project {
         &self.collection
     }
 
-    pub(crate) fn add_file(&mut self, project_path: &str, real_path: &str, overwrite: bool) -> Result<()> {
+    pub(crate) fn add_file(&mut self, project_path: &str, real_path: &str, overwrite: bool) -> Result<(Option<String>, bool)> {
         
-        self.tree.insert(&project_path, &real_path, overwrite)?;
-        Ok(())
+        let previous_entry = self.tree.insert(&project_path, &real_path, overwrite)?;
+        let result = match previous_entry {
+            Some(previous_entry) => {
+                let previous_path = PathBuf::from(&previous_entry);
+                let int = self._endpoint.is_internal(&previous_path);
+                (Some(previous_entry), int)
+            },
+            None => (None, false)
+        };
+        Ok(result)
     }
 
     pub(crate) fn add_folder(&mut self, project_path: &str, real_path: &str,  recursive: bool) -> Result<()> {
@@ -83,6 +91,7 @@ impl Project {
         let path = self._endpoint.generate_path(project_path)?;
         Ok(path.to_str().unwrap().to_owned())
     }
+    
 }
 
 pub fn get_project_manager() -> ProjectManager {
