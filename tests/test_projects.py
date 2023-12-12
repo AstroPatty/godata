@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pytest
 
 from godata import create_project
@@ -39,3 +40,16 @@ def test_store_file():
     p.store(expected_data, "data/test_data")
     items = p.get("data/test_data")
     assert np.all(items == expected_data)
+
+
+def test_overwrite():
+    p = create_project("test6")
+    expected_data = np.ones((10, 10))
+    p.store(expected_data, "data/test_data")
+    stored_path = p.get("data/test_data", as_path=True)
+
+    df_data = pd.read_csv("/home/data/test_df.csv")
+    p.store(df_data, "data/test_data")
+    data = p.get("data/test_data")
+    assert np.all(data.values == df_data.values)
+    assert not stored_path.exists()

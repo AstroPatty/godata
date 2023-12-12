@@ -1,3 +1,4 @@
+import json
 from urllib import parse
 
 import aiohttp
@@ -32,7 +33,7 @@ async def get_client():
 
 async def parse_response(resp):
     if resp.status == 200:
-        return await resp.json()
+        return json.loads(await resp.text())
     else:
         # Raise an exception
         # Get the text of the response
@@ -123,7 +124,7 @@ async def link_file(
             f"{SERVER_URL}/projects/{collection_name}/{project_name}/files?{payload}"
         ) as resp:
             if resp.status == 201:
-                return await resp.json()
+                return json.loads(await resp.text())
             else:
                 raise AlreadyExists(f"{await resp.text()}")
 
@@ -149,7 +150,7 @@ async def link_folder(
             f"{SERVER_URL}/projects/{collection_name}/{project_name}/files?{payload}"
         ) as resp:
             if resp.status == 201:
-                return await resp.json()
+                return json.loads(await resp.text())
             else:
                 raise AlreadyExists(f"{await resp.text()}")
 

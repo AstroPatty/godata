@@ -94,9 +94,16 @@ pub(crate) fn link_file(project_manager: Arc<Mutex<ProjectManager>>, collection:
             Ok(r) => {
                 let pervious_path = r.0;
                 let was_internal = r.1;
-                let mut output: HashMap<String, String> = HashMap::new();
-                output.insert("previous_path".to_string(), pervious_path.unwrap_or("none".to_string()));
-                output.insert("was_internal".to_string(), was_internal.to_string());
+                let mut output: HashMap<String, _> = HashMap::new();
+                output.insert("overwritten".to_string(), 
+                                pervious_path.map_or("none".to_string(), |path| {
+                                    if was_internal{
+                                        path
+                                    }
+                                    else{
+                                        "none".to_string()
+                                    }
+                                }));
                 output.insert("message".to_string(), format!("File {file_path} linked to {project_path} in project {project_name} in collection {collection}"));
 
                 return Ok(warp::reply::with_status(warp::reply::json(&output), StatusCode::CREATED));
@@ -122,6 +129,7 @@ pub(crate) fn link_folder(project_manager: Arc<Mutex<ProjectManager>>, collectio
             Ok(_) => {
                 let mut out = HashMap::new();
                 out.insert("message".to_string(), format!("Folder {folder_path} linked to {project_path} in project {project_name} in collection {collection}"));
+                out.insert("overwritten".to_string(), "none".to_string());
                 return Ok(warp::reply::with_status(
                 warp::reply::json(&out),
                 StatusCode::CREATED))

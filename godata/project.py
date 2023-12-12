@@ -7,6 +7,7 @@ from typing import Any
 from loguru import logger
 
 from godata import client
+from godata.files import utils as file_utils
 from godata.io import get_known_writers, godataIoException, try_to_read
 from godata.utils import sanitize_project_path
 
@@ -163,6 +164,7 @@ class GodataProject:
                 )
             )
         print(result["message"])
+        file_utils.handle_overwrite(result)
         return True
 
     def ls(self, project_path: str = None) -> None:
