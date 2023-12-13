@@ -9,20 +9,12 @@ use std::sync::{Arc, Mutex};
 
 pub struct Project {
     pub(crate) tree: FileSystem,
-    name: String,
-    collection: String,
+    _name: String,
+    _collection: String,
     _endpoint: Box<dyn StorageEndpoint + Send>,
 }
 
 impl Project {
-    fn get_name(&self) -> &str {
-        &self.name
-    }
-
-    fn get_collection(&self) -> &str {
-        &self.collection
-    }
-
     pub(crate) fn add_file(&mut self, project_path: &str, real_path: &str, overwrite: bool) -> Result<(Option<String>, bool)> {
         
         let previous_entry = self.tree.insert(project_path, real_path, overwrite)?;
@@ -121,8 +113,8 @@ impl ProjectManager {
         let endpoint = LocalEndpoint::new(base_path);
         let p = Project {
             tree,
-            name: name.to_string(), 
-            collection: collection.to_string(),
+            _name: name.to_string(), 
+            _collection: collection.to_string(),
             _endpoint: Box::new(endpoint),
         };
         let project = Arc::new(Mutex::new(p));
@@ -142,8 +134,8 @@ impl ProjectManager {
 
         let project = Project {
             tree,
-            name: name.to_string(), 
-            collection: collection.to_string(),
+            _name: name.to_string(), 
+            _collection: collection.to_string(),
             _endpoint: Box::new(endpoint),
         };
         let project = Arc::new(Mutex::new(project));
@@ -173,7 +165,7 @@ impl ProjectManager {
             delete_project_dir(name, collection)?;
             let storage_dir = self.storage_manager.get(name, collection);
             if storage_dir.is_ok() {
-                 self.storage_manager.delete(name, collection)?;;
+                 self.storage_manager.delete(name, collection)?;
             }
             return Ok(())
         } 

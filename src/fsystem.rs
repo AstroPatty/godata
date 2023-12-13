@@ -149,16 +149,15 @@ impl FileSystem {
 
     pub(crate) fn insert(&mut self, project_path: &str, real_path: &str, overwrite: bool) -> Result<Option<String>> {
         let name = project_path.split('/').last().unwrap().to_string();
-        let result;
-        if name == project_path {
+        let result = if name == project_path {
             let file = File::new(real_path.to_string(), name);
-            result = self.root.insert(FSObject::File(file), "", overwrite).unwrap();
+            self.root.insert(FSObject::File(file), "", overwrite).unwrap()
         }
         else {
             let ppath = project_path.strip_suffix(format!("/{}", name).as_str()).unwrap();
             let file = File::new(real_path.to_string(), name);
-            result = self.root.insert(FSObject::File(file), ppath, overwrite).unwrap();
-        }
+            self.root.insert(FSObject::File(file), ppath, overwrite).unwrap()
+        };
         let path = match result {
             Some(f) => {
                 match f {

@@ -1,5 +1,5 @@
 use warp::Filter;
-use crate::{handlers};
+use crate::handlers;
 use crate::project::ProjectManager;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
