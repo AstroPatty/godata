@@ -43,7 +43,7 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: godata-server-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/godata-server
+          path: target/${{ matrix.target }}/release/godata_server
   mac_build_server:
     name: Build server on macOS
     runs-on: macos-latest
