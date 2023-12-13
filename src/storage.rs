@@ -45,7 +45,7 @@ impl StorageManager {
         };
 
         let value = String::from_utf8(value.to_vec()).unwrap();
-        let mut split = value.split(":");
+        let mut split = value.split(':');
         let endpoint = split.next().unwrap();
         let path = split.next().unwrap();
         let path = Path::new(path);
@@ -94,7 +94,7 @@ pub(crate) struct LocalEndpoint {
 impl LocalEndpoint {
     pub(crate) fn new(root_path: PathBuf) -> LocalEndpoint {
         LocalEndpoint {
-            root_path: root_path,
+            root_path,
         }
     }
 }
@@ -124,7 +124,7 @@ impl StorageEndpoint for LocalEndpoint {
         if expected_file_path.exists() {
             return Ok(expected_file_path);
         }
-        return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"));
+        Err(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"))
     }
 
     fn move_file(&self, from: &str, to: &str) -> Result<()> {
@@ -142,7 +142,7 @@ impl StorageEndpoint for LocalEndpoint {
     }
     fn delete_file(&self, path: &str) -> Result<()> {
         let real_path = self.generate_path(path)?;
-        _ = fs::remove_file(path)?;
+        fs::remove_file(path)?;;
         let parent_directory = real_path.parent().unwrap();
         if parent_directory.read_dir()?.count() == 0 {
             fs::remove_dir(parent_directory)?;

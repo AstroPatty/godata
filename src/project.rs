@@ -25,7 +25,7 @@ impl Project {
 
     pub(crate) fn add_file(&mut self, project_path: &str, real_path: &str, overwrite: bool) -> Result<(Option<String>, bool)> {
         
-        let previous_entry = self.tree.insert(&project_path, &real_path, overwrite)?;
+        let previous_entry = self.tree.insert(project_path, real_path, overwrite)?;
         let result = match previous_entry {
             Some(previous_entry) => {
                 let previous_path = PathBuf::from(&previous_entry);
@@ -39,7 +39,7 @@ impl Project {
 
     pub(crate) fn add_folder(&mut self, project_path: &str, real_path: &str,  recursive: bool) -> Result<()> {
         let mut folders: Vec<PathBuf> = Vec::new();
-        let files = std::fs::read_dir(&real_path)?
+        let files = std::fs::read_dir(real_path)?
                                     .filter(|x| x.is_ok())
                                     .filter_map(|x| {
                                         let path = x.unwrap().path();
@@ -53,7 +53,7 @@ impl Project {
                                         }
                                     });
         
-        self.tree.insert_many(files, &project_path)?;
+        self.tree.insert_many(files, project_path)?;
         if recursive {
             for folder in folders {
                 let folder_name = folder.file_name().unwrap().to_str().unwrap().to_string();
@@ -83,8 +83,8 @@ impl Project {
     }
 
     pub(crate) fn exists(&self, project_path: String) -> bool {
-        let exists = self.tree.exists(&project_path);
-        exists
+        
+        self.tree.exists(&project_path)
     }
 
     pub(crate) fn generate_path(&self, project_path: &str) -> Result<String> {
@@ -111,13 +111,13 @@ pub struct ProjectManager {
 impl ProjectManager {
     pub fn create_project(&mut self, name: &str, collection: &str, force: bool, storage_location: Option<String>) -> Result<Arc<Mutex<Project>>> {
         let key = format!("{}/{}", name, collection);
-        let project_dir = create_project_dir(&name, &collection, force)?;
+        let project_dir = create_project_dir(name, collection, force)?;
         let tree = FileSystem::new(name.to_string(), project_dir)?;
         let base_path = match storage_location {
             Some(path) => PathBuf::from(path),
-            None => crate::locations::get_default_project_storage_dir(&name, &collection)?,
+            None => crate::locations::get_default_project_storage_dir(name, collection)?,
         };
-        self.storage_manager.add(&name, &collection, "local", base_path.clone())?;
+        self.storage_manager.add(name, collection, "local", base_path.clone())?;
         let endpoint = LocalEndpoint::new(base_path);
         let p = Project {
             tree,
@@ -127,7 +127,7 @@ impl ProjectManager {
         };
         let project = Arc::new(Mutex::new(p));
         self.projects.insert(key, project.clone());
-        return Ok(project);
+        Ok(project)
     }
 
     pub fn load_project(&mut self, name: &str, collection: &str) -> Result<Arc<Mutex<Project>>> {
@@ -136,7 +136,7 @@ impl ProjectManager {
             return Ok(self.projects.get(&key).unwrap().clone());
         }
         let project_dir = load_project_dir(name, collection)?;
-        let storage_dir = self.storage_manager.get(&name, &collection)?;
+        let storage_dir = self.storage_manager.get(name, collection)?;
         let tree = FileSystem::load(name, project_dir)?;
         let endpoint = LocalEndpoint::new(storage_dir.1);
 
@@ -148,7 +148,7 @@ impl ProjectManager {
         };
         let project = Arc::new(Mutex::new(project));
         self.projects.insert(key, project.clone());
-        return Ok(project);
+        Ok(project)
     }
 
     pub fn delete_project(&mut self, name: &str, collection: &str, force: bool) -> Result<()> {
@@ -170,14 +170,14 @@ impl ProjectManager {
         }
 
         if (project_is_empty && storage_is_empty) || force {
-            delete_project_dir(&name, &collection)?;
-            let storage_dir = self.storage_manager.get(&name, &collection);
+            delete_project_dir(name, collection)?;
+            let storage_dir = self.storage_manager.get(name, collection);
             if storage_dir.is_ok() {
-                 _ = self.storage_manager.delete(&name, &collection)?;
+                 self.storage_manager.delete(name, collection)?;;
             }
             return Ok(())
         } 
-        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Project is not empty"));
+        Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Project is not empty"))
     }
 
     pub fn get_project_names(&self, collection: String, show_hidden: bool) -> Result<Vec<String>> {
@@ -191,11 +191,9 @@ impl ProjectManager {
         for entry in std::fs::read_dir(collection_dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.is_dir() {
-                if !path.file_name().unwrap().to_str().unwrap().starts_with(".") || show_hidden {
-                    let name = path.file_name().unwrap().to_str().unwrap().to_string();
-                    names.push(name);
-                }
+            if path.is_dir() && (!path.file_name().unwrap().to_str().unwrap().starts_with('.') || show_hidden) {
+                let name = path.file_name().unwrap().to_str().unwrap().to_string();
+                names.push(name);
             }
         }
         Ok(names)
@@ -211,11 +209,9 @@ pub fn get_collection_names(show_hidden: bool) -> Result<Vec<String>> {
     for entry in std::fs::read_dir(main_dir)? {
         let entry = entry?;
         let path = entry.path();
-        if path.is_dir() {
-            if !path.file_name().unwrap().to_str().unwrap().starts_with(".") || show_hidden {
-                let name = path.file_name().unwrap().to_str().unwrap().to_string();
-                names.push(name);
-            }
+        if path.is_dir() && (!path.file_name().unwrap().to_str().unwrap().starts_with('.') || show_hidden) {
+            let name = path.file_name().unwrap().to_str().unwrap().to_string();
+            names.push(name);
         }
     }
     Ok(names)

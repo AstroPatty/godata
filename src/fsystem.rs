@@ -9,7 +9,7 @@ use std::io::Result;
 use std::collections::HashMap;
 use uuid::Uuid;
 use sled::Db;
-use bincode;
+
 use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
 enum FSObject {
@@ -81,13 +81,13 @@ impl FileSystem {
         // If there is already a root folder, fail
         let root = match root_folder {
             None => {
-                let root = Folder {
+                
+                Folder {
                     name: "root".to_string(),
                     children: HashMap::new(),
                     _uuid: "root".to_string(),
                     _modified: true
-                };
-                root
+                }
         
             },
             Some(_) => {
@@ -276,8 +276,8 @@ impl Folder {
         match child {
             Some(item) => {
                 match item {
-                    FSObject::File(_) => return Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "Path is a file")), // We have a file with this name, and nothing is left in the path
-                    FSObject::Folder(f) => return f._insert_many(files, path_parts) // We have a folder with this name, and we need to check the rest of the path
+                    FSObject::File(_) => Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "Path is a file")), // We have a file with this name, and nothing is left in the path
+                    FSObject::Folder(f) => f._insert_many(files, path_parts) // We have a folder with this name, and we need to check the rest of the path
                 }
             },
             None => {
@@ -352,11 +352,11 @@ impl Folder {
         };
 
         match child {
-            None => return false, // child doesn't exist
+            None => false, // child doesn't exist
             Some(f) => {
                 match f {
-                    FSObject::File(_) => return path_parts.next() == None, // We have a file with this name, and nothing is left in the path
-                    FSObject::Folder(f) => return f._exists(path_parts) // We have a folder with this name, and we need to check the rest of the path
+                    FSObject::File(_) => path_parts.next().is_none(), // We have a file with this name, and nothing is left in the path
+                    FSObject::Folder(f) => f._exists(path_parts) // We have a folder with this name, and we need to check the rest of the path
                 }
             }
         }
@@ -386,14 +386,14 @@ impl Folder {
         };
 
         match child {
-            None => return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found")), // child doesn't exist
+            None => Err(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found")), // child doesn't exist
             Some(f) => {
                 match f {
                     FSObject::File(f) => {
-                        if path_parts.next() == None {
-                            return Ok(f)
+                        if path_parts.next().is_none() {
+                            Ok(f)
                         } else {
-                            return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"))
+                            Err(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"))
                         }
                     }
                     FSObject::Folder(f) => return f._get(path_parts) // We have a folder with this name, and we need to check the rest of the path
@@ -425,10 +425,10 @@ impl Folder {
         };
 
         match child {
-            None => return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Folder not found")), // child doesn't exist
+            None => Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Folder not found")), // child doesn't exist
             Some(f) => {
                 match f {
-                    FSObject::File(_) => return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Folder not found")), // We have a file with this name, and nothing is left in the path
+                    FSObject::File(_) => Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Folder not found")), // We have a file with this name, and nothing is left in the path
                     FSObject::Folder(f) => {
                         return f._get_folder(path_parts) // We have a folder with this name, and we need to check the rest of the path
                     }
@@ -445,7 +445,7 @@ impl Folder {
 
         // split up the path
         let path_parts = virtual_path.split('/');
-        return self._insert(fs_object, path_parts, overwrite)
+        self._insert(fs_object, path_parts, overwrite)
     }
 
     fn _insert(&mut self, fs_object: FSObject, mut path_parts: std::str::Split<char>, overwrite: bool) -> Result<Option<FSObject>> {
@@ -491,12 +491,12 @@ impl Folder {
                 folder._insert(fs_object, path_parts, overwrite).unwrap();
                 self.children.insert(folder.name.clone(), FSObject::Folder(folder));
                 self._modified = true;
-                return Ok(None)
+                Ok(None)
             },
             Some(f) => {
                 match f {
-                    FSObject::File(_) => return Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "Invalid path")), // We have a file with this name, and nothing is left in the path
-                    FSObject::Folder(f) => return f._insert(fs_object, path_parts, overwrite) // We have a folder with this name, and we need to check the rest of the path
+                    FSObject::File(_) => Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "Invalid path")), // We have a file with this name, and nothing is left in the path
+                    FSObject::Folder(f) => f._insert(fs_object, path_parts, overwrite) // We have a folder with this name, and we need to check the rest of the path
                 }
             }
         }
@@ -541,10 +541,10 @@ impl Folder {
 
         let output = match child {
             FSObject::File(_) => { // We have a file with this name...
-                if path_parts.next() == None { // ...and nothing is left in the path
+                if path_parts.next().is_none() { // ...and nothing is left in the path
                     self._modified = true; // We've modified the folder, so we need to write it to the database
                     let storage = Vec::new();
-                    return Ok((self.children.len() == 0, storage)) // The removal was sucessful, but the folder above us doesn't need to do anything
+                    return Ok((self.children.is_empty(), storage)) // The removal was sucessful, but the folder above us doesn't need to do anything
                 } else {
                     return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Path not found"))
                 }
@@ -564,7 +564,7 @@ impl Folder {
         };
         
         self.children.insert(path_part.unwrap().to_string(), child);
-        return output
+        output
 
     }
 

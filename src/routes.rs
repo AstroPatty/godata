@@ -49,10 +49,7 @@ fn create_project(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Ex
                 Some(force) => force.parse::<bool>().unwrap(),
                 None => false
             };
-            let storage_location = match params.get("storage_location") {
-                Some(storage_location) => Some(storage_location.to_owned()),
-                None => None
-            };
+            let storage_location = params.get("storage_location").map(|storage_location| storage_location.to_owned());
             handlers::create_project(project_manager.clone(), collection, project_name, force, storage_location)
         })
 }
@@ -81,11 +78,11 @@ fn project_link(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extr
             };
             let ppath = match params.get("project_path") {
                 Some(project_path) => project_path.to_owned(),
-                None => return Ok(warp::reply::with_status(warp::reply::json(&format!("Missing project_path argument")), StatusCode::BAD_REQUEST))     // invalid request
+                None => return Ok(warp::reply::with_status(warp::reply::json(&"Missing project_path argument".to_string()), StatusCode::BAD_REQUEST))     // invalid request
             };
             let rpath = match params.get("real_path") {
                 Some(storage_location) => storage_location.to_owned(),
-                None => return Ok(warp::reply::with_status(warp::reply::json(&format!("Missing real_path argument")), StatusCode::BAD_REQUEST))     // invalid request
+                None => return Ok(warp::reply::with_status(warp::reply::json(&"Missing real_path argument".to_string()), StatusCode::BAD_REQUEST))     // invalid request
             };
             
             let type_ = match params.get("type") {
@@ -93,7 +90,7 @@ fn project_link(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extr
                 None => "file".to_owned()
             };
             if type_ == "file" {
-                return handlers::link_file(project_manager.clone(), collection, project_name, ppath, rpath, force)
+                handlers::link_file(project_manager.clone(), collection, project_name, ppath, rpath, force)
             }
             else if type_ == "folder" {
                 return handlers::link_folder(project_manager.clone(), collection, project_name, ppath, rpath, force)
@@ -128,7 +125,7 @@ fn projects_get(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extr
             let project_path = match params.get("project_path") {
                 Some(project_path) => project_path.to_owned(),
                 None => return Ok(warp::reply::with_status(
-                    warp::reply::json(&format!("Missing project_path argument")), 
+                    warp::reply::json(&"Missing project_path argument".to_string()), 
                     StatusCode::BAD_REQUEST))     // invalid request
             };
             handlers::get_file(project_manager.clone(), collection, project_name, project_path)
@@ -142,7 +139,7 @@ fn projects_path_exists(project_manager: Arc<Mutex<ProjectManager>>) -> impl Fil
         .map(move |collection, project_name, params: HashMap<String, String>| {
             let project_path = match params.get("project_path") {
                 Some(project_path) => project_path.to_owned(),
-                None => return Ok(warp::reply::with_status(warp::reply::json(&format!("Missing project_path argument")), StatusCode::BAD_REQUEST))     // invalid request
+                None => return Ok(warp::reply::with_status(warp::reply::json(&"Missing project_path argument".to_string()), StatusCode::BAD_REQUEST))     // invalid request
             };
             handlers::path_exists(project_manager.clone(), collection, project_name, project_path)
         })
@@ -156,7 +153,7 @@ fn project_generate_path(project_manager: Arc<Mutex<ProjectManager>>) -> impl Fi
             let project_path = match params.get("project_path") {
                 Some(project_path) => project_path.to_owned(),
                 None => return Ok(warp::reply::with_status(
-                    warp::reply::json(&format!("Missing project_path argument")), 
+                    warp::reply::json(&"Missing project_path argument".to_string()), 
                     StatusCode::BAD_REQUEST))     // invalid request
             };
             handlers::generate_path(project_manager.clone(), collection, project_name, project_path)
@@ -172,7 +169,7 @@ fn project_remove_file(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filt
             let project_path = match params.get("project_path") {
                 Some(project_path) => project_path.to_owned(),
                 None => return Ok(warp::reply::with_status(
-                    warp::reply::json(&format!("Missing project_path argument")),
+                    warp::reply::json(&"Missing project_path argument".to_string()),
                     StatusCode::BAD_REQUEST))     // invalid request
             };
             handlers::remove_file(project_manager.clone(), collection, project_name, project_path)

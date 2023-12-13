@@ -32,11 +32,11 @@ pub(crate) fn list_project(project_manager: Arc<Mutex<ProjectManager>>, collecti
         match result {
             Ok(list) => return Ok(warp::reply::with_status(warp::reply::json(&list), StatusCode::OK)),
             Err(_) => return Ok(warp::reply::with_status(warp::reply::json(
-                &format!("Path does not exist!")
+                &"Path does not exist!".to_string()
             ), StatusCode::NOT_FOUND))
         }
     }
-    return Ok(warp::reply::with_status(warp::reply::json(
+    Ok(warp::reply::with_status(warp::reply::json(
         &format!("No project named {project_name} in collection {collection}")
     ), StatusCode::NOT_FOUND))
 }
@@ -102,7 +102,7 @@ pub(crate) fn link_file(project_manager: Arc<Mutex<ProjectManager>>, collection:
                 StatusCode::CONFLICT)),
         }
     }
-    return Ok(warp::reply::with_status(
+    Ok(warp::reply::with_status(
        warp::reply::json(&format!("No project named {project_name} in collection {collection}")),
        StatusCode::NOT_FOUND))
 
@@ -129,7 +129,7 @@ pub(crate) fn link_folder(project_manager: Arc<Mutex<ProjectManager>>, collectio
                 StatusCode::NOT_FOUND)),
         }
     }
-    return Ok(warp::reply::with_status(
+    Ok(warp::reply::with_status(
        warp::reply::json(&format!("No project named {project_name} in collection {collection}")),
        StatusCode::NOT_FOUND))
 
@@ -150,7 +150,7 @@ pub(crate) fn get_file(project_manager: Arc<Mutex<ProjectManager>>, collection: 
                 StatusCode::NOT_FOUND)),
         }
     }
-    return Ok(warp::reply::with_status(
+    Ok(warp::reply::with_status(
        warp::reply::json(&format!("No project named {project_name} in collection {collection}")),
        StatusCode::NOT_FOUND))
 
@@ -167,12 +167,12 @@ pub(crate) fn generate_path(project_manager: Arc<Mutex<ProjectManager>>, collect
                 StatusCode::OK)),
  
             Err(_) => return Ok(warp::reply::with_status(
-                warp::reply::json(&format!("Uncaught error generating path!")),
+                warp::reply::json(&"Uncaught error generating path!".to_string()),
                 StatusCode::INTERNAL_SERVER_ERROR)),
         }
     };
     
-    return Ok(warp::reply::with_status(
+    Ok(warp::reply::with_status(
        warp::reply::json(&format!("No project named {project_name} in collection {collection}")),
        StatusCode::NOT_FOUND))
     }
@@ -193,7 +193,7 @@ pub(crate) fn path_exists(project_manager: Arc<Mutex<ProjectManager>>, collectio
                 StatusCode::OK))
         }
     }
-    return Ok(warp::reply::with_status(
+    Ok(warp::reply::with_status(
        warp::reply::json(&format!("No project named {project_name} in collection {collection}")),
        StatusCode::NOT_FOUND))
 
@@ -214,7 +214,7 @@ pub(crate) fn remove_file(project_manager: Arc<Mutex<ProjectManager>>, collectio
                 StatusCode::NOT_FOUND)),
         }
     }
-    return Ok(warp::reply::with_status(
+    Ok(warp::reply::with_status(
        warp::reply::json(&format!("No project named {project_name} in collection {collection}")),
        StatusCode::NOT_FOUND))
 

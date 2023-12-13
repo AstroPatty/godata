@@ -34,8 +34,8 @@ impl Drop for Server {
 }
 
 pub fn get_server() -> Server {
-    let server = Server {
+    
+    Server {
         project_manager: Arc::new(Mutex::new(get_project_manager()))
-    };
-    server
+    }
 }
