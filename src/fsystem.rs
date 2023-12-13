@@ -148,7 +148,7 @@ impl FileSystem {
     }
 
     pub(crate) fn insert(&mut self, project_path: &str, real_path: &str, overwrite: bool) -> Result<Option<String>> {
-        let name = project_path.split("/").last().unwrap().to_string();
+        let name = project_path.split('/').last().unwrap().to_string();
         let result;
         if name == project_path {
             let file = File::new(real_path.to_string(), name);
@@ -257,11 +257,11 @@ impl Folder {
     fn insert_many<I>(&mut self, files: I, virtual_path: &str) -> Result<()> 
     where I: Iterator<Item = File>
     {   
-        let path_parts = virtual_path.split("/");
+        let path_parts = virtual_path.split('/');
         self._insert_many(files, path_parts)
     }
 
-    fn _insert_many<I>(&mut self, files: I, mut path_parts: std::str::Split<&str>) -> Result<()> 
+    fn _insert_many<I>(&mut self, files: I, mut path_parts: std::str::Split<char>) -> Result<()> 
     where I: Iterator<Item = File>
     {   
         let path_part = path_parts.next();
@@ -334,11 +334,11 @@ impl Folder {
         // If path is a subfolder, return true if it exists in the subfolder
 
         // split up the path
-        let path_parts = virtual_path.split("/");
+        let path_parts = virtual_path.split('/');
         self._exists(path_parts)        
     }
 
-    fn _exists(&self, mut path_parts: std::str::Split<&str>) -> bool  {
+    fn _exists(&self, mut path_parts: std::str::Split<char>) -> bool  {
         // Check if a file or folder exists in the folder.
         // If path is this folder's name, return true
         // If path is a subfolder, return true if it exists in the subfolder
@@ -368,11 +368,11 @@ impl Folder {
         // at the virtual path.
 
         // split up the path
-        let path_parts = virtual_path.split("/");
+        let path_parts = virtual_path.split('/');
         self._get(path_parts)
     }
 
-    fn _get(&self, mut path_parts: std::str::Split<&str>) -> Result<&File> {
+    fn _get(&self, mut path_parts: std::str::Split<char>) -> Result<&File> {
         // Get a file or folder from the folder.
         // If path is this folder's name, return it
         // If path is a subfolder, return it from the subfolder
@@ -407,11 +407,11 @@ impl Folder {
         // at the virtual path.
 
         // split up the path
-        let path_parts = virtual_path.split("/");
+        let path_parts = virtual_path.split('/');
         self._get_folder(path_parts)
     }
 
-    fn _get_folder(&self, mut path_parts: std::str::Split<&str>) -> Result<&Folder> {
+    fn _get_folder(&self, mut path_parts: std::str::Split<char>) -> Result<&Folder> {
         // Get a file or folder from the folder.
         // If path is this folder's name, return it
         // If path is a subfolder, return it from the subfolder
@@ -444,11 +444,11 @@ impl Folder {
         // If path is a subfolder, insert it into the subfolder
 
         // split up the path
-        let path_parts = virtual_path.split("/");
+        let path_parts = virtual_path.split('/');
         return self._insert(fs_object, path_parts, overwrite)
     }
 
-    fn _insert(&mut self, fs_object: FSObject, mut path_parts: std::str::Split<&str>, overwrite: bool) -> Result<Option<FSObject>> {
+    fn _insert(&mut self, fs_object: FSObject, mut path_parts: std::str::Split<char>, overwrite: bool) -> Result<Option<FSObject>> {
         // Insert a file or folder into the folder.
         // If path is this folder's name, insert it here
         // If path is a subfolder, insert it into the subfolder
@@ -508,12 +508,12 @@ impl Folder {
         // If path is a subfolder, delete it from the subfolder
 
         // split up the path
-        let path_parts = virtual_path.split("/");
+        let path_parts = virtual_path.split('/');
         let result = self._delete(path_parts)?;
         Ok(result.1)
     }
 
-    fn _delete(&mut self, mut path_parts: std::str::Split<&str>) -> Result<(bool, Vec<String>)> {
+    fn _delete(&mut self, mut path_parts: std::str::Split<char>) -> Result<(bool, Vec<String>)> {
         // Delete a file or folder from the folder.
         // If path is this folder's name, delete it here
         // If path is a subfolder, delete it from the subfolder
