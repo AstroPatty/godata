@@ -203,7 +203,7 @@ class GodataProject:
         """
         if not project_path:
             return True
-        return asyncio.run(client.path_exists(self.name, project_path))
+        return asyncio.run(client.path_exists(self.collection, self.name, project_path))
 
     @sanitize_project_path
     def list(self, project_path: str = None) -> dict[str, str]:

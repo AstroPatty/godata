@@ -53,3 +53,11 @@ def test_overwrite():
     data = p.get("data/test_data")
     assert np.all(data.values == df_data.values)
     assert not stored_path.exists()
+
+
+def test_exists():
+    p = create_project("test7")
+    expected_data = np.ones((10, 10))
+    p.store(expected_data, "data/test_data")
+    assert p.has_path("data/test_data")
+    assert not p.has_path("data/test_data2")

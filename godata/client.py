@@ -100,7 +100,11 @@ async def path_exists(collection_name: str, project_name: str, project_path: str
         async with client.get(
             f"{SERVER_URL}/projects/{collection_name}/{project_name}/exists?{payload}"
         ) as resp:
-            return await parse_response(resp)
+            if resp.status == 200:
+                return json.loads(await resp.text())
+            else:
+                print(await resp.json())
+                raise NotFound(f"{await resp.text()}")
 
 
 @sanitize_project_path

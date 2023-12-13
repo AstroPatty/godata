@@ -12,9 +12,9 @@ pub(crate) fn routes(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter
         .or(project_list(project_manager.clone()))
         .or(create_project(project_manager.clone()))
         .or(delete_project(project_manager.clone()))
-        .or(project_path_exists(project_manager.clone()))
         .or(project_link(project_manager.clone()))
         .or(projects_get(project_manager.clone()))
+        .or(projects_path_exists(project_manager.clone()))
         .or(project_generate_path(project_manager.clone()))
         .or(project_remove_file(project_manager.clone()))
 }
@@ -87,6 +87,7 @@ fn project_link(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extr
                 Some(storage_location) => storage_location.to_owned(),
                 None => return Ok(warp::reply::with_status(warp::reply::json(&format!("Missing real_path argument")), StatusCode::BAD_REQUEST))     // invalid request
             };
+            
             let type_ = match params.get("type") {
                 Some(type_) => type_.to_owned(),
                 None => "file".to_owned()
@@ -112,7 +113,7 @@ fn project_list(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extr
                 Some(show_hidden) => show_hidden.parse::<bool>().unwrap(),
                 None => false
             };
-            match params.get("path") {
+            match params.get("project_path") {
                 Some(path) => handlers::list_project(project_manager.clone(), collection, project_name, Some(path.to_owned()), show_hidden),
                 None => handlers::list_project(project_manager.clone(), collection, project_name, None, show_hidden)
             }
@@ -132,16 +133,16 @@ fn projects_get(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extr
         })
 }
 
-fn project_path_exists(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+fn projects_path_exists(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     warp::path!("projects" / String / String / "exists")
         .and(warp::get())
         .and(warp::query::<HashMap<String, String>>())
         .map(move |collection, project_name, params: HashMap<String, String>| {
             let project_path = match params.get("project_path") {
                 Some(project_path) => project_path.to_owned(),
-                None => return Ok(warp::reply::with_status(format!("Missing project_path argument"), StatusCode::BAD_REQUEST))     // invalid request
+                None => return Ok(warp::reply::with_status(warp::reply::json(&format!("Missing project_path argument")), StatusCode::BAD_REQUEST))     // invalid request
             };
-            handlers::project_path_exists(project_manager.clone(), collection, project_name, project_path)
+            handlers::path_exists(project_manager.clone(), collection, project_name, project_path)
         })
 }
 

@@ -155,9 +155,8 @@ impl ProjectManager {
         let key = format!("{}/{}", name, collection);
         let pobj = self.projects.remove(&key);
         match pobj {
-            None => (),
+            None => return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Project does not exist")),
             Some(obj) => drop(obj),
-
         }
         let project_dir = load_project_dir(name, collection)?;
         let storage_dir = self.storage_manager.get(name, collection);
@@ -178,7 +177,7 @@ impl ProjectManager {
             }
             return Ok(())
         } 
-        return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Project is not empty"));
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Project is not empty"));
     }
 
     pub fn get_project_names(&self, collection: String, show_hidden: bool) -> Result<Vec<String>> {
