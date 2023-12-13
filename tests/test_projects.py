@@ -87,3 +87,13 @@ def test_list_projects():
     p = create_project("test10", "test_collection")
     projects = list_projects("test_collection")
     assert "test10" in projects
+
+
+def test_project_path_clean():
+    p = create_project("test11")
+    expected_data = np.ones((10, 10))
+    p.store(expected_data, "/data/test_data/")
+    data = p.get("/data/test_data")
+    data2 = p.get("data/test_data/")
+    assert np.all(data == data2)
+    assert np.all(data == expected_data)

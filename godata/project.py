@@ -20,15 +20,9 @@ class GodataProjectError(Exception):
 
 class GodataProject:
     """
-    This is at thin wrapper class for the associated Project struct in the rust library.
-    In general, this class just calls the underlying rust methods. However, it does have
-    to provide additional behavior in particular cases. For example, storing a python
-    object requires a function that knows how to write the given object to a file, which
-    will most likely be in python.
-
-    Note that in most cases error handling is actually done by the rust library, so in
-    almost all cases expect that an exception encountered while using this class is
-    coming from there.
+    This is the main user-facing class for interacting with projects. It mostly a
+    thin wrapper around an http client, but it also delegates file reading and writing
+    tasks where appropriate.
 
     This class also provides docstrings for the underlying methods, such that all
     user-facing documentation can be done with sphinx.
@@ -167,6 +161,7 @@ class GodataProject:
         file_utils.handle_overwrite(result)
         return True
 
+    @sanitize_project_path
     def ls(self, project_path: str = None) -> None:
         """
         A basic ls utility for looking at projects. If a path is given, this will

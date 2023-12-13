@@ -2,8 +2,6 @@ from urllib import parse
 
 import aiohttp
 
-from godata.utils import sanitize_project_path
-
 """
 The client connects to the godata server and communicates with it on behalf of the 
 project. On Mac and Linux, this communication is done via a unix socket with a 
@@ -97,7 +95,6 @@ async def path_exists(collection_name: str, project_name: str, project_path: str
                 raise NotFound(f"{await resp.json()}")
 
 
-@sanitize_project_path
 async def link_file(
     collection_name: str,
     project_name: str,
@@ -149,7 +146,6 @@ async def link_folder(
                 raise AlreadyExists(f"{await resp.json()}")
 
 
-@sanitize_project_path
 async def list_project_contents(
     collection_name: str,
     project_name: str,
