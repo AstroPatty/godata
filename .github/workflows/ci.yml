@@ -38,3 +38,23 @@ jobs:
           args: --release --target ${{ matrix.target }}
           all-features: true
           quiet: true
+  mac_build_server:
+    name: Build server on macOS
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --target ${{ matrix.target }}
+          all-features: true
+          quiet: true
