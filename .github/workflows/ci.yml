@@ -96,7 +96,7 @@ jobs:
         run: poetry install
       - name: Run tests
         run: |
-          ./godata_server &
+          ./godata_server-${{ matrix.target }}
           cd tests
           poetry run pytest
   test_mac:
