@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from godata import create_project
+from godata import create_project, list_collections, list_projects
 from godata.project import GodataProjectError
 
 
@@ -75,3 +75,15 @@ def test_delete_file():
     hp1 = p.has_path("data/test_data")
     children = p.list()
     assert not hp1 and not children["files"] and children["folders"] == ["data2"]
+
+
+def test_list_collections():
+    p = create_project("test9", "test_collection")
+    collections = list_collections()
+    assert collections == ["default", "test_collection"]
+
+
+def test_list_projects():
+    p = create_project("test10", "test_collection")
+    projects = list_projects("test_collection")
+    assert "test10" in projects
