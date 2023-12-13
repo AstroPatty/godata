@@ -66,6 +66,11 @@ jobs:
           args: --release --target ${{ matrix.target }}
           all-features: true
           quiet: true
+      - uses: actions/upload-artifact@v3
+        with:
+          name: godata_server-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/godata_server
+
   test_linux:
     name: Test on Linux
     runs-on: ubuntu-latest
@@ -79,7 +84,6 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: godata_server-${{ matrix.target }}
-          path: godata_server
       - name: look
         run: ls -l
       - name: install python
