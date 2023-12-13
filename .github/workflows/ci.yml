@@ -43,8 +43,7 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: godata-server-${{ matrix.target }}
-          path: target/release/godata-server
-
+          path: target/${{ matrix.target }}/release/godata-server
   mac_build_server:
     name: Build server on macOS
     runs-on: macos-latest
@@ -74,9 +73,21 @@ jobs:
     strategy:
       matrix:
         target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
+        python-version: [3.10, 3.11, 3.12,]
     steps:
+      - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
         with:
           name: godata-server-${{ matrix.target }}
       - name: look
         run: ls -l
+      - name: install python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+      - name: Install godata
+        run: poetry install
+      - name: Run tests
+        run: ./tests/run_tests.sh
