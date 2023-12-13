@@ -1,4 +1,3 @@
-import json
 from urllib import parse
 
 import aiohttp
@@ -31,21 +30,12 @@ async def get_client():
     return session
 
 
-async def parse_response(resp):
-    if resp.status == 200:
-        return json.loads(await resp.json())
-    else:
-        # Raise an exception
-        # Get the text of the response
-        raise NotFound(f"{await resp.json()}")
-
-
 async def list_collections(show_hidden=False):
     session = await get_client()
     async with session as client:
         payload = parse.urlencode({"show_hidden": show_hidden}).lower()
         async with client.get(f"{SERVER_URL}/collections?{payload}") as resp:
-            return await parse_response(resp)
+            return await resp.json()
 
 
 async def list_projects(collection_name: str, show_hidden: bool = False):
@@ -57,7 +47,7 @@ async def list_projects(collection_name: str, show_hidden: bool = False):
         async with client.get(
             f"{SERVER_URL}/projects/{collection_name}?{payload}"
         ) as resp:
-            return await parse_response(resp)
+            return await resp.json()
 
 
 async def create_project(
@@ -88,7 +78,7 @@ async def delete_project(collection_name: str, project_name: str, force: bool = 
         async with client.delete(
             f"{SERVER_URL}/projects/{collection_name}/{project_name}?{payload}"
         ) as resp:
-            return await parse_response(resp)
+            return await resp.json()
 
 
 async def path_exists(collection_name: str, project_name: str, project_path: str):
@@ -219,4 +209,4 @@ async def remove_file(collection_name: str, project_name: str, project_path: str
         async with client.delete(
             f"{SERVER_URL}/projects/{collection_name}/{project_name}/files?{payload}"
         ) as resp:
-            return await parse_response(resp)
+            return await resp.json()

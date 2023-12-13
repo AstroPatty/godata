@@ -64,3 +64,14 @@ def test_exists():
     # Check the json parsing as well
     assert type(hp1) == bool and type(hp2) == bool
     assert hp1 and not hp2
+
+
+def test_delete_file():
+    p = create_project("test8")
+    expected_data = np.ones((10, 10))
+    p.store(expected_data, "data/test_data")
+    p.store(expected_data, "data2/test_data")
+    p.remove("data/test_data")
+    hp1 = p.has_path("data/test_data")
+    children = p.list()
+    assert not hp1 and not children["files"] and children["folders"] == ["data2"]
