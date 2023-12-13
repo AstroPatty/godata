@@ -33,11 +33,11 @@ async def get_client():
 
 async def parse_response(resp):
     if resp.status == 200:
-        return json.loads(await resp.text())
+        return json.loads(await resp.json())
     else:
         # Raise an exception
         # Get the text of the response
-        raise NotFound(f"{await resp.text()}")
+        raise NotFound(f"{await resp.json()}")
 
 
 async def list_collections(show_hidden=False):
@@ -76,9 +76,9 @@ async def create_project(
             f"{SERVER_URL}/create/{collection_name}/{project_name}?{payload}"
         ) as resp:
             if resp.status == 201:
-                return await resp.text()
+                return await resp.json()
             else:
-                raise AlreadyExists(f"{await resp.text()}")
+                raise AlreadyExists(f"{await resp.json()}")
 
 
 async def delete_project(collection_name: str, project_name: str, force: bool = False):
@@ -101,10 +101,10 @@ async def path_exists(collection_name: str, project_name: str, project_path: str
             f"{SERVER_URL}/projects/{collection_name}/{project_name}/exists?{payload}"
         ) as resp:
             if resp.status == 200:
-                return json.loads(await resp.text())
+                return await resp.json()
             else:
                 print(await resp.json())
-                raise NotFound(f"{await resp.text()}")
+                raise NotFound(f"{await resp.json()}")
 
 
 @sanitize_project_path
@@ -128,9 +128,9 @@ async def link_file(
             f"{SERVER_URL}/projects/{collection_name}/{project_name}/files?{payload}"
         ) as resp:
             if resp.status == 201:
-                return json.loads(await resp.text())
+                return await resp.json()
             else:
-                raise AlreadyExists(f"{await resp.text()}")
+                raise AlreadyExists(f"{await resp.json()}")
 
 
 async def link_folder(
@@ -154,9 +154,9 @@ async def link_folder(
             f"{SERVER_URL}/projects/{collection_name}/{project_name}/files?{payload}"
         ) as resp:
             if resp.status == 201:
-                return json.loads(await resp.text())
+                return await resp.json()
             else:
-                raise AlreadyExists(f"{await resp.text()}")
+                raise AlreadyExists(f"{await resp.json()}")
 
 
 @sanitize_project_path
@@ -177,7 +177,7 @@ async def list_project_contents(
         async with client.get(
             f"{SERVER_URL}/projects/{collection_name}/{project_name}/list?{payload}"
         ) as resp:
-            return await parse_response(resp)
+            return await resp.json()
 
 
 async def get_file(collection_name: str, project_name: str, project_path: str):
@@ -190,10 +190,9 @@ async def get_file(collection_name: str, project_name: str, project_path: str):
             f"{SERVER_URL}/projects/{collection_name}/{project_name}/files?{payload}"
         ) as resp:
             if resp.status == 200:
-                result = await resp.read()
-                return result.decode()
+                return await resp.json()
             else:
-                raise NotFound(f"{await resp.text()}")
+                raise NotFound(f"{await resp.json()}")
 
 
 async def generate_path(collection_name: str, project_name: str, project_path: str):
@@ -206,9 +205,9 @@ async def generate_path(collection_name: str, project_name: str, project_path: s
             f"{SERVER_URL}/projects/{collection_name}/{project_name}/generate?{payload}"
         ) as resp:
             if resp.status == 200:
-                return await resp.text()
+                return await resp.json()
             else:
-                raise NotFound(f"{await resp.text()}")
+                raise NotFound(f"{await resp.json()}")
 
 
 async def remove_file(collection_name: str, project_name: str, project_path: str):

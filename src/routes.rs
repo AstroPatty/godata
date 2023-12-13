@@ -127,7 +127,9 @@ fn projects_get(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extr
         .map(move |collection, project_name, params: HashMap<String, String>| {
             let project_path = match params.get("project_path") {
                 Some(project_path) => project_path.to_owned(),
-                None => return Ok(warp::reply::with_status(format!("Missing project_path argument"), StatusCode::BAD_REQUEST))     // invalid request
+                None => return Ok(warp::reply::with_status(
+                    warp::reply::json(&format!("Missing project_path argument")), 
+                    StatusCode::BAD_REQUEST))     // invalid request
             };
             handlers::get_file(project_manager.clone(), collection, project_name, project_path)
         })
@@ -153,7 +155,9 @@ fn project_generate_path(project_manager: Arc<Mutex<ProjectManager>>) -> impl Fi
         .map(move |collection, project_name, params: HashMap<String, String>| {
             let project_path = match params.get("project_path") {
                 Some(project_path) => project_path.to_owned(),
-                None => return Ok(warp::reply::with_status(format!("Missing project_path argument"), StatusCode::BAD_REQUEST))     // invalid request
+                None => return Ok(warp::reply::with_status(
+                    warp::reply::json(&format!("Missing project_path argument")), 
+                    StatusCode::BAD_REQUEST))     // invalid request
             };
             handlers::generate_path(project_manager.clone(), collection, project_name, project_path)
         })
@@ -167,7 +171,9 @@ fn project_remove_file(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filt
         .map(move |collection, project_name, params: HashMap<String, String>| {
             let project_path = match params.get("project_path") {
                 Some(project_path) => project_path.to_owned(),
-                None => return Ok(warp::reply::with_status(format!("Missing project_path argument"), StatusCode::BAD_REQUEST))     // invalid request
+                None => return Ok(warp::reply::with_status(
+                    warp::reply::json(&format!("Missing project_path argument")),
+                    StatusCode::BAD_REQUEST))     // invalid request
             };
             handlers::remove_file(project_manager.clone(), collection, project_name, project_path)
         })

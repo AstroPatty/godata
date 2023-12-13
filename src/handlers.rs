@@ -22,27 +22,7 @@ pub(crate) fn list_projects(project_manager: Arc<Mutex<ProjectManager>>, collect
     }
 }
 
-pub(crate) fn project_path_exists(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, project_path: String) -> Result<WithStatus<std::string::String>,  Infallible>{
-    let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
-    if project.is_ok() {
-        let project = project.unwrap();
-        let result = project.lock().unwrap().exists(project_path);
-        if result{
-            return Ok(warp::reply::with_status(
-                "true".to_string(),
-                StatusCode::OK))
-        }
-        else {
-            return Ok(warp::reply::with_status(
-                "false".to_string(),
-                StatusCode::OK))
-        }
-    }
-    let resp = format!("No project named {project_name} in collection {collection}");
-    return Ok(warp::reply::with_status(
-         resp,
-         StatusCode::NOT_FOUND))
-    }
+
 
 pub(crate) fn list_project(project_manager: Arc<Mutex<ProjectManager>>, collection: String,  project_name: String, project_path: Option<String>, show_hidden: bool) -> Result<impl warp::Reply, Infallible> {
     let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
@@ -67,8 +47,8 @@ pub(crate) fn create_project(project_manager: Arc<Mutex<ProjectManager>>, collec
         Ok(_) => Ok(warp::reply::with_status(warp::reply::json(
             &format!("Project {project_name} created in collection {collection}")
         ), StatusCode::CREATED)),
-        Err(_) => Ok(warp::reply::with_status(warp::reply::json(
-            &format!("Project {project_name} already exists in collection {collection}")
+        Err(e) => Ok(warp::reply::with_status(warp::reply::json(
+            &e.to_string()
         ), StatusCode::CONFLICT))
     }
 }
@@ -155,45 +135,45 @@ pub(crate) fn link_folder(project_manager: Arc<Mutex<ProjectManager>>, collectio
 
 }
 
-pub(crate) fn get_file(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, project_path: String) -> Result<WithStatus<std::string::String>,  Infallible> {
+pub(crate) fn get_file(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, project_path: String) -> Result<WithStatus<warp::reply::Json>,  Infallible> {
     let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
     if project.is_ok() {
         let project = project.unwrap();
         let result = project.lock().unwrap().get_file(&project_path);
         match result {
             Ok(file) => return Ok(warp::reply::with_status(
-                file,
+                warp::reply::json(&file),
                 StatusCode::OK)),
  
             Err(_) => return Ok(warp::reply::with_status(
-                format!("File {project_path} does not exist!"),
+                warp::reply::json(&format!("File {project_path} does not exist!")),
                 StatusCode::NOT_FOUND)),
         }
     }
     return Ok(warp::reply::with_status(
-       format!("No project named {project_name} in collection {collection}"),
+       warp::reply::json(&format!("No project named {project_name} in collection {collection}")),
        StatusCode::NOT_FOUND))
 
 }
 
-pub(crate) fn generate_path(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, project_path: String) -> Result<WithStatus<std::string::String>,  Infallible> {
+pub(crate) fn generate_path(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, project_path: String) -> Result<WithStatus<warp::reply::Json>,  Infallible> {
     let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
     if project.is_ok() {
         let project = project.unwrap();
         let result = project.lock().unwrap().generate_path(&project_path);
         match result {
             Ok(path) => return Ok(warp::reply::with_status(
-                path,
+                warp::reply::json(&path),
                 StatusCode::OK)),
  
             Err(_) => return Ok(warp::reply::with_status(
-                format!("Uncaught error generating path!"),
+                warp::reply::json(&format!("Uncaught error generating path!")),
                 StatusCode::INTERNAL_SERVER_ERROR)),
         }
     };
     
     return Ok(warp::reply::with_status(
-       format!("No project named {project_name} in collection {collection}"),
+       warp::reply::json(&format!("No project named {project_name} in collection {collection}")),
        StatusCode::NOT_FOUND))
     }
 
@@ -219,23 +199,23 @@ pub(crate) fn path_exists(project_manager: Arc<Mutex<ProjectManager>>, collectio
 
 }
 
-pub(crate) fn remove_file(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, project_path: String) -> Result<WithStatus<std::string::String>,  Infallible> {
+pub(crate) fn remove_file(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, project_path: String) -> Result<WithStatus<warp::reply::Json>,  Infallible> {
     let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
     if project.is_ok() {
         let project = project.unwrap();
         let result = project.lock().unwrap().remove_file(&project_path);
         match result {
             Ok(_) => return Ok(warp::reply::with_status(
-                format!("File {project_path} removed from project {project_name} in collection {collection}"),
+                warp::reply::json(&format!("File {project_path} removed from project {project_name} in collection {collection}")),
                 StatusCode::OK)),
  
             Err(_) => return Ok(warp::reply::with_status(
-                format!("File {project_path} does not exist!"),
+                warp::reply::json(&format!("File {project_path} does not exist!")),
                 StatusCode::NOT_FOUND)),
         }
     }
     return Ok(warp::reply::with_status(
-       format!("No project named {project_name} in collection {collection}"),
+       warp::reply::json(&format!("No project named {project_name} in collection {collection}")),
        StatusCode::NOT_FOUND))
 
 }

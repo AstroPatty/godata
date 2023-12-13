@@ -59,5 +59,8 @@ def test_exists():
     p = create_project("test7")
     expected_data = np.ones((10, 10))
     p.store(expected_data, "data/test_data")
-    assert p.has_path("data/test_data")
-    assert not p.has_path("data/test_data2")
+    hp1 = p.has_path("data/test_data")
+    hp2 = p.has_path("data/test_data2")
+    # Check the json parsing as well
+    assert type(hp1) == bool and type(hp2) == bool
+    assert hp1 and not hp2
