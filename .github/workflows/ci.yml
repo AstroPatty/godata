@@ -108,7 +108,6 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: godata_server-${{ matrix.target }}
-          path: godata_server
       - name: look
         run: ls -l
       - name: install python
@@ -121,6 +120,6 @@ jobs:
         run: poetry install
       - name: Run tests
         run: |
-          ./godata_server &
+          ./godata_server-${{ matrix.target }} &
           cd tests
           poetry run pytest
