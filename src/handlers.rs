@@ -1,4 +1,4 @@
-use crate::project::Project;
+
 use crate::project::ProjectManager;
 use crate::project::get_collection_names;
 use std::sync::{Arc, Mutex};
@@ -24,7 +24,7 @@ pub(crate) fn list_projects(project_manager: Arc<Mutex<ProjectManager>>, collect
 
 
 
-pub(crate) fn list_project(project_manager: Arc<Mutex<ProjectManager>>, collection: String,  project_name: String, project_path: Option<String>, show_hidden: bool) -> Result<impl warp::Reply, Infallible> {
+pub(crate) fn list_project(project_manager: Arc<Mutex<ProjectManager>>, collection: String,  project_name: String, project_path: Option<String>, _show_hidden: bool) -> Result<impl warp::Reply, Infallible> {
     let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
     if project.is_ok() {
         let project = project.unwrap();
