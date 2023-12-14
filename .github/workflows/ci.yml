@@ -100,8 +100,7 @@ jobs:
         run: poetry install
       - name: Run tests
         run: |
-          sudo mkdir /home/data
-          sudo mv tests/test_data/* /home/data
+          export DATA_PATH=tests/test_data/
           chmod +x ./server/godata_server
           ./server/godata_server
           cd tests
@@ -135,8 +134,7 @@ jobs:
         run: poetry install
       - name: Run tests
         run: |
-          sudo mkdir /home/data
-          sudo mv tests/test_data/* /home/data
+          export DATA_PATH=tests/test_data/
           chmod +x ./server/godata_server
           ./server/godata_server &
           cd tests

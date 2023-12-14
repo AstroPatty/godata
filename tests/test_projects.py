@@ -1,9 +1,14 @@
+import os
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from godata import create_project, list_collections, list_projects
 from godata.project import GodataProjectError
+
+data_path = Path(os.environ.get("DATA_PATH"))
 
 
 def test_create():
@@ -20,7 +25,7 @@ def test_create_duplicate():
 
 def test_add_file():
     p = create_project("test3")
-    p.link("/home/data/test_ones.npy", "data/test_data")
+    p.link(data_path / "test_ones.npy", "data/test_data")
     items = p.get("data/test_data")
     expected_data = np.ones((10, 10))
     assert np.all(items == expected_data)
@@ -28,7 +33,7 @@ def test_add_file():
 
 def test_add_folder():
     p = create_project("test4")
-    p.link("/home/data", "data")
+    p.link(data_path, "data")
     items = p.get("data/test_ones.npy")
     expected_data = np.ones((10, 10))
     assert np.all(items == expected_data)
@@ -48,7 +53,7 @@ def test_overwrite():
     p.store(expected_data, "data/test_data")
     stored_path = p.get("data/test_data", as_path=True)
 
-    df_data = pd.read_csv("/home/data/test_df.csv")
+    df_data = pd.read_csv(data_path / "test_df.csv")
     p.store(df_data, "data/test_data")
     data = p.get("data/test_data")
     assert np.all(data.values == df_data.values)
