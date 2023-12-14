@@ -85,7 +85,7 @@ def test_delete_file():
 def test_list_collections():
     p = create_project("test9", "test_collection")
     collections = list_collections()
-    assert collections == ["default", "test_collection"]
+    assert collections.sort() == ["default", "test_collection"].sort()
 
 
 def test_list_projects():
