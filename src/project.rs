@@ -6,7 +6,6 @@ use std::path::PathBuf;
 use std::io::Result;
 use std::sync::{Arc, Mutex};
 
-
 pub struct Project {
     pub(crate) tree: FileSystem,
     _name: String,
@@ -90,14 +89,16 @@ pub fn get_project_manager() -> ProjectManager {
     let storage_manager = StorageManager::get_manager();
     ProjectManager {
         storage_manager,
-        projects: HashMap::new()
+        projects: HashMap::new(),
+        counts: HashMap::new(),
     }
 }
 
 
 pub struct ProjectManager {
     storage_manager: StorageManager,
-    projects: HashMap<String, Arc<Mutex<Project>>>
+    projects: HashMap<String, Arc<Mutex<Project>>>,
+    counts: HashMap<String, usize>,
 }
 
 impl ProjectManager {
@@ -118,19 +119,25 @@ impl ProjectManager {
             _endpoint: Box::new(endpoint),
         };
         let project = Arc::new(Mutex::new(p));
-        self.projects.insert(key, project.clone());
+        self.projects.insert(key.clone(), project.clone());
+        self.counts.insert(key, 1);
         Ok(project)
     }
 
     pub fn load_project(&mut self, name: &str, collection: &str) -> Result<Arc<Mutex<Project>>> {
         let key = format!("{}/{}", name, collection);
         if self.projects.contains_key(&key) {
+            let count = self.counts.get(&key).unwrap_or(&0);
+            self.counts.insert(key.clone(), count + 1);
             return Ok(self.projects.get(&key).unwrap().clone());
         }
         let project_dir = load_project_dir(name, collection)?;
         let storage_dir = self.storage_manager.get(name, collection)?;
         let tree = FileSystem::load(name, project_dir)?;
         let endpoint = LocalEndpoint::new(storage_dir.1);
+
+        let count = self.counts.get(&key).unwrap_or(&0);
+        self.counts.insert(key.clone(), count + 1);
 
         let project = Project {
             tree,
@@ -141,6 +148,28 @@ impl ProjectManager {
         let project = Arc::new(Mutex::new(project));
         self.projects.insert(key, project.clone());
         Ok(project)
+    }
+
+    pub(crate) fn drop_project(&mut self, name: &str, collection: &str) -> Result<()> {
+        let key = format!("{}/{}", name, collection);
+        let count = self.counts.get(&key);
+        if count.is_none() {
+            return Err(std::io::Error::new(std::io::ErrorKind::NotFound, format!("Tried to drop a project {} that is not loaded!", key)));
+        }
+        let count = count.unwrap();
+        if  count == &1{
+            self.projects.remove(&key);
+            self.counts.remove(&key);
+        }
+        else if count < &0 {
+            self.counts.remove(&key);
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Tried to drop a project {} that does not exist", key)));
+        }
+        
+        else {
+            self.counts.insert(key, count - 1);
+        }
+        Ok(())
     }
 
     pub fn delete_project(&mut self, name: &str, collection: &str, force: bool) -> Result<()> {
@@ -192,8 +221,6 @@ impl ProjectManager {
     }
      
 }
-
-
 
 pub fn get_collection_names(show_hidden: bool) -> Result<Vec<String>> {
     let main_dir = crate::locations::get_main_dir();

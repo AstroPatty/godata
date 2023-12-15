@@ -10,6 +10,8 @@ pub(crate) fn routes(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter
     list_collections()
         .or(list_projects(project_manager.clone()))
         .or(project_list(project_manager.clone()))
+        .or(load_project(project_manager.clone()))
+        .or(drop_project(project_manager.clone()))
         .or(create_project(project_manager.clone()))
         .or(delete_project(project_manager.clone()))
         .or(project_link(project_manager.clone()))
@@ -64,6 +66,22 @@ fn delete_project(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Ex
                 None => false
             };
             handlers::delete_project(project_manager.clone(), collection, project_name, force)
+        })
+}
+
+fn load_project(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path!("load" / String / String)
+        .and(warp::post())
+        .map(move |collection, project_name| {
+            handlers::load_project(project_manager.clone(), collection, project_name)
+        })
+}
+
+fn drop_project(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path!("drop" / String / String)
+        .and(warp::post())
+        .map(move |collection, project_name| {
+            handlers::drop_project(project_manager.clone(), collection, project_name)
         })
 }
 

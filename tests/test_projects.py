@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from godata import create_project, list_collections, list_projects
+from godata import create_project, list_collections, list_projects, load_project
 from godata.project import GodataProjectError
 
 data_path = Path(os.environ.get("DATA_PATH"))
@@ -101,4 +101,14 @@ def test_project_path_clean():
     data = p.get("/data/test_data")
     data2 = p.get("data/test_data/")
     assert np.all(data == data2)
+    assert np.all(data == expected_data)
+
+
+def test_load_project():
+    p = create_project("test12")
+    expected_data = np.ones((10, 10))
+    p.store(expected_data, "data/test_data")
+    del p
+    p = load_project("test12")
+    data = p.get("data/test_data")
     assert np.all(data == expected_data)

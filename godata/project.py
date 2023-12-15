@@ -32,6 +32,9 @@ class GodataProject:
         self.collection = collection
         self.name = name
 
+    def __del__(self):
+        asyncio.run(client.drop_project(self.collection, self.name))
+
     @sanitize_project_path
     def remove(self, project_path: str) -> bool:
         """
@@ -269,9 +272,8 @@ def delete_project(name, collection="default", force=False) -> bool:
 
 
 def load_project(name, collection="default") -> GodataProject:
-    known_projects = list_projects(collection, True, False)
-    if name not in known_projects:
-        raise GodataProjectError(f"Project {name} not found in collection {collection}")
+    # this raises an error if the project doesn't exist
+    _ = asyncio.run(client.load_project(collection, name))
     return GodataProject(collection, name)
 
 

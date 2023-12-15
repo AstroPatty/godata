@@ -79,6 +79,37 @@ async def delete_project(collection_name: str, project_name: str, force: bool = 
             return await resp.json()
 
 
+async def load_project(collection_name: str, project_name: str):
+    """
+    Load a project into the server memory if it is not already loaded.
+    """
+    session = await get_client()
+    async with session as client:
+        async with client.post(
+            f"{SERVER_URL}/load/{collection_name}/{project_name}"
+        ) as resp:
+            if resp.status == 200:
+                return True
+            else:
+                raise NotFound(f"{await resp.json()}")
+
+
+async def drop_project(collection_name: str, project_name: str):
+    """
+    Signals to the server this client is done with this project. This may or may not
+    actually drop the project from memory, depending on if other clients are using it.
+    """
+    session = await get_client()
+    async with session as client:
+        async with client.post(
+            f"{SERVER_URL}/drop/{collection_name}/{project_name}"
+        ) as resp:
+            if resp.status == 200:
+                return await resp.json()
+            else:
+                raise NotFound(f"{await resp.json()}")
+
+
 async def path_exists(collection_name: str, project_name: str, project_path: str):
     session = await get_client()
     params = {"project_path": project_path}

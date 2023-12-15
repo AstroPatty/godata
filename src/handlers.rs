@@ -22,7 +22,56 @@ pub(crate) fn list_projects(project_manager: Arc<Mutex<ProjectManager>>, collect
     }
 }
 
+pub(crate) fn load_project(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String) -> Result<impl warp::Reply, Infallible> {
+    // Preload a project into memory. The idea is that in typical use, we want the "load_project" command on the Python side to be effective instant,
+    // so we load the project into memory in a separate thread. By the time the user actually tries to USE the project, it should be loaded.
+    // This really only matters for large projects, but it's a nice feature to have.
+    let project_names = project_manager.lock().unwrap().get_project_names(collection.clone(), true);
+    match project_names {
+        Ok(project_list) => {
+            if ! project_list.contains(&project_name) {
+                return Ok(warp::reply::with_status(warp::reply::json(
+                    &format!("No project named {project_name} in collection {collection}")
+                ), StatusCode::NOT_FOUND))
+            }
+        }
+        Err(_) => return Ok(warp::reply::with_status(warp::reply::json(
+            &format!("No collection named {collection}")
+        ), StatusCode::NOT_FOUND))
+        
+    }
+    tokio::task::spawn(async move {
+        let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
+        match project {
+            Ok(_) => {},
+            Err(_) => {}
+        }
+    });
+    Ok(warp::reply::with_status(warp::reply::json(
+       &"".to_string()
+    ), StatusCode::OK))
+}
 
+pub(crate) fn drop_project(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String) -> Result<impl warp::Reply, Infallible> {
+    let project = project_manager.lock().unwrap().drop_project(&project_name, &collection);
+    match project {
+        Ok(_) => Ok(warp::reply::with_status(warp::reply::json(
+            &format!("Project {project_name} dropped.")
+        ), StatusCode::OK)),
+        Err(e) => {
+            match e.kind() {
+                std::io::ErrorKind::InvalidData => {
+                    Ok(warp::reply::with_status(warp::reply::json(
+                      &e.to_string()),
+                     StatusCode::INTERNAL_SERVER_ERROR))
+                },
+                _ => Ok(warp::reply::with_status(warp::reply::json(
+                    &e.to_string()),
+                    StatusCode::NOT_FOUND))
+            }
+        }    
+    }
+}
 
 pub(crate) fn list_project(project_manager: Arc<Mutex<ProjectManager>>, collection: String,  project_name: String, project_path: Option<String>, _show_hidden: bool) -> Result<impl warp::Reply, Infallible> {
     let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
