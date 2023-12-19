@@ -40,6 +40,13 @@ def get_client():
     return CLIENT
 
 
+def get_version():
+    client = get_client()
+    resp = client.get(f"{SERVER_URL}/version")
+    if resp.status_code == 200:
+        return resp.json()
+
+
 def list_collections(show_hidden=False):
     client = get_client()
     payload = {"show_hidden": str(show_hidden).lower()}

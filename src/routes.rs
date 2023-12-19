@@ -8,6 +8,7 @@ use warp::http::StatusCode;
 
 pub(crate) fn routes(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     list_collections()
+        .or(get_version())
         .or(list_projects(project_manager.clone()))
         .or(project_list(project_manager.clone()))
         .or(load_project(project_manager.clone()))
@@ -19,6 +20,12 @@ pub(crate) fn routes(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter
         .or(projects_path_exists(project_manager.clone()))
         .or(project_generate_path(project_manager.clone()))
         .or(project_remove_file(project_manager.clone()))
+}
+
+fn get_version() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path!("version")
+        .and(warp::get())
+        .map(handlers::get_version)
 }
 
 fn list_collections() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {

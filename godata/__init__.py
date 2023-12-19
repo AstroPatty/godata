@@ -17,3 +17,9 @@ __all__ = [
     "has_project",
     "has_collection",
 ]
+
+__version__ = "0.4.0"
+
+from godata.client import check_server
+
+check_server()

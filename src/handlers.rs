@@ -7,6 +7,12 @@ use warp::http::StatusCode;
 use warp::reply::WithStatus;
 use std::collections::HashMap;
 
+pub(crate) fn get_version() -> Result<impl warp::Reply, Infallible> {
+    Ok(warp::reply::with_status(warp::reply::json(
+        &format!("{}", env!("CARGO_PKG_VERSION"))
+    ), StatusCode::OK))
+}
+
 pub(crate) fn list_collections(show_hidden: bool) -> Result<impl warp::Reply, Infallible> {
     let collections = get_collection_names(show_hidden);
     Ok(warp::reply::json(&collections.unwrap()))
