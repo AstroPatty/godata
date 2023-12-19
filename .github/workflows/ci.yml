@@ -102,7 +102,7 @@ jobs:
         run: |
           export DATA_PATH=$(pwd)/tests/test_data/
           chmod +x ./server/godata_server
-          ./server/godata_server &
+          sudo ./server/godata_server &
           cd tests
           poetry run pytest
   test_mac:
@@ -136,6 +136,6 @@ jobs:
         run: |
           export DATA_PATH=$(pwd)/tests/test_data/
           chmod +x ./server/godata_server
-          ./server/godata_server &
+          sudo ./server/godata_server &
           cd tests
           poetry run pytest
