@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
 
-from godata import client
+from godata.client import client
 from godata.files import utils as file_utils
 from godata.io import get_known_writers, godataIoException, try_to_read
 from godata.utils import sanitize_project_path
@@ -33,7 +32,7 @@ class GodataProject:
         self.name = name
 
     def __del__(self):
-        asyncio.run(client.drop_project(self.collection, self.name))
+        client.drop_project(self.collection, self.name)
 
     @sanitize_project_path
     def remove(self, project_path: str) -> bool:
@@ -41,7 +40,7 @@ class GodataProject:
         Remove an file/folder at the given path. If a folder contains other
         files/folders, this will throw an error unless rucursive is set to True.
         """
-        asyncio.run(client.remove_file(self.collection, self.name, project_path))
+        client.remove_file(self.collection, self.name, project_path)
         # will raise an error if it cannot be removed
         return True
 
@@ -53,9 +52,8 @@ class GodataProject:
         it will return a path. The path can also be returned explicitly by passing
         as_path = True.
         """
-        path_str = asyncio.run(
-            client.get_file(self.collection, self.name, project_path)
-        )
+        path_str = client.get_file(self.collection, self.name, project_path)
+
         path = Path(path_str)
         if as_path:
             return path
@@ -118,9 +116,8 @@ class GodataProject:
                 f"No writer found for object of type {type(object)}"
             )
 
-        storage_path = asyncio.run(
-            client.generate_path(self.collection, self.name, project_path)
-        )
+        storage_path = client.generate_path(self.collection, self.name, project_path)
+
         storage_path = Path(storage_path)
         storage_path = storage_path.with_suffix("." + suffix)
         storage_path.parent.mkdir(parents=True, exist_ok=True)
@@ -149,16 +146,12 @@ class GodataProject:
         fpath = fpath.resolve()
 
         if fpath.is_dir():
-            result = asyncio.run(
-                client.link_folder(
-                    self.collection, self.name, project_path, str(fpath), recursive
-                )
+            result = client.link_folder(
+                self.collection, self.name, project_path, str(fpath), recursive
             )
         else:
-            result = asyncio.run(
-                client.link_file(
-                    self.collection, self.name, project_path, str(fpath), overwrite
-                )
+            result = client.link_file(
+                self.collection, self.name, project_path, str(fpath), overwrite
             )
         print(result["message"])
         file_utils.handle_overwrite(result)
@@ -201,7 +194,7 @@ class GodataProject:
         """
         if not project_path:
             return True
-        return asyncio.run(client.path_exists(self.collection, self.name, project_path))
+        return client.path_exists(self.collection, self.name, project_path)
 
     @sanitize_project_path
     def list(self, project_path: str = None) -> dict[str, str]:
@@ -210,9 +203,7 @@ class GodataProject:
         perform the ls in the folder at the given path. Otherwise, it will perform
         it in the project root.
         """
-        return asyncio.run(
-            client.list_project_contents(self.collection, self.name, project_path)
-        )
+        return client.list_project_contents(self.collection, self.name, project_path)
 
 
 def has_project(name: str, collection: str = "default") -> bool:
@@ -248,10 +239,8 @@ def create_project(
 
     # Note, the manager will throw an error if the project already exists
     try:
-        response = asyncio.run(
-            client.create_project(
-                collection, name, force=True, storage_location=storage_location
-            )
+        response = client.create_project(
+            collection, name, force=True, storage_location=storage_location
         )
     except client.AlreadyExists:
         raise GodataProjectError(
@@ -267,18 +256,18 @@ def delete_project(name, collection="default", force=False) -> bool:
     this explicitly forces the user the suply True as an argument as a confirmation.
     In the future, we may implement an option to output the internal files somewhere.
     """
-    asyncio.run(client.delete_project(collection, name, force))
+    client.delete_project(collection, name, force)
     return True
 
 
 def load_project(name, collection="default") -> GodataProject:
     # this raises an error if the project doesn't exist
-    _ = asyncio.run(client.load_project(collection, name))
+    _ = client.load_project(collection, name)
     return GodataProject(collection, name)
 
 
 def list_projects(collection="default", show_hidden=False, display=True) -> list[str]:
-    projects = asyncio.run(client.list_projects(collection, show_hidden))
+    projects = client.list_projects(collection, show_hidden)
     if display:
         print(f"Projects in collection `{collection or 'default'}`:")
         for p in projects:
@@ -287,7 +276,7 @@ def list_projects(collection="default", show_hidden=False, display=True) -> list
 
 
 def list_collections(show_hidden=False, display=True) -> list[str]:
-    collections = asyncio.run(client.list_collections(show_hidden))
+    collections = client.list_collections(show_hidden)
     if display:
         print("Collections:")
         for c in collections:
