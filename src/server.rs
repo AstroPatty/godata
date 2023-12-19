@@ -8,7 +8,8 @@ use tokio::signal;
 
 
 pub struct Server {
-    project_manager: Arc<Mutex<ProjectManager>>
+    project_manager: Arc<Mutex<ProjectManager>>,
+    url: String
 }
 
 
@@ -16,7 +17,7 @@ pub struct Server {
 
 impl Server {
     pub async fn start(&self) {
-        let listener = tokio::net::UnixListener::bind("/tmp/godata.sock").unwrap();
+        let listener = tokio::net::UnixListener::bind(&self.url).unwrap();
         let incoming = UnixListenerStream::new(listener);
         let server = warp::serve(routes::routes(self.project_manager.clone()))
             .serve_incoming_with_graceful_shutdown(incoming, async {
@@ -29,13 +30,14 @@ impl Server {
 impl Drop for Server {
     fn drop(&mut self) {
         println!("Shutting down server...");
-        std::fs::remove_file("/tmp/godata.sock").unwrap();
+        std::fs::remove_file(&self.url).unwrap();
     }
 }
 
 pub fn get_server() -> Server {
     
     Server {
-        project_manager: Arc::new(Mutex::new(get_project_manager()))
+        project_manager: Arc::new(Mutex::new(get_project_manager())),
+        url: "/var/godata.sock".to_string()
     }
 }

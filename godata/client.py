@@ -10,7 +10,7 @@ to use a TCP socket instead of a unix socket.
 
 The client is stateless, so it's just a bunch of functions.
 """
-SERVER_PATH = "/tmp/godata.sock"
+SERVER_PATH = "/var/godata.sock"
 SERVER_URL = f"http+unix://{parse.quote(SERVER_PATH, safe='')}"
 
 
