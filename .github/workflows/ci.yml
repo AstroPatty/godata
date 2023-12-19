@@ -104,7 +104,7 @@ jobs:
           chmod +x ./server/godata_server
           sudo ./server/godata_server &
           cd tests
-          sudo -E bash -c 'poetry run pytest'
+          sudo -E bash -c /home/runner/.local/bin/'poetry run pytest'
   test_mac:
     name: test on macOS
     runs-on: macos-latest
