@@ -10,7 +10,7 @@ FROM python:3.10
 ENV PATH="~/.local/bin:${PATH}"
 
 # copy the server binary into the container
-COPY --from=0 /app/target/release/godata_server /bin
+COPY --from=0 /app/target/release/godata_server /usr/local/bin/
 #install poetry
 RUN curl -sSL https://install.python-poetry.org | python3 -
 

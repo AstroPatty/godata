@@ -1,4 +1,5 @@
 import os
+import time
 from pathlib import Path
 
 import numpy as np
@@ -9,6 +10,20 @@ from godata import create_project, list_collections, list_projects, load_project
 from godata.project import GodataProjectError
 
 data_path = Path(os.environ.get("DATA_PATH"))
+
+
+def setup_module(module):
+    # Make sure the server is running
+    from godata.server import start
+
+    start()
+
+
+def teardown_module(module):
+    # Make sure the server is stopped
+    from godata.server import stop
+
+    stop()
 
 
 def test_create():

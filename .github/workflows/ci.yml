@@ -85,11 +85,6 @@ jobs:
         with:
           name: godata_server-${{ matrix.target }}
           path: server
-      - name: look
-        run: |
-          ls -l
-          ls -l godata
-          pwd 
       - name: install python
         uses: actions/setup-python@v2
         with:
@@ -103,7 +98,6 @@ jobs:
           export DATA_PATH=$(pwd)/tests/test_data/
           chmod +x ./server/godata_server
           sudo mv ./server/godata_server /usr/local/bin/
-          godata server start
           cd tests
           sudo -E bash -c '/home/runner/.local/bin/poetry run pytest'
   test_mac:
@@ -120,11 +114,6 @@ jobs:
         with:
           name: godata_server-${{ matrix.target }}
           path: server
-      - name: look
-        run: |
-          ls -l
-          ls -l godata
-          pwd 
       - name: install python
         uses: actions/setup-python@v2
         with:
@@ -138,6 +127,5 @@ jobs:
           export DATA_PATH=$(pwd)/tests/test_data/
           chmod +x ./server/godata_server
           sudo mv ./server/godata_server /usr/local/bin/
-          godata server start
           cd tests
           sudo -E bash -c 'poetry run pytest'

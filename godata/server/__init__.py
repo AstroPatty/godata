@@ -1,4 +1,5 @@
 import subprocess
+import time
 
 SERVER_INSTALL_PATH = "/usr/local/bin/godata_server"
 
@@ -11,6 +12,8 @@ def start():
             "Unable to start godata server: could not find the server binary. "
             "Please run `godata server install` first."
         )
+    time.sleep(0.5)
+    return True
 
 
 def stop():
