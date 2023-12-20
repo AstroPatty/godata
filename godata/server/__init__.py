@@ -5,7 +5,7 @@ SERVER_INSTALL_PATH = "/usr/local/bin/godata_server"
 
 def start():
     try:
-        subprocess.Popen([f".{SERVER_INSTALL_PATH}", "&"])
+        subprocess.Popen([f"{SERVER_INSTALL_PATH}", "&"])
     except FileNotFoundError:
         raise FileNotFoundError(
             "Unable to start godata server: could not find the server binary. "
