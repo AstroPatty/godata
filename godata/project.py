@@ -3,41 +3,37 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import portalocker
 from loguru import logger
 
-from godata.godata import project as project_rs
+from godata.client import client
+from godata.files import utils as file_utils
+from godata.io import get_known_writers, godataIoException, try_to_read
 from godata.utils import sanitize_project_path
-
-from .io import get_known_writers, godataIoException, try_to_read
-
-opened_projects = {}
-
-GodataProjectError = project_rs.GodataProjectError
-project_manger = project_rs.get_project_manager()
-
 
 __all__ = ["load_project", "list_projects", "create_project", "GodataProjectError"]
 
 
+class GodataProjectError(Exception):
+    pass
+
+
 class GodataProject:
     """
-    This is at thin wrapper class for the associated Project struct in the rust library.
-    In general, this class just calls the underlying rust methods. However, it does have
-    to provide additional behavior in particular cases. For example, storing a python
-    object requires a function that knows how to write the given object to a file, which
-    will most likely be in python.
-
-    Note that in most cases error handling is actually done by the rust library, so in
-    almost all cases expect that an exception encountered while using this class is
-    coming from there.
+    This is the main user-facing class for interacting with projects. It mostly a
+    thin wrapper around an http client, but it also delegates file reading and writing
+    tasks where appropriate.
 
     This class also provides docstrings for the underlying methods, such that all
     user-facing documentation can be done with sphinx.
     """
 
-    def __init__(self, _project, name) -> GodataProject:
-        self._project = _project
+    def __init__(self, collection, name) -> GodataProject:
+        self.collection = collection
         self.name = name
+
+    def __del__(self):
+        client.drop_project(self.collection, self.name)
 
     @sanitize_project_path
     def remove(self, project_path: str) -> bool:
@@ -45,9 +41,8 @@ class GodataProject:
         Remove an file/folder at the given path. If a folder contains other
         files/folders, this will throw an error unless rucursive is set to True.
         """
-        self._project.remove_file(
-            project_path
-        )  # will raise an error if it cannot be removed
+        client.remove_file(self.collection, self.name, project_path)
+        # will raise an error if it cannot be removed
         return True
 
     @sanitize_project_path
@@ -58,12 +53,14 @@ class GodataProject:
         it will return a path. The path can also be returned explicitly by passing
         as_path = True.
         """
-        path_str = self._project.get_file(project_path)
+        path_str = client.get_file(self.collection, self.name, project_path)
+
         path = Path(path_str)
         if as_path:
             return path
         try:
-            data = try_to_read(path)
+            with portalocker.Lock(str(path), "rb"):
+                data = try_to_read(path)
             return data
         except godataIoException:
             logger.info(
@@ -72,7 +69,7 @@ class GodataProject:
             return path
 
     @sanitize_project_path
-    def store(self, object: Any, project_path: str) -> bool:
+    def store(self, object: Any, project_path: str, overwrite=True) -> bool:
         """
         Stores a given python object in godata's internal storage at the given path.
         Not having a writer defined in godata's python io module is not necessarily
@@ -121,17 +118,25 @@ class GodataProject:
                 f"No writer found for object of type {type(object)}"
             )
 
-        storage_path = Path(self._project.generate_path(project_path))
+        storage_path = client.generate_path(self.collection, self.name, project_path)
+
+        storage_path = Path(storage_path)
         storage_path = storage_path.with_suffix("." + suffix)
         storage_path.parent.mkdir(parents=True, exist_ok=True)
-        self.link(storage_path, project_path, force=True)
-        writer_fn(obj, storage_path)
+        self.link(storage_path, project_path, overwrite=overwrite, _force=True)
+        with portalocker.Lock(str(storage_path), "wb"):
+            writer_fn(obj, storage_path)
 
         return True
 
     @sanitize_project_path
     def link(
-        self, file_path: str, project_path: str, recursive: bool = False, force=True
+        self,
+        file_path: str,
+        project_path: str,
+        recursive: bool = False,
+        overwrite=False,
+        _force=False,
     ) -> bool:
         """
         Add a file to the project. This will not actually move any data, just create
@@ -139,21 +144,23 @@ class GodataProject:
         """
 
         fpath = Path(file_path)
-        if not fpath.exists() and not force:
+        if not fpath.exists() and not _force:
             raise FileNotFoundError(f"Nothing found at {file_path}")
         fpath = fpath.resolve()
 
         if fpath.is_dir():
-            self._project.add_folder(str(file_path), project_path, recursive)
+            result = client.link_folder(
+                self.collection, self.name, project_path, str(fpath), recursive
+            )
         else:
-            fp = str(file_path)
-            project_path_split = project_path.split("/")
-            file_name = project_path_split[-1]
-            ppath = "/".join(project_path_split[:-1])
-
-            self._project.add_file(file_name, fp, ppath)
+            result = client.link_file(
+                self.collection, self.name, project_path, str(fpath), overwrite
+            )
+        print(result["message"])
+        file_utils.handle_overwrite(result)
         return True
 
+    @sanitize_project_path
     def ls(self, project_path: str = None) -> None:
         """
         A basic ls utility for looking at projects. If a path is given, this will
@@ -188,7 +195,9 @@ class GodataProject:
         """
         Check if a given path exists in the project.
         """
-        return self._project.has_path(project_path)
+        if not project_path:
+            return True
+        return client.path_exists(self.collection, self.name, project_path)
 
     @sanitize_project_path
     def list(self, project_path: str = None) -> dict[str, str]:
@@ -197,7 +206,7 @@ class GodataProject:
         perform the ls in the folder at the given path. Otherwise, it will perform
         it in the project root.
         """
-        return self._project.list(project_path)
+        return client.list_project_contents(self.collection, self.name, project_path)
 
 
 def has_project(name: str, collection: str = "default") -> bool:
@@ -205,7 +214,7 @@ def has_project(name: str, collection: str = "default") -> bool:
     Check if a project exists in the given collection. If no collection is given,
     this will check the default collection.
     """
-    projects = list_projects(True, collection)
+    projects = list_projects(collection, True, False)
     return name in projects
 
 
@@ -214,14 +223,16 @@ def has_collection(name: str) -> bool:
     Check if a collection exists.
     """
     try:
-        collections = list_collections(True)
+        collections = list_collections(True, False)
         n_projects = len(list_projects(True, name))
     except GodataProjectError:
         return False
     return name in collections and n_projects > 0
 
 
-def create_project(name, collection="default", storage_location=None) -> GodataProject:
+def create_project(
+    name: str, collection: str = "default", storage_location: str = None
+) -> GodataProject:
     """
     Create a new project in the given collection. If no collection is given, this
     will create a project in the default collection. If the collection does not
@@ -229,13 +240,17 @@ def create_project(name, collection="default", storage_location=None) -> GodataP
 
     """
 
-    pname = collection + "." + name
     # Note, the manager will throw an error if the project already exists
-    project = project_manger.create_project(
-        name, collection, force=True, storage_location=storage_location
-    )
-    opened_projects[pname] = GodataProject(project, name)
-    return opened_projects[pname]
+    try:
+        response = client.create_project(
+            collection, name, force=True, storage_location=storage_location
+        )
+    except client.AlreadyExists:
+        raise GodataProjectError(
+            f"Project {name} already exists in collection {collection}"
+        )
+    print(response)
+    return GodataProject(collection, name)
 
 
 def delete_project(name, collection="default", force=False) -> bool:
@@ -244,25 +259,18 @@ def delete_project(name, collection="default", force=False) -> bool:
     this explicitly forces the user the suply True as an argument as a confirmation.
     In the future, we may implement an option to output the internal files somewhere.
     """
-    pname = collection + "." + name
-    if pname in opened_projects:
-        del opened_projects[pname]
-    project_manger.delete_project(name, collection, force)
+    client.delete_project(collection, name, force)
     return True
 
 
 def load_project(name, collection="default") -> GodataProject:
-    pname = collection + "." + name
-    if pname in opened_projects:
-        return opened_projects[pname]
-
-    project = project_manger.load_project(name, collection)
-    opened_projects[pname] = GodataProject(project, name)
-    return opened_projects[pname]
+    # this raises an error if the project doesn't exist
+    _ = client.load_project(collection, name)
+    return GodataProject(collection, name)
 
 
 def list_projects(collection="default", show_hidden=False, display=True) -> list[str]:
-    projects = project_rs.get_project_names(collection, show_hidden)
+    projects = client.list_projects(collection, show_hidden)
     if display:
         print(f"Projects in collection `{collection or 'default'}`:")
         for p in projects:
@@ -271,9 +279,9 @@ def list_projects(collection="default", show_hidden=False, display=True) -> list
 
 
 def list_collections(show_hidden=False, display=True) -> list[str]:
-    list_collections = project_rs.get_collection_names(show_hidden)
+    collections = client.list_collections(show_hidden)
     if display:
         print("Collections:")
-        for c in list_collections:
+        for c in collections:
             print(f"  {c}")
-    return list_collections
+    return collections

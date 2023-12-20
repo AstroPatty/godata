@@ -1,28 +1,33 @@
-
 [build-system]
-requires = ["maturin>=1.0,<2.0"]
-build-backend = "maturin"
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
-[tool.maturin]
-# "extension-module" tells pyo3 we want to build an extension module (skips linking against libpython.so)
-features = ["pyo3/extension-module"]
-
-[project]
+[tool.poetry]
 name = "godata"
-version = "0.4.0"
-requires-python = ">=3.10"
-dependencies = [
-    "loguru>=0.7.0",
-]
+version = "0.4.1"
+description = ""
+authors = ["Patrick Wells <pwells@ucdavis.edu>"]
+readme = "README.md"
 
+[tool.poetry.dependencies]
+python = "^3.10"
+loguru = "^0.7.2"
+aiohttp = "^3.9.1"
+requests = "^2.31.0"
+click = "^8.1.7"
+portalocker = "^2.8.2"
 
-[project.optional-dependencies]
-develop = [
-    "black>=23.7.0",
-    "isort>=5.12.0",
-    "ruff>=0.0.285",
-    "pre-commit>=3.3.3"
-]
+[tool.poetry.scripts]
+godata = "godata.cli.cli:main"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+ruff = "^0.1.7"
+black = "^23.11.0"
+isort = "^5.13.0"
+numpy = "^1.26.2"
+pandas = "^2.1.4"
+
 
 [tool.isort]
 profile = "black"
@@ -42,3 +47,4 @@ exclude = [
 "io",
 "test*"
 ]
+

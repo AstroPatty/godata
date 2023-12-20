@@ -17,6 +17,11 @@ def sanitize_project_path(func: Callable[P, T]) -> Callable[P, T]:
 
     def wrapper(*args, **kwargs) -> T:
         # Get the signature of the function
+        print(args)
+        print(kwargs)
+        print("---------")
+        if len(args) == 0 and len(kwargs) == 0:
+            return func()
         sig = inspect.signature(func)
         # Figure out where the project_path argument is
         arg_index = None
@@ -39,12 +44,13 @@ def sanitize_project_path(func: Callable[P, T]) -> Callable[P, T]:
 
         if project_path is not None and isinstance(project_path, str):
             if project_path.startswith("/"):
+                # remove the leading slash
                 project_path = project_path[1:]
             if project_path.endswith("/"):
-                print("WARNING: Trailing slash found in project path. Removing.")
+                # remove the trailing alsh
                 project_path = project_path[:-1]
 
-        if arg_index is not None:
+        if arg_index is not None and arg_index < len(args):
             # If the argument is passed as a positional argument
             args = list(args)
             args[arg_index] = project_path
