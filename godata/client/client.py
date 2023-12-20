@@ -40,22 +40,17 @@ class GodataClientError(Exception):
 
 
 def check_server():
-    from godata import __version__
+    from godata import __minimum_server_version__
 
     server_version = version.parse(get_version(CLIENT))
-    client_version = version.parse(__version__)
-    if server_version.major != client_version.major:
+    minium_version = version.parse(__minimum_server_version__)
+
+    if server_version < minium_version:
         raise GodataClientError(
-            f"Server version {server_version} not compatible with client version"
-            f"{client_version}. Server and client must have the same major version."
+            f"Server version {server_version} is less than minimum version "
+            f"{minium_version}. Please upgrade the server."
         )
-    elif server_version.minor < client_version.minor:
-        raise GodataClientError(
-            f"Client version cannot be newer than server version. "
-            f"Server version: {server_version} < Client version: {client_version}."
-        )
-    else:
-        return True
+    return True
 
 
 def get_client():

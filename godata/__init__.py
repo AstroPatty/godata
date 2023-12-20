@@ -1,4 +1,5 @@
 __version__ = "0.4.0"
+__minimum_server_version__ = "0.4.0"
 
 from .project import (
     create_project,
