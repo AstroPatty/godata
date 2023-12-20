@@ -11,12 +11,6 @@ from godata.project import GodataProjectError
 data_path = Path(os.environ.get("DATA_PATH"))
 
 
-def test_version():
-    from godata.client import check_server
-
-    assert check_server()
-
-
 def test_create():
     p = create_project("test1")
     items = p.ls()

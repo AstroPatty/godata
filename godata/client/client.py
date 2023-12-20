@@ -1,6 +1,7 @@
 from urllib import parse
 
 import requests
+from packaging import version
 
 from .unixsocket import UnixHTTPAdapter
 
@@ -36,12 +37,34 @@ class GodataClientError(Exception):
     pass
 
 
+def check_server():
+    from godata import __version__
+
+    server_version = version.parse(get_version(CLIENT))
+    client_version = version.parse(__version__)
+    if server_version.major != client_version.major:
+        raise GodataClientError(
+            f"Server version {server_version} not compatible with client version"
+            f"{client_version}. Server and client must have the same major version."
+        )
+    elif server_version.minor < client_version.minor:
+        raise GodataClientError(
+            f"Client version cannot be newer than server version. "
+            f"Server version: {server_version} < Client version: {client_version}."
+        )
+    else:
+        return True
+
+
 def get_client():
+    if not hasattr(get_client, "has_run"):
+        check_server()
+        get_client.has_run = True
+
     return CLIENT
 
 
-def get_version():
-    client = get_client()
+def get_version(client):
     resp = client.get(f"{SERVER_URL}/version")
     if resp.status_code == 200:
         return resp.json()
