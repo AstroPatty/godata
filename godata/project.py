@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import portalocker
 from loguru import logger
 
 from godata.client import client
@@ -58,7 +59,8 @@ class GodataProject:
         if as_path:
             return path
         try:
-            data = try_to_read(path)
+            with portalocker.Lock(str(path), "rb"):
+                data = try_to_read(path)
             return data
         except godataIoException:
             logger.info(
@@ -122,7 +124,8 @@ class GodataProject:
         storage_path = storage_path.with_suffix("." + suffix)
         storage_path.parent.mkdir(parents=True, exist_ok=True)
         self.link(storage_path, project_path, overwrite=overwrite, _force=True)
-        writer_fn(obj, storage_path)
+        with portalocker.Lock(str(storage_path), "wb"):
+            writer_fn(obj, storage_path)
 
         return True
 

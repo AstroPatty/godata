@@ -12,6 +12,9 @@ def server():
 # server subcommand
 @server.command()
 def start():
+    """
+    Start the godata server. This will start the server in the background and return
+    """
     try:
         srv.start()
         print("Server started and listening...")
@@ -21,6 +24,9 @@ def start():
 
 @server.command()
 def stop():
+    """
+    Stop the godata server if it is running.
+    """
     try:
         srv.stop()
         print("Server stopped.")
