@@ -1,5 +1,7 @@
 import click
 
+from godata import server as srv
+
 
 # top level godata command
 @click.group()
@@ -10,12 +12,20 @@ def server():
 # server subcommand
 @server.command()
 def start():
-    pass
+    try:
+        srv.start()
+        print("Server started and listening...")
+    except Exception as e:
+        print(e)
 
 
 @server.command()
 def stop():
-    pass
+    try:
+        srv.stop()
+        print("Server stopped.")
+    except Exception as e:
+        print(e)
 
 
 @server.command()

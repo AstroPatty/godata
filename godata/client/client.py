@@ -3,6 +3,8 @@ from urllib import parse
 import requests
 from packaging import version
 
+from godata import server
+
 from .unixsocket import UnixHTTPAdapter
 
 """
@@ -58,9 +60,12 @@ def check_server():
 
 def get_client():
     if not hasattr(get_client, "has_run"):
-        check_server()
+        try:
+            check_server()
+        except requests.exceptions.ConnectionError:
+            server.start()
+            check_server()
         get_client.has_run = True
-
     return CLIENT
 
 
