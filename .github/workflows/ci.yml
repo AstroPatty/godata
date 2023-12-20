@@ -8,7 +8,7 @@ name: CI
 on:
   push:
     branches:
-      - server
+      - main
     tags:
       - '*'
   pull_request:
