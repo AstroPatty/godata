@@ -142,11 +142,12 @@ jobs:
           sudo -E bash -c 'poetry run pytest'
   upload_binary:
     runs-on: ubuntu-latest
+    needs: [test_mac, test_linux]
     strategy:
       matrix:
         architecture: [x86-64, aarch64]
         os: [unknown-linux-gnu, apple-darwin]
-
+  
     steps:
       - name: create directory
         run: mkdir -p artifact
