@@ -162,5 +162,6 @@ jobs:
           aws-bucket: ${{ secrets.AWS_BUCKET }}
           aws-region: us-west-2
           file-path: './godata_server-${{ steps.get_tag.outputs.tag }}.zip'
+          destination-dir: '/'
           output-file-url: 'false'
             
