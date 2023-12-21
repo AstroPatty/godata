@@ -91,6 +91,8 @@ jobs:
         with:
           name: godata_server-${{ matrix.target }}
           path: server
+      - name: look
+        run: ls -la server
       - name: unzip artifact
         run: unzip -j server/godata_server-${{ matrix.target }}.zip -d server
       - name: install python
