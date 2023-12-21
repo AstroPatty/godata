@@ -161,6 +161,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
           aws-bucket: ${{ secrets.AWS_BUCKET }}
           aws-region: us-west-2
-          file-path: './godata_server.zip'
+          file-path: './godata_server-${{ steps.get_tag.outputs.tag }}.zip'
           output-file-url: 'false'
             
