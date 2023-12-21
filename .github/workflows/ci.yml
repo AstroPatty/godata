@@ -41,7 +41,7 @@ jobs:
           all-features: true
           quiet: true
       - name: zip artifact
-        run: zip -j godata-server-${{ matrix.target }}.zip target/${{ matrix.target }}/release/godata_server.zip target/${{ matrix.target }}/release/godata_server
+        run: zip -j godata-server-${{ matrix.target }}.zip  target/${{ matrix.target }}/release/godata_server
       - uses: actions/upload-artifact@v3
         with:
           name: godata_server-${{ matrix.target }}
@@ -70,7 +70,7 @@ jobs:
           quiet: true
 
       - name: zip artifact
-        run: zip -j godata-server-${{ matrix.target }}.zip target/${{ matrix.target }}/release/godata_server.zip target/${{ matrix.target }}/release/godata_server
+        run: zip -j godata-server-${{ matrix.target }}.zip target/${{ matrix.target }}/release/godata_server
 
       - uses: actions/upload-artifact@v3
         with:
