@@ -38,8 +38,6 @@ jobs:
           use-cross: true
           command: build
           args: --release --target ${{ matrix.target }}
-          all-features: true
-          quiet: true
       - name: zip artifact
         run: zip -j godata_server-${{ matrix.target }}.zip  target/${{ matrix.target }}/release/godata_server
       - uses: actions/upload-artifact@v3
@@ -66,9 +64,6 @@ jobs:
           use-cross: true
           command: build
           args: --release --target ${{ matrix.target }}
-          all-features: true
-          quiet: true
-
       - name: zip artifact
         run: zip -j godata_server-${{ matrix.target }}.zip target/${{ matrix.target }}/release/godata_server
 
@@ -143,18 +138,12 @@ jobs:
   upload_binary:
     runs-on: ubuntu-latest
     needs: [test_mac, test_linux]
-    strategy:
-      matrix:
-        architecture: [x86-64, aarch64]
-        os: [unknown-linux-gnu, apple-darwin]
-  
     steps:
       - name: create directory
         run: mkdir -p artifact
       - name: download artifacts
         uses: actions/download-artifact@v2
         with:
-          name: $godata_server-${{ matrix.architecture }}-${{ matrix.os }}
           path: artifact
       - name: create single archive
         run: zip -r -j godata_server.zip artifact/*
