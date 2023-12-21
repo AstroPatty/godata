@@ -140,17 +140,20 @@ jobs:
     needs: [test_mac, test_linux]
     steps:
       - name: create directory
-        run: mkdir -p artifact
+        run: |
+          mkdir -p artifact
       - name: download artifacts
         uses: actions/download-artifact@v2
         with:
           path: artifact
       - name: create single archive
         run: zip -r -j godata_server.zip artifact/*
-      - uses: shallwefootball/s3-upload-action@master
+      - uses: hkusu/s3-upload-action@v2
         with:
-          aws_key_id: ${{ secrets.AWS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
-          aws_bucket: ${{ secrets.AWS_BUCKET }}
-          source_dir: './godata_server.zip'
+          aws-access-key-id: ${{ secrets.AWS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
+          aws-bucket: ${{ secrets.AWS_BUCKET }}
+          aws-region: us-west-2
+          file-path: './godata_server.zip'
+          output-file-url: 'false'
             
