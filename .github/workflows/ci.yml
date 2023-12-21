@@ -41,11 +41,11 @@ jobs:
           all-features: true
           quiet: true
       - name: zip artifact
-        run: zip -j godata-server-${{ matrix.target }}.zip  target/${{ matrix.target }}/release/godata_server
+        run: zip -j godata_server-${{ matrix.target }}.zip  target/${{ matrix.target }}/release/godata_server
       - uses: actions/upload-artifact@v3
         with:
           name: godata_server-${{ matrix.target }}
-          path: godata-server-${{ matrix.target }}.zip 
+          path: godata_server-${{ matrix.target }}.zip 
   mac_build_server:
     name: Build server on macOS
     runs-on: macos-latest
@@ -70,12 +70,12 @@ jobs:
           quiet: true
 
       - name: zip artifact
-        run: zip -j godata-server-${{ matrix.target }}.zip target/${{ matrix.target }}/release/godata_server
+        run: zip -j godata_server-${{ matrix.target }}.zip target/${{ matrix.target }}/release/godata_server
 
       - uses: actions/upload-artifact@v3
         with:
           name: godata_server-${{ matrix.target }}
-          path: godata-server-${{ matrix.target }}.zip
+          path: godata_server-${{ matrix.target }}.zip
 
   test_linux:
     name: Test on Linux
@@ -91,8 +91,6 @@ jobs:
         with:
           name: godata_server-${{ matrix.target }}
           path: server
-      - name: look
-        run: ls -la server
       - name: unzip artifact
         run: unzip -j server/godata_server-${{ matrix.target }}.zip -d server
       - name: install python
