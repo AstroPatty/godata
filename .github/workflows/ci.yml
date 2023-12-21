@@ -137,8 +137,15 @@ jobs:
           sudo -E bash -c 'poetry run pytest'
   upload_binary:
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
     needs: [test_mac, test_linux]
     steps:
+      - name: get tag name
+        id: get_tag
+        uses: olegtarasov/get-tag@v2.1.2
+        with: 
+          tagRegex: '(\d+\.\d+\.\d+)'
+
       - name: create directory
         run: |
           mkdir -p artifact
@@ -147,7 +154,7 @@ jobs:
         with:
           path: artifact
       - name: create single archive
-        run: zip -r -j godata_server.zip artifact/*
+        run: zip -r -j godata_server-${{ steps.get_tag.outputs.tag }}.zip artifact/*
       - uses: hkusu/s3-upload-action@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_KEY_ID }}
