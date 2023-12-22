@@ -24,18 +24,18 @@ def install(upgrade=False, version=None):
 
     if upgrade:
         params["current_version"] = version
-
     arch = platform.machine()
     if arch == "arm64":
         params["architecture"] = "aarch64"
     else:
         params["architecture"] = arch
     result = requests.get(ENDPOINT, params=params)
-    try:
-        result.raise_for_status()
-    except requests.exceptions.HTTPError:
-        raise Exception(result.text)
-    response = result.json()
+    if result.status_code == 200:
+        response = result.json()
+    else:
+        print("Error: ", result.text)
+        return
+
     url = response["url"]
     result = requests.get(url)
     # download the zip file
@@ -61,7 +61,7 @@ def install(upgrade=False, version=None):
 
 def upgrade():
     """Upgrade the godata server binary to the latest version."""
-    current_version = get_version()
+    current_version = get_version().strip("\n")
     install(upgrade=True, version=current_version)
 
 
