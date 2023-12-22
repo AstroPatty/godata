@@ -36,7 +36,7 @@ def stop():
 
 @server.command()
 def install():
-    pass
+    srv.install()
 
 
 @server.command()

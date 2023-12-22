@@ -1,7 +1,7 @@
 import subprocess
 import time
 
-SERVER_INSTALL_PATH = "/usr/local/bin/godata_server"
+from .install import SERVER_INSTALL_PATH, install
 
 
 def start():
@@ -24,4 +24,4 @@ def stop():
         return True
 
 
-__all__ = ["start", "stop"]
+__all__ = ["start", "stop", "install"]
