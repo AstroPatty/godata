@@ -17,3 +17,12 @@ repos:
     rev: v0.0.285
     hooks:
       - id: ruff
+  - repo: local
+    hooks:
+      - id: check-version
+        name: check versions
+        entry: python precommit/check_versions.py
+        language: python
+        additional_dependencies:
+          - "toml"
+          - "packaging"
