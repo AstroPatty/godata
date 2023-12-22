@@ -36,6 +36,7 @@ impl Drop for Server {
 
 pub fn get_server() -> Server {
     let url = UserDirs::new().unwrap().home_dir().join(".godata.sock");
+    println!("Starting server on {}", url.to_str().unwrap());
     Server {
         project_manager: Arc::new(Mutex::new(get_project_manager())),
         url: url.to_str().unwrap().to_string()

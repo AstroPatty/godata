@@ -6,7 +6,7 @@ from .install import SERVER_INSTALL_PATH, install
 
 def start():
     try:
-        subprocess.Popen([f"{SERVER_INSTALL_PATH}", "&"])
+        subprocess.Popen([f"{SERVER_INSTALL_PATH}"])
     except FileNotFoundError:
         raise FileNotFoundError(
             "Unable to start godata server: could not find the server binary. "
