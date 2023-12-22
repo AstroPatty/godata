@@ -35,7 +35,8 @@ def install(upgrade=False, version=None):
         result.raise_for_status()
     except requests.exceptions.HTTPError:
         raise Exception(result.text)
-    url = result.json()["url"]
+    response = result.json()
+    url = response["url"]
     result = requests.get(url)
     # download the zip file
     with open("godata_server.zip", "wb") as f:
@@ -49,6 +50,13 @@ def install(upgrade=False, version=None):
     os.remove("godata_server.zip")
     # make the binary executable
     os.chmod(SERVER_INSTALL_PATH, 0o755)
+    if version is None:
+        print(f"Successfully installed godata server version {response['version']}")
+    else:
+        print(
+            f"Successfully upgraded godata server to version {response['version']} "
+            f"from version {version}"
+        )
 
 
 def upgrade():
@@ -59,7 +67,9 @@ def upgrade():
 
 def get_version():
     try:
-        subprocess.run([f"{SERVER_INSTALL_PATH}", "--version"])
+        return subprocess.check_output([f"{SERVER_INSTALL_PATH}", "--version"]).decode(
+            "utf-8"
+        )
     except FileNotFoundError:
         raise FileNotFoundError(
             "Unable to get godata server version: could not find the server binary. "
