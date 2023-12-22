@@ -3,7 +3,7 @@ import signal
 import subprocess
 import time
 
-from .install import SERVER_INSTALL_PATH, install
+from .install import SERVER_INSTALL_PATH, install, upgrade
 
 
 def start():
@@ -28,4 +28,4 @@ def stop():
     os.kill(int(server_pid), signal.SIGINT)
 
 
-__all__ = ["start", "stop", "install"]
+__all__ = ["start", "stop", "install", "upgrade"]

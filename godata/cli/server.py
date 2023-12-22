@@ -43,8 +43,17 @@ def stop():
 
 
 @server.command()
-def install():
-    srv.install()
+@click.option(
+    "--upgrade",
+    "-u",
+    is_flag=True,
+    help="Upgrade the server to the latest version.",
+)
+def install(upgrade):
+    if upgrade:
+        srv.upgrade()
+    else:
+        srv.install()
 
 
 @server.command()
