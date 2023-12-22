@@ -201,10 +201,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: build and publish to pypi
-        uses: JRubics/pypi-publish@v1
+        uses: JRubics/poetry-publish@v1.17
         with:
-          pypi-token: ${{ secrets.PYPI_API_KEY }}
-          ignore_dev_requirement: true
+          pypi_token: ${{ secrets.PYPI_API_KEY }}
+          ignore_dev_requirements: true
 
 
             
