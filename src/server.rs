@@ -4,7 +4,7 @@ use crate::routes;
 use std::sync::{Arc, Mutex};
 use tokio_stream::wrappers::UnixListenerStream;
 use tokio::signal;
-
+use directories::UserDirs;
 
 
 pub struct Server {
@@ -35,9 +35,9 @@ impl Drop for Server {
 }
 
 pub fn get_server() -> Server {
-    
+    let url = UserDirs::new().unwrap().home_dir().join(".godata.sock");
     Server {
         project_manager: Arc::new(Mutex::new(get_project_manager())),
-        url: "/var/godata.sock".to_string()
+        url: url.to_str().unwrap().to_string()
     }
 }

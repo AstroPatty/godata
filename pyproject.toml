@@ -16,6 +16,7 @@ aiohttp = "^3.9.1"
 requests = "^2.31.0"
 click = "^8.1.7"
 portalocker = "^2.8.2"
+appdirs = "^1.4.4"
 
 [tool.poetry.scripts]
 godata = "godata.cli.cli:main"

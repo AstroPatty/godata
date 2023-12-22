@@ -1,3 +1,4 @@
+from pathlib import Path
 from urllib import parse
 
 import requests
@@ -17,7 +18,7 @@ The client is stateless, so it's just a bunch of functions.
 
 I need to think a bit about how to properly reuse the client sesion.
 """
-SERVER_PATH = "/var/godata.sock"
+SERVER_PATH = str(Path.home() / ".godata.sock")
 SERVER_URL = f"http+unix://{parse.quote(SERVER_PATH, safe='')}"
 CLIENT = requests.Session()
 CLIENT.mount("http+unix://", UnixHTTPAdapter(SERVER_PATH))
