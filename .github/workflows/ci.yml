@@ -74,7 +74,7 @@ jobs:
     name: Test on Linux
     runs-on: ubuntu-latest
     outputs:
-      godata_version: ${{ steps.get_godata_version.outputs.stdout }}
+      godata_version: ${{ steps.get_godata_version.outputs.version }}
     needs: [linux_build_server]
     strategy:
       matrix:
@@ -106,7 +106,7 @@ jobs:
       - name: output godata version
         id: get_godata_version
         run: |
-          godata_server --version
+          echo "version=$(godata_server --version)" >> "$GITHUB_OUTPUT"
         
   test_mac:
     name: test on macOS
