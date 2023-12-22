@@ -1,3 +1,5 @@
+import os
+import signal
 import subprocess
 import time
 
@@ -17,11 +19,13 @@ def start():
 
 
 def stop():
-    res = subprocess.run(["pkill", "godata_server"])
-    if res.returncode != 0:
-        raise Exception("Could not stop godata server. Perhaps it was not running?")
-    else:
-        return True
+    try:
+        server_pid = subprocess.check_output(["pgrep", "godata_server"])
+    except subprocess.CalledProcessError:
+        print("Server is not running.")
+        return
+
+    os.kill(int(server_pid), signal.SIGINT)
 
 
 __all__ = ["start", "stop", "install"]

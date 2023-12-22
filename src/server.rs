@@ -17,6 +17,8 @@ pub struct Server {
 
 impl Server {
     pub async fn start(&self) {
+        // check if the socket file already exists
+
         let listener = tokio::net::UnixListener::bind(&self.url).unwrap();
         let incoming = UnixListenerStream::new(listener);
         let server = warp::serve(routes::routes(self.project_manager.clone()))
