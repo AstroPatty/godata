@@ -1,0 +1,67 @@
+# from . import SERVER_INSTALL_PATH
+import os
+import platform
+import shutil
+import subprocess
+import zipfile
+
+import requests
+
+ENDPOINT = "https://sqm13wjyaf.execute-api.us-west-2.amazonaws.com/godata/download"
+SERVER_INSTALL_PATH = "/usr/local/bin/godata_server"
+
+
+def install(upgrade=False, version=None):
+    """Install the godata server binary to /usr/local/bin/godata_server."""
+    # detect the os this script is running on
+    if upgrade and version is None:
+        raise ValueError("Must specify the current version when upgrading.")
+
+    params = {
+        "install_type": "upgrade" if upgrade else "install",
+        "os": platform.system().lower(),
+    }
+
+    if upgrade:
+        params["current_version"] = version
+
+    arch = platform.machine()
+    if arch == "arm64":
+        params["architecture"] = "aarch64"
+    else:
+        params["architecture"] = arch
+    result = requests.get(ENDPOINT, params=params)
+    try:
+        result.raise_for_status()
+    except requests.exceptions.HTTPError:
+        raise Exception(result.text)
+    url = result.json()["url"]
+    result = requests.get(url)
+    # download the zip file
+    with open("godata_server.zip", "wb") as f:
+        f.write(result.content)
+    # unzip the file
+    with zipfile.ZipFile("godata_server.zip", "r") as zip_ref:
+        zip_ref.extractall()
+    # move the binary to the install path
+    shutil.move("godata_server", SERVER_INSTALL_PATH)
+    # remove the zip file
+    os.remove("godata_server.zip")
+    # make the binary executable
+    os.chmod(SERVER_INSTALL_PATH, 0o755)
+
+
+def upgrade():
+    """Upgrade the godata server binary to the latest version."""
+    current_version = get_version()
+    install(upgrade=True, version=current_version)
+
+
+def get_version():
+    try:
+        subprocess.run([f"{SERVER_INSTALL_PATH}", "--version"])
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            "Unable to get godata server version: could not find the server binary. "
+            "Please run `godata server install` first."
+        )
