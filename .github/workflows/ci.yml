@@ -148,6 +148,7 @@ jobs:
     outputs:
       tag: ${{ steps.get_tag.outputs.tag }}
     steps:
+      - uses: actions/checkout@v2
       - name: get commit tag
         id: get_tag
         uses: actions-ecosystem/action-get-latest-tag@v1
