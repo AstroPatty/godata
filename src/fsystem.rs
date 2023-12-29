@@ -12,6 +12,10 @@ use sled::Db;
 
 use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
+
+
+const CURRENT_FS_VERSION: &str = "0.1.0";
+
 enum FSObject {
     File(File),
     Folder(Folder)
@@ -56,6 +60,7 @@ struct DbFile {
 pub(crate) struct FileSystem {
     root: Folder,
     _name: String,
+    _version: String,
     db: Db
 }
 
@@ -97,6 +102,7 @@ impl FileSystem {
 
         Ok(FileSystem {
             root,
+            _version: CURRENT_FS_VERSION.to_string(),
             _name: name,
             db
         })
@@ -115,8 +121,11 @@ impl FileSystem {
                 Folder::from_tree(&db, "root".to_string())
             }
         };
+        let saved_version = db.get("version".as_bytes()).unwrap();
+
         Ok(FileSystem {
             root,
+            _version: String::from_utf8(saved_version.unwrap().to_vec()).unwrap(),
             _name: name.to_string(),
             db
         })
@@ -196,12 +205,18 @@ impl FileSystem {
         self.root.exists(virtual_path)
     }
 
+    fn save(&self) {
+        // Write the root folder to the database
+        self.root.to_tree(&self.db);
+        // Write the version to the database
+        self.db.insert("version".as_bytes(), self._version.as_bytes()).unwrap();
+    }
     
 }
 
 impl Drop for FileSystem {
     fn drop(&mut self) {
-        self.root.to_tree(&self.db);
+        self.save();
     }
 }
 
