@@ -12,9 +12,8 @@ use sled::Db;
 
 use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
+use ciborium::{from_reader, into_writer};
 
-
-const CURRENT_FS_VERSION: &str = "0.1.0";
 
 enum FSObject {
     File(File),
@@ -33,14 +32,17 @@ impl FSObject {
 struct File {
     real_path: String,
     pub(self) name: String,
+    metadata: HashMap<String, String>,
     _uuid: String,
 }
 
 struct Folder {
     pub(self) name: String,
     children: HashMap<String, FSObject>,
+    metadata: HashMap<String, String>,
     _uuid: String,
     _modified: bool
+
 }
 
 #[derive(Serialize, Deserialize)]
@@ -48,28 +50,33 @@ struct DbFolder {
     pub(self) name: String,
     folders_uuids: Vec<String>,
     files: Vec<DbFile>,
+    #[serde(default)]
+    metadata: HashMap<String, String>
 }
 
 #[derive(Serialize, Deserialize)]
 struct DbFile {
     pub(self) name: String,
     real_path: String,
-    uuid: String
+    uuid: String,
+    #[serde(default)]
+    metadata: HashMap<String, String>
+
 }
 
 pub(crate) struct FileSystem {
     root: Folder,
     _name: String,
-    _version: String,
+    _modified: bool,
     db: Db
 }
 
 pub(crate) fn is_empty(path: &PathBuf) -> bool {
     let db = sled::open(path).unwrap();
-    // Count the entires in the database
+    // Count the entries in the database
     let root_folder = db.get("root".as_bytes()).unwrap();
     // Deserialize the root folder
-    let db_folder  = bincode::deserialize(root_folder.unwrap().as_ref());
+    let db_folder  = from_reader(root_folder.unwrap().as_ref());
     let db_folder: DbFolder = db_folder.unwrap();
     // If there are any files or folders in the root folder, return false
     if db_folder.folders_uuids.len() > 0 || db_folder.files.len() > 0 {
@@ -90,6 +97,7 @@ impl FileSystem {
                 Folder {
                     name: "root".to_string(),
                     children: HashMap::new(),
+                    metadata: HashMap::new(),
                     _uuid: "root".to_string(),
                     _modified: true
                 }
@@ -102,8 +110,8 @@ impl FileSystem {
 
         Ok(FileSystem {
             root,
-            _version: CURRENT_FS_VERSION.to_string(),
             _name: name,
+            _modified: true,
             db
         })
     }
@@ -113,6 +121,7 @@ impl FileSystem {
         let db = sled::open(root_dir)?;
         let root_folder = db.get("root".as_bytes()).unwrap();
         // If there is no root folder, fail
+
         let root = match root_folder {
             None => {
                 return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "File system not found"))
@@ -121,11 +130,10 @@ impl FileSystem {
                 Folder::from_tree(&db, "root".to_string())
             }
         };
-        let saved_version = db.get("version".as_bytes()).unwrap();
 
         Ok(FileSystem {
             root,
-            _version: String::from_utf8(saved_version.unwrap().to_vec()).unwrap(),
+            _modified: false,
             _name: name.to_string(),
             db
         })
@@ -178,6 +186,7 @@ impl FileSystem {
             },
             None => None
         };
+        self._modified = true;
         Ok(path)
     }
 
@@ -190,6 +199,7 @@ impl FileSystem {
             File::new(real_path, name)
         });
         self.root.insert_many(file_objects, virtual_path)?;
+        self._modified = true;
         Ok(())
     }
 
@@ -198,6 +208,7 @@ impl FileSystem {
         for uuid in result {
             self.db.remove(uuid.as_bytes())?;
         }
+        self._modified = true;
         Ok(())
     }
 
@@ -205,11 +216,10 @@ impl FileSystem {
         self.root.exists(virtual_path)
     }
 
-    fn save(&self) {
+    fn save(&mut self) {
         // Write the root folder to the database
         self.root.to_tree(&self.db);
         // Write the version to the database
-        self.db.insert("version".as_bytes(), self._version.as_bytes()).unwrap();
     }
     
 }
@@ -227,6 +237,7 @@ impl Folder {
         Folder {
             name,
             children: HashMap::new(),
+            metadata: HashMap::new(),
             _uuid: Uuid::new_v4().to_string(),
             _modified: true
         }
@@ -234,7 +245,8 @@ impl Folder {
 
     fn from_tree(db: &Db, uuid: String) -> Folder {
         let folder_info = db.get(uuid.as_bytes()).unwrap();
-        let db_folder: DbFolder = bincode::deserialize(folder_info.unwrap().as_ref()).unwrap();
+        
+        let db_folder: DbFolder = from_reader(folder_info.unwrap().as_ref()).unwrap();
         let mut children = HashMap::new();
         for fuuid in db_folder.folders_uuids {
             let folder = Folder::from_tree(db, fuuid);
@@ -248,24 +260,26 @@ impl Folder {
         Folder {
             name: db_folder.name,
             children,
+            metadata: db_folder.metadata,
             _uuid: uuid,
             _modified: false
         }
 
     }
 
-    fn to_tree(&self, db: &Db) {
+    fn to_tree(&mut self, db: &Db) {
         // Write the folder and all of its children to the database
         if self._modified {
 
             self.write_to_db(db).unwrap();
         }
-        for (_, child) in self.children.iter() {
+        for (_, child) in self.children.iter_mut() {
             match child {
                 FSObject::File(_) => (),
                 FSObject::Folder(f) => f.to_tree(db)
             }
         }
+        self._modified = false;
     }
 
     fn insert_many<I>(&mut self, files: I, virtual_path: &str) -> Result<()> 
@@ -329,16 +343,19 @@ impl Folder {
         }
         DbFolder {
             name: self.name.clone(),
-            folders_uuids,
-            files
+            folders_uuids: folders_uuids,
+            files: files,
+            metadata: self.metadata.clone()
         }
 
     }
 
-    fn write_to_db(&self, db: &Db) -> Result<()> {
+    fn write_to_db(&mut self, db: &Db) -> Result<()> {
         let db_folder = self.to_db_folder();
-        let db_folder_bytes = bincode::serialize(&db_folder).unwrap();
-        db.insert(self._uuid.as_bytes(), db_folder_bytes.as_slice())?;
+        let mut bytes = Vec::new();
+        into_writer(&db_folder, &mut bytes).unwrap();
+        db.insert(self._uuid.as_bytes(), bytes)?;
+        self._modified = false;
         Ok(())
     }
 
@@ -593,6 +610,7 @@ impl File {
         File {
             real_path,
             name,
+            metadata: HashMap::new(),
             _uuid: Uuid::new_v4().to_string()
         }
     }
@@ -604,7 +622,9 @@ impl File {
         DbFile {
             name: self.name.clone(),
             real_path: self.real_path.clone(),
+            metadata: self.metadata.clone(),
             uuid: self._uuid.clone()
+
         }
     }
 
@@ -612,6 +632,7 @@ impl File {
         File {
             name: db_file.name,
             real_path: db_file.real_path,
+            metadata: db_file.metadata,
             _uuid: db_file.uuid
         }
     }
