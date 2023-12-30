@@ -140,7 +140,6 @@ impl FileSystem {
     }
 
     pub(crate) fn list(&self, virtual_path: Option<String>) -> Result<HashMap<String, Vec<String>>> {
-        
         let folder = match virtual_path {
             Some(p) => self.root.get_folder(&p)?,
             None => &self.root

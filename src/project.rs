@@ -1,4 +1,4 @@
-use crate::fsys::fsystem::{FileSystem, is_empty};
+use crate::fsystem::{FileSystem, is_empty};
 use crate::locations::{create_project_dir, load_project_dir, load_collection_dir, delete_project_dir};
 use crate::storage::{StorageEndpoint, LocalEndpoint, StorageManager};
 use std::collections::HashMap;

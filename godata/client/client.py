@@ -225,7 +225,8 @@ def list_project_contents(
     client = get_client()
     params = {"show_hidden": str(show_hidden).lower()}
     if project_path:
-        params["path"] = project_path
+        params["project_path"] = project_path
+
     resp = client.get(
         f"{SERVER_URL}/projects/{collection_name}/{project_name}/list", params=params
     )

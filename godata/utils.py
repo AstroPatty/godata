@@ -17,9 +17,7 @@ def sanitize_project_path(func: Callable[P, T]) -> Callable[P, T]:
 
     def wrapper(*args, **kwargs) -> T:
         # Get the signature of the function
-        print(args)
-        print(kwargs)
-        print("---------")
+
         if len(args) == 0 and len(kwargs) == 0:
             return func()
         sig = inspect.signature(func)

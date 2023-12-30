@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,7 @@ class GodataProject:
     def __init__(self, collection, name) -> GodataProject:
         self.collection = collection
         self.name = name
+        atexit.register(self.__del__)
 
     def __del__(self):
         client.drop_project(self.collection, self.name)
