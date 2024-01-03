@@ -104,7 +104,7 @@ pub struct ProjectManager {
 
 impl ProjectManager {
     pub fn create_project(&mut self, name: &str, collection: &str, force: bool, storage_location: Option<String>) -> Result<Arc<Mutex<Project>>> {
-        let key = format!("{}/{}", name, collection);
+        let key = format!("{}/{}", collection, name);
         let project_dir = create_project_dir(name, collection, force)?;
         let tree = FileSystem::new(name.to_string(), project_dir)?;
         let base_path = match storage_location {
@@ -126,7 +126,7 @@ impl ProjectManager {
     }
 
     pub fn load_project(&mut self, name: &str, collection: &str) -> Result<Arc<Mutex<Project>>> {
-        let key = format!("{}/{}", name, collection);
+        let key = format!("{}/{}", collection, name);
         if self.projects.contains_key(&key) {
             let count = self.counts.get(&key).unwrap_or(&0);
             self.counts.insert(key.clone(), count + 1);
@@ -152,7 +152,7 @@ impl ProjectManager {
     }
 
     pub(crate) fn drop_project(&mut self, name: &str, collection: &str) -> Result<()> {
-        let key = format!("{}/{}", name, collection);
+        let key = format!("{}/{}", collection, name);
         let count = self.counts.get(&key);
         if count.is_none() {
             return Err(std::io::Error::new(std::io::ErrorKind::NotFound, format!("Tried to drop a project {} that is not loaded!", key)));
@@ -174,12 +174,13 @@ impl ProjectManager {
     }
 
     pub fn delete_project(&mut self, name: &str, collection: &str, force: bool) -> Result<()> {
-        let key = format!("{}/{}", name, collection);
+        let key = format!("{}/{}", collection, name);
         let pobj = self.projects.remove(&key);
-        match pobj {
-            None => return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Project does not exist")),
-            Some(obj) => drop(obj),
+        if let Some(obj) = pobj {
+            let obj = obj.lock().unwrap();
+            drop(obj);
         }
+        
         let project_dir = load_project_dir(name, collection)?;
         let storage_dir = self.storage_manager.get(name, collection);
         let project_is_empty = is_empty(&project_dir);

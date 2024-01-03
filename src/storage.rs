@@ -38,7 +38,7 @@ impl StorageManager {
         let value = self.storage_db.get(key).unwrap();
         let value = match value {
             None => {
-                return Err(std::io::Error::new(std::io::ErrorKind::NotFound, format!("Storage information not found for projet {}/{}", name, collection)));
+                return Err(std::io::Error::new(std::io::ErrorKind::NotFound, format!("Storage information not found for project {}/{}", collection, name)));
             },
             Some(value) => value,
 
