@@ -302,7 +302,7 @@ def list_projects(collection="default", show_hidden=False, display=False) -> lis
     return projects
 
 
-def list_collections(show_hidden=False, display=True) -> list[str]:
+def list_collections(show_hidden=False, display=False) -> list[str]:
     collections = client.list_collections(show_hidden)
     if display:
         print("Collections:")

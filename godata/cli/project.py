@@ -2,7 +2,7 @@ from pathlib import Path
 
 import click
 
-from godata.project import create_project, load_project
+from godata.project import create_project, list_collections, list_projects, load_project
 
 
 def split_name(name: str) -> tuple:
@@ -68,3 +68,33 @@ def link(
     name, collection = split_name(project_name)
     p = load_project(name, collection)
     p.link(path, project_path, recursive=recursive, overwrite=overwrite)
+
+
+@click.command()
+@click.argument("project_name", type=str)
+@click.argument("project_path", type=str, required=False)
+def ls(project_name: str, project_path: str = None):
+    """
+    List the contents of a project.
+    """
+    name, collection = split_name(project_name)
+    p = load_project(name, collection)
+    p.ls(project_path)
+
+
+@click.command()
+@click.argument("collection_name", type=str, required=False)
+@click.option(
+    "--hidden",
+    "-h",
+    is_flag=True,
+    help="Include hidden projects or collections in the list.",
+)
+def list(collection_name: str = None, hidden: bool = False):
+    """
+    List the known collections, or the projects in a given collection
+    """
+    if collection_name is None:
+        _ = list_collections(hidden, True)
+    else:
+        _ = list_projects(collection_name, hidden, True)
