@@ -261,17 +261,13 @@ def create_project(
             raise NotADirectoryError(
                 f"Storage location {storage_location} is not a directory"
             )
-        project_dir = storage_path / name
+        project_dir = storage_path / f"{collection}.{name}"
         if project_dir.exists():
-            if not project_dir.is_dir():
-                raise NotADirectoryError(
-                    f"Project storage location {storage_location} is not a directory"
-                )
-            elif len(list(project_dir.iterdir())) > 0:
-                raise GodataProjectError(
-                    f"Project storage location {storage_location} is not empty"
-                )
-
+            raise GodataProjectError(
+                f"This project does not exist, but a file or directory with the "
+                f"correct name already exists at {project_dir}. Please remove "
+                "this file or directory and try again."
+            )
         project_dir.mkdir(parents=True, exist_ok=True)
 
     response = client.create_project(

@@ -5,12 +5,7 @@ import click
 from godata.project import create_project
 
 
-@click.group()
-def project():
-    pass
-
-
-@project.command()
+@click.command()
 @click.argument("name")
 @click.option(
     "--path",
