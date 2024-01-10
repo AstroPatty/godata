@@ -1,5 +1,6 @@
 import click
 
+from .project import project
 from .server import server
 
 
@@ -9,6 +10,7 @@ def main():
     pass
 
 
+main.add_command(project)
 main.add_command(server)
 
 if __name__ == "__main__":

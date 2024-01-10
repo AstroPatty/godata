@@ -1,3 +1,3 @@
 #!/bin/bash
-poetry run pytest
+poetry run pytest -W ignore::ResourceWarning
 pkill godata_server
