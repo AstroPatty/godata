@@ -56,3 +56,18 @@ def test_cli_add_folder():
     p.ls()
     subfolder_item = p.get("data2/more_data/more_test_ones.npy")
     assert np.all(subfolder_item == expected_data)
+
+
+def test_cli_get():
+    result = subprocess.run(
+        [
+            "godata",
+            "get",
+            "cli_test",
+            "data/test_ones",
+        ],
+        capture_output=True,
+    )
+    path = result.stdout.decode("utf-8").strip()
+    # check that the path returned is correct
+    assert path == str(data_path / "test_ones.npy")

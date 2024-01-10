@@ -98,3 +98,16 @@ def list(collection_name: str = None, hidden: bool = False):
         _ = list_collections(hidden, True)
     else:
         _ = list_projects(collection_name, hidden, True)
+
+
+@click.command()
+@click.argument("project_name", type=str)
+@click.argument("project_path", type=str)
+def get(project_name: str, project_path: str):
+    """
+    Get the real location of a file in a project.
+    """
+    name, collection = split_name(project_name)
+    p = load_project(name, collection)
+    path = p.get(project_path, as_path=True)
+    click.echo(path)
