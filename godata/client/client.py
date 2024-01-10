@@ -205,6 +205,7 @@ def link_folder(
         "type": "folder",
         "recursive": str(recursive).lower(),
     }
+    print(params)
     resp = client.post(
         f"{SERVER_URL}/projects/{collection_name}/{project_name}/files", params=params
     )

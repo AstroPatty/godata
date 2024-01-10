@@ -293,7 +293,7 @@ def load_project(name, collection="default") -> GodataProject:
     return GodataProject(collection, name)
 
 
-def list_projects(collection="default", show_hidden=False, display=True) -> list[str]:
+def list_projects(collection="default", show_hidden=False, display=False) -> list[str]:
     projects = client.list_projects(collection, show_hidden)
     if display:
         print(f"Projects in collection `{collection or 'default'}`:")
