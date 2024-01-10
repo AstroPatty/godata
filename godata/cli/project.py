@@ -2,11 +2,24 @@ from pathlib import Path
 
 import click
 
-from godata.project import create_project
+from godata.project import create_project, load_project
+
+
+def split_name(name: str) -> tuple:
+    split = name.split("/")
+    if len(split) == 1:
+        project_name = split[0]
+        collection = "default"
+    elif len(split) == 2:
+        project_name = split[1]
+        collection = split[0]
+    else:
+        raise ValueError("Invalid project name.")
+    return project_name, collection
 
 
 @click.command()
-@click.argument("name")
+@click.argument("project_name")
 @click.option(
     "--path",
     "-p",
@@ -21,18 +34,37 @@ from godata.project import create_project
     is_flag=True,
     help="Force creation of the project even if the path already exists.",
 )
-def create(name: str, path: Path, force: bool):
+def create(project_name: str, path: Path, force: bool):
     """
     Create a project. The project's storage location will automatically be created.
     """
-    split = name.split("/")
-    if len(split) == 1:
-        project_name = split[0]
-        collection = None
-    elif len(split) == 2:
-        project_name = split[1]
-        collection = split[0]
-    else:
-        raise ValueError("Invalid project name.")
+    name, collection = split_name(project_name)
+    create_project(name, collection, path)
 
-    create_project(project_name, collection, path)
+
+@click.command()
+@click.argument("project_name")
+@click.argument("project_path", type=str)
+@click.argument("path", type=Path)
+@click.option(
+    "--recursive",
+    "-r",
+    is_flag=True,
+    help="Only applies if linking a folder. If not set, this command will only "
+    "link files in this particular folder and not any subfolders.",
+)
+@click.option(
+    "--overwrite",
+    "-o",
+    is_flag=True,
+    help="Force creation of the project even if something already exists.",
+)
+def link(
+    project_name: str, project_path: str, path: Path, recursive: bool, overwrite: bool
+):
+    """
+    Link a file or folder into a project.
+    """
+    name, collection = split_name(project_name)
+    p = load_project(name, collection)
+    p.link(path, project_path, recursive=recursive, overwrite=overwrite)

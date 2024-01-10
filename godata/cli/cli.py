@@ -11,6 +11,7 @@ def main():
 
 
 main.add_command(project.create)
+main.add_command(project.link)
 main.add_command(server)
 
 if __name__ == "__main__":
