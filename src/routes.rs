@@ -118,7 +118,11 @@ fn project_link(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extr
                 handlers::link_file(project_manager.clone(), collection, project_name, ppath, rpath, force)
             }
             else if type_ == "folder" {
-                return handlers::link_folder(project_manager.clone(), collection, project_name, ppath, rpath, force)
+                let recursive = match params.get("recursive") {
+                    Some(recursive) => recursive.parse::<bool>().unwrap(),
+                    None => false
+                };
+                return handlers::link_folder(project_manager.clone(), collection, project_name, ppath, rpath, recursive)
             }
             else {
                 return Ok(warp::reply::with_status(warp::reply::json(&format!("Invalid type argument {}", type_)), StatusCode::BAD_REQUEST))     // invalid request

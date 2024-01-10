@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import atexit
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +31,6 @@ class GodataProject:
     def __init__(self, collection, name) -> GodataProject:
         self.collection = collection
         self.name = name
-        atexit.register(self.__del__)
 
     def __del__(self):
         client.drop_project(self.collection, self.name)
@@ -216,6 +214,8 @@ def has_project(name: str, collection: str = "default") -> bool:
     Check if a project exists in the given collection. If no collection is given,
     this will check the default collection.
     """
+    if not has_collection(collection):
+        return False
     projects = list_projects(collection, True, False)
     return name in projects
 
@@ -226,31 +226,53 @@ def has_collection(name: str) -> bool:
     """
     try:
         collections = list_collections(True, False)
-        n_projects = len(list_projects(True, name))
-    except GodataProjectError:
+        n_projects = len(list_projects(name, True))
+    except client.NotFound:
         return False
     return name in collections and n_projects > 0
 
 
 def create_project(
-    name: str, collection: str = "default", storage_location: str = None
+    name: str, collection: str = None, storage_location: str = None
 ) -> GodataProject:
     """
     Create a new project in the given collection. If no collection is given, this
     will create a project in the default collection. If the collection does not
-    exist, it will be created.
+    exist, it will be created.pyth
 
     """
 
     # Note, the manager will throw an error if the project already exists
-    try:
-        response = client.create_project(
-            collection, name, force=True, storage_location=storage_location
-        )
-    except client.AlreadyExists:
+    if collection is None:
+        collection = "default"
+
+    if has_project(name, collection):
         raise GodataProjectError(
             f"Project {name} already exists in collection {collection}"
         )
+    # If a custom storage location exsts, we need to make sure it's valid.
+    if storage_location is not None:
+        storage_path = Path(storage_location)
+        if not storage_path.exists():
+            raise FileNotFoundError(
+                f"Storage location {storage_location} does not exist"
+            )
+        if not storage_path.is_dir():
+            raise NotADirectoryError(
+                f"Storage location {storage_location} is not a directory"
+            )
+        project_dir = storage_path / f"{collection}.{name}"
+        if project_dir.exists():
+            raise GodataProjectError(
+                f"This project does not exist, but a file or directory with the "
+                f"correct name already exists at {project_dir}. Please remove "
+                "this file or directory and try again."
+            )
+        project_dir.mkdir(parents=True, exist_ok=True)
+
+    response = client.create_project(
+        collection, name, force=True, storage_location=storage_location
+    )
     print(response)
     return GodataProject(collection, name)
 
@@ -271,7 +293,7 @@ def load_project(name, collection="default") -> GodataProject:
     return GodataProject(collection, name)
 
 
-def list_projects(collection="default", show_hidden=False, display=True) -> list[str]:
+def list_projects(collection="default", show_hidden=False, display=False) -> list[str]:
     projects = client.list_projects(collection, show_hidden)
     if display:
         print(f"Projects in collection `{collection or 'default'}`:")
@@ -280,7 +302,7 @@ def list_projects(collection="default", show_hidden=False, display=True) -> list
     return projects
 
 
-def list_collections(show_hidden=False, display=True) -> list[str]:
+def list_collections(show_hidden=False, display=False) -> list[str]:
     collections = client.list_collections(show_hidden)
     if display:
         print("Collections:")

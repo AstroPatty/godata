@@ -44,14 +44,13 @@ impl Project {
                                             None
                                         }
                                     });
-        
         self.tree.insert_many(files, project_path)?;
         if recursive {
             for folder in folders {
                 let folder_name = folder.file_name().unwrap().to_str().unwrap().to_string();
                 let folder_path = folder.to_str().unwrap().to_string();
                 let folder_project_path = format!("{}/{}", project_path, folder_name);
-                self.add_folder(&folder_path, &folder_project_path, recursive)?;
+                self.add_folder(&folder_project_path, &folder_path, recursive)?;
             }
         }
 

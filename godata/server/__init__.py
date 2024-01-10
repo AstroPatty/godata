@@ -8,7 +8,7 @@ from .install import SERVER_INSTALL_PATH, install, upgrade
 
 def start():
     try:
-        subprocess.Popen([f"{SERVER_INSTALL_PATH}"])
+        subprocess.Popen([f"{SERVER_INSTALL_PATH}"], close_fds=True, shell=True)
     except FileNotFoundError:
         raise FileNotFoundError(
             "Unable to start godata server: could not find the server binary. "
