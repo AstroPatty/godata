@@ -30,9 +30,10 @@ impl FSObject {
 }
 
 struct File {
-    real_path: String,
+    real_path: PathBuf,
     pub(self) name: String,
     metadata: HashMap<String, String>,
+    _internal: bool,
     _uuid: String,
 }
 
@@ -59,6 +60,7 @@ struct DbFile {
     pub(self) name: String,
     real_path: String,
     uuid: String,
+    _internal: bool,
     #[serde(default)]
     metadata: HashMap<String, String>
 
@@ -158,26 +160,26 @@ impl FileSystem {
         Ok(children)
     }
 
-    pub(crate) fn get(&self, virtual_path: &str) -> Result<String> {
+    pub(crate) fn get(&self, virtual_path: &str) -> Result<(PathBuf, bool)> {
         let file = self.root.get(virtual_path)?;
-        Ok(file.real_path.clone())
+        Ok((file.real_path.clone(), file._internal))
     }
 
-    pub(crate) fn insert(&mut self, project_path: &str, real_path: &str, overwrite: bool) -> Result<Option<String>> {
+    pub(crate) fn insert(&mut self, project_path: &str, real_path: PathBuf, internal: bool, overwrite: bool) -> Result<Option<(PathBuf, bool)>> {
         let name = project_path.split('/').last().unwrap().to_string();
         let result = if name == project_path {
-            let file = File::new(real_path.to_string(), name);
+            let file = File::new(real_path, name, internal);
             self.root.insert(FSObject::File(file), "", overwrite).unwrap()
         }
         else {
             let ppath = project_path.strip_suffix(format!("/{}", name).as_str()).unwrap();
-            let file = File::new(real_path.to_string(), name);
+            let file = File::new(real_path, name, internal);
             self.root.insert(FSObject::File(file), ppath, overwrite).unwrap()
         };
-        let path = match result {
+        let output = match result {
             Some(f) => {
                 match f {
-                    FSObject::File(f) => Some(f.real_path),
+                    FSObject::File(f) => Some((f.real_path, f._internal)),
                     FSObject::Folder(_) => {
                         panic!("Cannot overwrite a folder, but somehow we did!")
                     }
@@ -186,16 +188,15 @@ impl FileSystem {
             None => None
         };
         self._modified = true;
-        Ok(path)
+        Ok(output)
     }
 
-    pub(crate) fn insert_many<I>(&mut self, files: I, virtual_path: &str) -> Result<()>
+    pub(crate) fn insert_many<I>(&mut self, files: I, virtual_path: &str, internal: bool) -> Result<()>
     where I: Iterator<Item = PathBuf>
     {
-        let file_objects = files.map(|x| {
-            let name = x.file_name().unwrap().to_str().unwrap().to_string();
-            let real_path = x.to_str().unwrap().to_string();
-            File::new(real_path, name)
+        let file_objects = files.map(|path| {
+            let name = path.file_name().unwrap().to_str().unwrap().to_string();
+            File::new(path, name, internal)
         });
         self.root.insert_many(file_objects, virtual_path)?;
         self._modified = true;
@@ -605,11 +606,13 @@ impl Folder {
 
 impl File {
 
-    fn new(real_path: String, name: String) -> File {
+    fn new(real_path: PathBuf, name: String, internal: bool) -> File {
+
         File {
             real_path,
             name,
             metadata: HashMap::new(),
+            _internal: internal,
             _uuid: Uuid::new_v4().to_string()
         }
     }
@@ -620,18 +623,19 @@ impl File {
     fn to_db_file(&self) -> DbFile {
         DbFile {
             name: self.name.clone(),
-            real_path: self.real_path.clone(),
+            real_path: self.real_path.to_str().unwrap().to_string(),
             metadata: self.metadata.clone(),
+            _internal: self._internal,
             uuid: self._uuid.clone()
-
         }
     }
 
     fn from_db_file(db_file: DbFile) -> File {
         File {
             name: db_file.name,
-            real_path: db_file.real_path,
+            real_path: PathBuf::from(db_file.real_path),
             metadata: db_file.metadata,
+            _internal: db_file._internal,
             _uuid: db_file.uuid
         }
     }

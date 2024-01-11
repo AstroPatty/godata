@@ -69,7 +69,7 @@ def test_overwrite():
     stored_path = p.get("data/test_data", as_path=True)
 
     df_data = pd.read_csv(data_path / "test_df.csv")
-    p.store(df_data, "data/test_data")
+    p.store(df_data, "data/test_data", overwrite=True)
     data = p.get("data/test_data")
     assert np.all(data.values == df_data.values)
     assert not stored_path.exists()

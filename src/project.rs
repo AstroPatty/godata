@@ -15,21 +15,34 @@ pub struct Project {
 }
 
 impl Project {
-    pub(crate) fn add_file(&mut self, project_path: &str, real_path: &str, overwrite: bool) -> Result<(Option<String>, bool)> {
-        
-        let previous_entry = self.tree.insert(project_path, real_path, overwrite)?;
+    pub(crate) fn add_file(&mut self, project_path: &str, real_path: PathBuf, overwrite: bool) -> Result<(Option<PathBuf>, bool)> {
+        let relpath = self._endpoint.get_relative_path(&real_path);
+        let (fpath, is_internal) = match relpath {
+            Ok(relpath) => {
+                (relpath, true)
+            },
+            Err(_) => {
+                (real_path, false)
+            }
+        };
+
+        let previous_entry = self.tree.insert(project_path, fpath, is_internal, overwrite)?;
         let result = match previous_entry {
-            Some(previous_entry) => {
-                let previous_path = PathBuf::from(&previous_entry);
-                let int = self._endpoint.is_internal(&previous_path);
-                (Some(previous_entry), int)
+            Some((previous_entry, is_internal)) => {
+                let previous_path = if is_internal {
+                    self._endpoint.make_full_path(&previous_entry)
+                } else {
+                    previous_entry
+                };
+
+                (Some(previous_path), is_internal)
             },
             None => (None, false)
         };
         Ok(result)
     }
 
-    pub(crate) fn add_folder(&mut self, project_path: &str, real_path: &str,  recursive: bool) -> Result<()> {
+    pub(crate) fn add_folder(&mut self, project_path: &str, real_path: PathBuf,  recursive: bool) -> Result<()> {
         let mut folders: Vec<PathBuf> = Vec::new();
         let files = std::fs::read_dir(real_path)?
                                     .filter(|x| x.is_ok())
@@ -44,13 +57,12 @@ impl Project {
                                             None
                                         }
                                     });
-        self.tree.insert_many(files, project_path)?;
+        self.tree.insert_many(files, project_path, false)?;
         if recursive {
             for folder in folders {
                 let folder_name = folder.file_name().unwrap().to_str().unwrap().to_string();
-                let folder_path = folder.to_str().unwrap().to_string();
                 let folder_project_path = format!("{}/{}", project_path, folder_name);
-                self.add_folder(&folder_project_path, &folder_path, recursive)?;
+                self.add_folder(&folder_project_path, folder, recursive)?;
             }
         }
 
@@ -58,9 +70,13 @@ impl Project {
         Ok(())
     }
 
-    pub(crate) fn get_file(&self, project_path: &str) -> Result<String> {
+    pub(crate) fn get_file(&self, project_path: &str) -> Result<PathBuf> {
         let file = self.tree.get(project_path)?;
-        Ok(file)
+        if file.1 {
+            let path = self._endpoint.make_full_path(&file.0);
+            return Ok(path);
+        }
+        Ok(file.0)
     }
 
     pub(crate) fn list(&self, project_path: Option<String>) -> Result<HashMap<String, Vec<String>>> {

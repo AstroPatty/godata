@@ -6,6 +6,7 @@ use std::convert::Infallible;
 use warp::http::StatusCode;
 use warp::reply::WithStatus;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 pub(crate) fn get_version() -> Result<impl warp::Reply, Infallible> {
     Ok(warp::reply::with_status(warp::reply::json(
@@ -133,7 +134,8 @@ pub(crate) fn link_file(project_manager: Arc<Mutex<ProjectManager>>, collection:
     let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
     if project.is_ok() {
         let project = project.unwrap();
-        let result = project.lock().unwrap().add_file(&project_path, &file_path, force);
+        let parsed_file_path = PathBuf::from(&file_path);
+        let result = project.lock().unwrap().add_file(&project_path, parsed_file_path, force);
         match result {
             Ok(r) => {
                 let pervious_path = r.0;
@@ -142,7 +144,7 @@ pub(crate) fn link_file(project_manager: Arc<Mutex<ProjectManager>>, collection:
                 output.insert("overwritten".to_string(), 
                                 pervious_path.map_or("none".to_string(), |path| {
                                     if was_internal{
-                                        path
+                                        path.to_str().unwrap().to_string()
                                     }
                                     else{
                                         "none".to_string()
@@ -168,7 +170,8 @@ pub(crate) fn link_folder(project_manager: Arc<Mutex<ProjectManager>>, collectio
     let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
     if project.is_ok() {
         let project = project.unwrap();
-        let result = project.lock().unwrap().add_folder(&project_path, &folder_path, recursive);
+        let parsed_folder_path = PathBuf::from(&folder_path);
+        let result = project.lock().unwrap().add_folder(&project_path, parsed_folder_path, recursive);
         match result {
             Ok(_) => {
                 let mut out = HashMap::new();

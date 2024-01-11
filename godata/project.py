@@ -69,7 +69,7 @@ class GodataProject:
             return path
 
     @sanitize_project_path
-    def store(self, object: Any, project_path: str, overwrite=True) -> bool:
+    def store(self, object: Any, project_path: str, overwrite=False) -> bool:
         """
         Stores a given python object in godata's internal storage at the given path.
         Not having a writer defined in godata's python io module is not necessarily
@@ -153,9 +153,15 @@ class GodataProject:
                 self.collection, self.name, project_path, str(fpath), recursive
             )
         else:
-            result = client.link_file(
-                self.collection, self.name, project_path, str(fpath), overwrite
-            )
+            try:
+                result = client.link_file(
+                    self.collection, self.name, project_path, str(fpath), overwrite
+                )
+            except client.AlreadyExists:
+                raise GodataProjectError(
+                    f"File already exists at {project_path}. Use overwrite=True to "
+                    "overwrite it."
+                )
         print(result["message"])
         file_utils.handle_overwrite(result)
         return True
