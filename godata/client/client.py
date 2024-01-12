@@ -99,7 +99,7 @@ def create_project(
     client = get_client()
     args = {"force": str(force).lower()}
     if storage_location:
-        args["storage_path"] = storage_location
+        args["storage_location"] = storage_location
 
     result = client.post(
         f"{SERVER_URL}/create/{collection_name}/{project_name}", params=args
@@ -148,7 +148,11 @@ def drop_project(collection_name: str, project_name: str):
     actually drop the project from memory, depending on if other clients are using it.
     """
     client = get_client()
-    resp = client.post(f"{SERVER_URL}/drop/{collection_name}/{project_name}")
+    try:
+        resp = client.post(f"{SERVER_URL}/drop/{collection_name}/{project_name}")
+    except requests.exceptions.ConnectionError:
+        # The server is probably down, so this operation doesn't really matter
+        return {}
     if resp.status_code == 200:
         return resp.json()
     else:
@@ -205,7 +209,6 @@ def link_folder(
         "type": "folder",
         "recursive": str(recursive).lower(),
     }
-    print(params)
     resp = client.post(
         f"{SERVER_URL}/projects/{collection_name}/{project_name}/files", params=params
     )
@@ -271,6 +274,20 @@ def remove_file(collection_name: str, project_name: str, project_path: str):
     params = {"project_path": project_path}
     resp = client.delete(
         f"{SERVER_URL}/projects/{collection_name}/{project_name}/files", params=params
+    )
+    if resp.status_code == 200:
+        return resp.json()
+    elif resp.status_code == 404:
+        raise NotFound(f"{resp.json()}")
+    else:
+        raise GodataClientError(f"{resp.status_code}: {resp.text}")
+
+
+def export_tree(collection_name: str, project_name: str, output_path: Path):
+    client = get_client()
+    params = {"output_path": str(output_path)}
+    resp = client.get(
+        f"{SERVER_URL}/export/{collection_name}/{project_name}", params=params
     )
     if resp.status_code == 200:
         return resp.json()

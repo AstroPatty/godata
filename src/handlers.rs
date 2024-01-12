@@ -7,6 +7,9 @@ use warp::http::StatusCode;
 use warp::reply::WithStatus;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use fs_extra::dir;
+use crate::locations;
+
 
 pub(crate) fn get_version() -> Result<impl warp::Reply, Infallible> {
     Ok(warp::reply::with_status(warp::reply::json(
@@ -271,6 +274,27 @@ pub(crate) fn remove_file(project_manager: Arc<Mutex<ProjectManager>>, collectio
                 warp::reply::json(&format!("File {project_path} does not exist!")),
                 StatusCode::NOT_FOUND)),
         }
+    }
+    Ok(warp::reply::with_status(
+       warp::reply::json(&format!("No project named {project_name} in collection {collection}")),
+       StatusCode::NOT_FOUND))
+
+}
+
+pub(crate) fn export_project_tree(collection: String, project_name: String, output_path: String) -> Result<WithStatus<warp::reply::Json>,  Infallible> {
+    let path_ = locations::load_project_dir(&project_name, &collection);
+    if let Ok(tree_path) = path_ {
+        let output_path = PathBuf::from(output_path).join(".tree");
+        // create the directory
+        std::fs::create_dir_all(&output_path).unwrap();
+        // get a list of all the children of the root directory
+        // copy all the children to the output directory
+        let mut opts = dir::CopyOptions::new();
+        opts.content_only = true;
+        dir::copy(&tree_path, &output_path, &opts).unwrap();
+        return Ok(warp::reply::with_status(
+            warp::reply::json(&format!("Tree for project {project_name} in collection {collection} exported to {}", output_path.to_str().unwrap())),
+            StatusCode::OK))
     }
     Ok(warp::reply::with_status(
        warp::reply::json(&format!("No project named {project_name} in collection {collection}")),

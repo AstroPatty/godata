@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -97,12 +98,19 @@ class GodataProject:
                 writer_fn, suffix = writers.get(type(obj), (None, None))
 
             except godataIoException:
-                raise godataIoException(
-                    "When storing a path, the file at the given"
-                    " path must be readable by godata. No reader was fond for file"
-                    f" {to_read.suffix}. You can still add it to the project by using"
-                    " the `link` method."
+                logger.warning(
+                    f"Could not find a reader for file {to_read}. The file will still"
+                    "be stored, but godata will only be able to return a path."
                 )
+                storage_path = client.generate_path(
+                    self.collection, self.name, project_path
+                )
+                storage_path = Path(storage_path)
+                storage_path = storage_path.with_suffix(to_read.suffix)
+                storage_path.parent.mkdir(parents=True, exist_ok=True)
+                self.link(storage_path, project_path, overwrite=overwrite, _force=True)
+                shutil.copy(to_read, storage_path)
+                return True
         else:
             obj = object
             writers = get_known_writers()
@@ -275,11 +283,11 @@ def create_project(
                 "this file or directory and try again."
             )
         project_dir.mkdir(parents=True, exist_ok=True)
-
+        storage_location = project_dir
     response = client.create_project(
         collection, name, force=True, storage_location=storage_location
     )
-    print(response)
+    print(response["message"])
     return GodataProject(collection, name)
 
 

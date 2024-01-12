@@ -1,4 +1,5 @@
 import os
+import shutil
 import time
 from pathlib import Path
 
@@ -7,6 +8,7 @@ import pandas as pd
 import pytest
 
 from godata import create_project, list_collections, list_projects, load_project
+from godata.ie import export_project
 from godata.project import GodataProjectError
 
 data_path = Path(os.environ.get("DATA_PATH"))
@@ -127,3 +129,12 @@ def test_load_project():
     p = load_project("test12")
     data = p.get("data/test_data")
     assert np.all(data == expected_data)
+
+
+def test_export():
+    p = create_project("test13")
+    expected_data = np.ones((10, 10))
+    p.store(expected_data, "data/test_data")
+    p.link(data_path, "data2", recursive=True)
+    output_path = export_project("test13")
+    assert output_path.exists()
