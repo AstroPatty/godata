@@ -1,6 +1,7 @@
 
 use crate::project::ProjectManager;
 use crate::project::get_collection_names;
+use crate::storage;
 use std::sync::{Arc, Mutex};
 use std::convert::Infallible;
 use warp::http::StatusCode;
@@ -8,6 +9,7 @@ use warp::reply::WithStatus;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use fs_extra::dir;
+use crate::storage::StorageManager;
 use crate::locations;
 
 
@@ -301,3 +303,4 @@ pub(crate) fn export_project_tree(collection: String, project_name: String, outp
        StatusCode::NOT_FOUND))
 
 }
+

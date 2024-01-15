@@ -287,7 +287,7 @@ def create_project(
     response = client.create_project(
         collection, name, force=True, storage_location=storage_location
     )
-    print(response["message"])
+    print(response)
     return GodataProject(collection, name)
 
 
