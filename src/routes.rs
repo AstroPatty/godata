@@ -21,6 +21,7 @@ pub(crate) fn routes(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter
         .or(project_generate_path(project_manager.clone()))
         .or(project_remove_file(project_manager.clone()))
         .or(project_export_tree())
+        .or(import_project_tree(project_manager.clone()))
 }
 
 fn get_version() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
@@ -219,5 +220,19 @@ fn project_export_tree() -> impl Filter<Extract = impl warp::Reply, Error = warp
             };
             handlers::export_project_tree(collection, project_name, output_path)
         })
+}
 
+fn import_project_tree(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone{
+    warp::path!("import" / String / String )
+        .and(warp::get())
+        .and(warp::query::<HashMap<String, String>>())
+        .map(move |collection, project_name, params: HashMap<String, String>| {
+            let input_path = match params.get("input_path") {
+                Some(input_path) => input_path.to_owned(),
+                None => return Ok(warp::reply::with_status(
+                    warp::reply::json(&"Missing input_path argument".to_string()),
+                    StatusCode::BAD_REQUEST))     // invalid request
+            };
+            handlers::import_project_tree(project_manager.clone(), collection, project_name, input_path)
+        })
 }

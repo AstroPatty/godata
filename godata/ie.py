@@ -14,8 +14,8 @@ change the server to only store relative paths when the file is internal.
 import zipfile
 from pathlib import Path
 
-from godata import create_project, delete_project, load_project
-from godata.client.client import export_tree
+from godata import create_project, delete_project, has_project, load_project
+from godata.client.client import export_tree, import_tree
 from godata.project import GodataProject
 
 
@@ -67,3 +67,37 @@ def export_helper(
         destination_project.store(file_real_path, file_project_path)
     for f in folders:
         export_helper(source_project, destination_project, f"{project_path}/{f}")
+
+
+def import_project(
+    zip_path: Path,
+    project_name: str = None,
+    collection_name: str = "default",
+    output_location=None,
+    verbose=False,
+) -> None:
+    if not zip_path.exists():
+        raise ValueError("Zip file does not exist")
+    if not project_name:
+        project_name = zip_path.stem
+
+    if has_project(project_name, collection_name):
+        raise ValueError(
+            f"Project {project_name} already exists in collection {collection_name}"
+        )
+    if not output_location:
+        output_location = Path.cwd()
+    if not output_location.is_dir():
+        raise ValueError("Output location must be a directory")
+
+    output_dir = output_location / f"{collection_name}.{project_name}"
+    if output_dir.exists():
+        raise ValueError(f"Output directory {output_dir} already exists")
+
+    # unzip the project into the output location
+    with zipfile.ZipFile(zip_path, "r") as zip_file:
+        zip_file.extractall(output_dir)
+
+    # Now, unzip the project
+    # Now, import the project
+    import_tree(collection_name, project_name, output_dir)

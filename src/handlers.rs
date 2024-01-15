@@ -304,3 +304,15 @@ pub(crate) fn export_project_tree(collection: String, project_name: String, outp
 
 }
 
+pub(crate) fn import_project_tree(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, input_path: String) -> Result<WithStatus<warp::reply::Json>,  Infallible> {
+    let storage_path = PathBuf::from(&input_path);
+    project_manager.lock().unwrap().import_project(&project_name, &collection, "local", storage_path).unwrap();
+
+
+    return Ok(warp::reply::with_status(
+        warp::reply::json(&format!("tree for project {project_name} in collection {collection} imported from {}", input_path)),
+        StatusCode::CONFLICT))
+    
+
+
+}

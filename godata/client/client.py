@@ -295,3 +295,17 @@ def export_tree(collection_name: str, project_name: str, output_path: Path):
         raise NotFound(f"{resp.json()}")
     else:
         raise GodataClientError(f"{resp.status_code}: {resp.text}")
+
+
+def import_tree(collection_name: str, project_name: str, input_path: Path):
+    client = get_client()
+    params = {"input_path": str(input_path)}
+    resp = client.get(
+        f"{SERVER_URL}/import/{collection_name}/{project_name}", params=params
+    )
+    if resp.status_code == 200:
+        return resp.json()
+    elif resp.status_code == 404:
+        raise NotFound(f"{resp.json()}")
+    else:
+        raise GodataClientError(f"{resp.status_code}: {resp.text}")

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::io::Result;
 use std::sync::{Arc, Mutex};
-
+use fs_extra::dir;
 
 pub struct Project {
     pub(crate) tree: FileSystem,
@@ -139,6 +139,22 @@ impl ProjectManager {
         self.counts.insert(key, 1);
         Ok(project)
     }
+    pub fn import_project(&self, name: &str, collection: &str, endpoint: &str, path: PathBuf) -> Result<()> {
+        // The assumption is that the path points to a folder which contains the project data
+        // Aditionally, it should contain a .tree folder which contains the tree data
+
+        let project_dir = create_project_dir(name, collection, true)?;
+        let tree_path = path.join(".tree");
+        let mut copy_options = dir::CopyOptions::new();
+        copy_options.copy_inside = true;
+        dir::copy(&tree_path, &project_dir, &copy_options).unwrap();
+        // remove the .tree folder
+        std::fs::remove_dir_all(&tree_path).unwrap();
+        // add the storage information
+        self.storage_manager.add(name, collection, endpoint, path)?;
+        Ok(())
+
+    }
 
     pub fn load_project(&mut self, name: &str, collection: &str) -> Result<Arc<Mutex<Project>>> {
         let key = format!("{}/{}", collection, name);
@@ -236,6 +252,7 @@ impl ProjectManager {
         }
         Ok(names)
     }
+
      
 }
 
