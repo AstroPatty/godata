@@ -138,7 +138,6 @@ def test_ie():
     p.link(data_path, "data2", recursive=True)
     output_path = export_project("test13")
     assert output_path.exists()
-    shutil.copy(output_path, data_path / "test13.zip")
     import_project(output_path, "test_import", verbose=True)
     p2 = load_project("test_import")
     # get the list of folders in this path
