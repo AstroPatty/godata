@@ -235,7 +235,7 @@ impl FileSystem {
         self.root.reset();
         self._modified = false;
         // Batching and reseting like this ensures two things
-        // First, changes (like adding folders) will always go through in full
+        // First, bulk changes (like adding folders) will always go through in full
         // Second, The tree will only be unmodified if its changes are saved
     }
     

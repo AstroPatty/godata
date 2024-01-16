@@ -72,3 +72,24 @@ def test_cli_get():
     path = output.split("\n")[1]
     # check that the path returned is correct
     assert path == str(data_path / "test_ones.npy")
+
+
+def test_cli_ie():
+    result = subprocess.run(
+        [
+            "godata",
+            "export",
+            "cli_test",
+        ],
+        capture_output=True,
+    )
+    path = Path.cwd() / "cli_test.zip"
+    assert path.exists()
+    result = subprocess.run(
+        [
+            "godata",
+            "import",
+            str(path),
+        ],
+        capture_output=True,
+    )
