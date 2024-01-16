@@ -3,10 +3,28 @@ import signal
 import subprocess
 import time
 
+import requests
+
+from godata.client import client
+
 from .install import SERVER_INSTALL_PATH, install, upgrade
 
 
 def start():
+    try:
+        client.check_server()
+    except client.GodataClientError as e:
+        # Server is running, but client has a bad version
+        print(e)
+        return
+    except requests.exceptions.ConnectionError:
+        is_running = False
+    else:
+        is_running = True
+    if is_running:
+        print("Server is already running.")
+        return
+
     try:
         subprocess.Popen([f"{SERVER_INSTALL_PATH}"], close_fds=True, shell=True)
     except FileNotFoundError:
