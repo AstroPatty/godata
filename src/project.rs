@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::io::Result;
 use std::sync::{Arc, Mutex};
 use fs_extra::dir;
+use sled::Db;
 
 pub struct Project {
     pub(crate) tree: FileSystem,
@@ -40,6 +41,13 @@ impl Project {
             None => (None, false)
         };
         Ok(result)
+    }
+
+    pub(crate) fn duplicate_tree(&mut self, output_path: PathBuf) -> Result<()> {
+        let export = self.tree.export()?;
+        let db = sled::open(output_path)?;
+        db.import(export);
+        Ok(())
     }
 
     pub(crate) fn add_folder(&mut self, project_path: &str, real_path: PathBuf,  recursive: bool) -> Result<()> {
@@ -139,22 +147,37 @@ impl ProjectManager {
         self.counts.insert(key, 1);
         Ok(project)
     }
-    pub fn import_project(&self, name: &str, collection: &str, endpoint: &str, path: PathBuf) -> Result<()> {
+
+    pub fn import_project(&self, name: &str, collection: &str, endpoint: &str, path: PathBuf) -> Result<PathBuf> {
         // The assumption is that the path points to a folder which contains the project data
         // Aditionally, it should contain a .tree folder which contains the tree data
 
         let project_dir = create_project_dir(name, collection, true)?;
         let tree_path = path.join(".tree");
-        let mut copy_options = dir::CopyOptions::new();
-        copy_options.copy_inside = true;
-        dir::copy(&tree_path, &project_dir, &copy_options).unwrap();
-        // remove the .tree folder
-        std::fs::remove_dir_all(&tree_path).unwrap();
-        // add the storage information
+        let db = sled::open(tree_path)?;
+        let root = db.get("root").unwrap().unwrap();
+        
+        let db_export = db.export();
+        let final_db = sled::open(&project_dir)?;
+        final_db.import(db_export);
+
+       
         self.storage_manager.add(name, collection, endpoint, path)?;
-        Ok(())
+        Ok((project_dir))
 
     }
+    pub fn export_project(&mut self, name: &str, collection: &str, output_path: PathBuf) -> Result<()> {
+        let output_tree_path = output_path.join(".tree");
+        let project = self.load_project(name, collection);
+        if project.is_err() {
+            return Err(project.err().unwrap());
+        }
+        let project = project.unwrap();
+        let mut project = project.lock().unwrap();
+        project.duplicate_tree(output_tree_path)?;
+        Ok(())
+    }
+
 
     pub fn load_project(&mut self, name: &str, collection: &str) -> Result<Arc<Mutex<Project>>> {
         let key = format!("{}/{}", collection, name);

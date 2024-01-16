@@ -68,6 +68,7 @@ def test_cli_get():
         ],
         capture_output=True,
     )
-    path = result.stdout.decode("utf-8").strip()
+    output = result.stdout.decode("utf-8").strip()
+    path = output.split("\n")[1]
     # check that the path returned is correct
     assert path == str(data_path / "test_ones.npy")

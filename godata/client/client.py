@@ -135,6 +135,7 @@ def load_project(collection_name: str, project_name: str):
     client = get_client()
     resp = client.post(f"{SERVER_URL}/load/{collection_name}/{project_name}")
     if resp.status_code == 200:
+        print(resp.json())
         return True
     elif resp.status_code == 404:
         raise NotFound(f"{resp.json()}")

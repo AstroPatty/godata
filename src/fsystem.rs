@@ -117,6 +117,13 @@ impl FileSystem {
             db
         })
     }
+    pub(crate) fn export(&mut self) -> Result<Vec<(Vec<u8>, Vec<u8>, impl Iterator<Item = Vec<Vec<u8>>>)>> {
+        // Copy the database to the specified path
+        self.save();
+        self.db.flush()?;
+        let res = self.db.export();
+        Ok(res)
+    }
 
     pub(crate) fn load(name: &str, root_dir: PathBuf) -> Result<FileSystem> {
 
@@ -126,8 +133,9 @@ impl FileSystem {
 
         let root = match root_folder {
             None => {
-                return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "File system not found"))
-            },
+                // get a list of the found folders
+                return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "File system was opened, but no root folder was found".to_string()))
+                }
             Some(_) => {
                 Folder::from_tree(&db, "root".to_string())
             }

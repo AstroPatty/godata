@@ -1,4 +1,5 @@
 
+use crate::project;
 use crate::project::ProjectManager;
 use crate::project::get_collection_names;
 use crate::storage;
@@ -52,6 +53,7 @@ pub(crate) fn load_project(project_manager: Arc<Mutex<ProjectManager>>, collecti
         ), StatusCode::NOT_FOUND))
         
     }
+    let message = format!("Sucessfully loaded project {collection}/{project_name}");
     tokio::task::spawn(async move {
         let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
         match project {
@@ -60,7 +62,7 @@ pub(crate) fn load_project(project_manager: Arc<Mutex<ProjectManager>>, collecti
         }
     });
     Ok(warp::reply::with_status(warp::reply::json(
-       &"".to_string()
+       &message
     ), StatusCode::OK))
 }
 
@@ -98,8 +100,8 @@ pub(crate) fn list_project(project_manager: Arc<Mutex<ProjectManager>>, collecti
         }
     }
     Ok(warp::reply::with_status(warp::reply::json(
-        &format!("No project named {project_name} in collection {collection}")
-    ), StatusCode::NOT_FOUND))
+        &project.err().unwrap().to_string())
+    , StatusCode::NOT_FOUND))
 }
 
 pub(crate) fn create_project(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, force:bool, storage_location:Option<String>) -> Result<impl warp::Reply, Infallible> {
@@ -283,36 +285,38 @@ pub(crate) fn remove_file(project_manager: Arc<Mutex<ProjectManager>>, collectio
 
 }
 
-pub(crate) fn export_project_tree(collection: String, project_name: String, output_path: String) -> Result<WithStatus<warp::reply::Json>,  Infallible> {
-    let path_ = locations::load_project_dir(&project_name, &collection);
-    if let Ok(tree_path) = path_ {
-        let output_path = PathBuf::from(output_path).join(".tree");
-        // create the directory
-        std::fs::create_dir_all(&output_path).unwrap();
-        // get a list of all the children of the root directory
-        // copy all the children to the output directory
-        let mut opts = dir::CopyOptions::new();
-        opts.content_only = true;
-        dir::copy(&tree_path, &output_path, &opts).unwrap();
-        return Ok(warp::reply::with_status(
-            warp::reply::json(&format!("Tree for project {project_name} in collection {collection} exported to {}", output_path.to_str().unwrap())),
-            StatusCode::OK))
+pub(crate) fn export_project_tree(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, output_path: String) -> Result<WithStatus<warp::reply::Json>,  Infallible> {
+    let result = project_manager.lock().unwrap().export_project(&project_name, &collection, PathBuf::from(&output_path));    
+    match result {
+        Ok(_) => {
+            return Ok(warp::reply::with_status(
+                warp::reply::json(&format!("tree for project {project_name} in collection {collection} exported")),
+                StatusCode::OK))
+        },
+        Err(e) => {
+            return Ok(warp::reply::with_status(
+                warp::reply::json(&e.to_string()),
+                StatusCode::CONFLICT))
+        }
     }
-    Ok(warp::reply::with_status(
-       warp::reply::json(&format!("No project named {project_name} in collection {collection}")),
-       StatusCode::NOT_FOUND))
 
 }
 
 pub(crate) fn import_project_tree(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, input_path: String) -> Result<WithStatus<warp::reply::Json>,  Infallible> {
     let storage_path = PathBuf::from(&input_path);
-    project_manager.lock().unwrap().import_project(&project_name, &collection, "local", storage_path).unwrap();
+    let result = project_manager.lock().unwrap().import_project(&project_name, &collection, "local", storage_path);
+    match result {
+        Ok(p) => {
+            return Ok(warp::reply::with_status(
+                warp::reply::json(&format!("tree for project {project_name} in collection {collection} imported")),
+                StatusCode::OK))
 
-
-    return Ok(warp::reply::with_status(
-        warp::reply::json(&format!("tree for project {project_name} in collection {collection} imported from {}", input_path)),
-        StatusCode::CONFLICT))
-    
-
+        },
+        Err(e) => {
+            return Ok(warp::reply::with_status(
+                warp::reply::json(&e.to_string()),
+                StatusCode::CONFLICT))
+        }
+    }
 
 }

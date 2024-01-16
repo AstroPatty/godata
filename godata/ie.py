@@ -100,4 +100,6 @@ def import_project(
 
     # Now, unzip the project
     # Now, import the project
-    import_tree(collection_name, project_name, output_dir)
+    res = import_tree(collection_name, project_name, output_dir)
+    if verbose:
+        print(res)

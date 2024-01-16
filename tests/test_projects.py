@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from godata import create_project, list_collections, list_projects, load_project
-from godata.ie import export_project
+from godata.ie import export_project, import_project
 from godata.project import GodataProjectError
 
 data_path = Path(os.environ.get("DATA_PATH"))
@@ -131,10 +131,16 @@ def test_load_project():
     assert np.all(data == expected_data)
 
 
-def test_export():
+def test_ie():
     p = create_project("test13")
     expected_data = np.ones((10, 10))
     p.store(expected_data, "data/test_data")
     p.link(data_path, "data2", recursive=True)
     output_path = export_project("test13")
     assert output_path.exists()
+    shutil.copy(output_path, data_path / "test13.zip")
+    import_project(output_path, "test_import", verbose=True)
+    p2 = load_project("test_import")
+    # get the list of folders in this path
+    data = p2.get("data/test_data")
+    assert np.all(data == expected_data)
