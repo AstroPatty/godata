@@ -11,6 +11,10 @@ on:
       - main
     tags:
       - '*'
+    paths:
+      - "godata/**"
+      - "src/**"
+      - "tests/**"
   pull_request:
   workflow_dispatch:
 
