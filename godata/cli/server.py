@@ -1,8 +1,6 @@
 import click
-from requests import exceptions
 
 from godata import server as srv
-from godata.client.client import GodataClientError, check_server
 
 
 # top level godata command
@@ -17,18 +15,7 @@ def start():
     """
     Start the godata server. This will start the server in the background and return
     """
-    try:
-        check_server()
-    except GodataClientError as e:
-        # Server is running, but client has a bad version
-        print(e)
-        return
-    except exceptions.ConnectionError:
-        # Server is not running
-        srv.start()
-        print("Server started.")
-        return
-    print("Server is already running.")
+    srv.start()
 
 
 @server.command()

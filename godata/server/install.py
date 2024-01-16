@@ -7,6 +7,8 @@ import zipfile
 
 import requests
 
+from godata import server
+
 ENDPOINT = "https://sqm13wjyaf.execute-api.us-west-2.amazonaws.com/godata/download"
 SERVER_INSTALL_PATH = "/usr/local/bin/godata_server"
 
@@ -39,6 +41,10 @@ def install(upgrade=False, version=None):
     url = response["url"]
     result = requests.get(url)
     # download the zip file
+    # Stop the server if it is already running
+    print("Stopping server if it is running...")
+    server.stop()
+
     with open("godata_server.zip", "wb") as f:
         f.write(result.content)
     # unzip the file
@@ -50,6 +56,8 @@ def install(upgrade=False, version=None):
     os.remove("godata_server.zip")
     # make the binary executable
     os.chmod(SERVER_INSTALL_PATH, 0o755)
+    print("Restarting server...")
+    server.start()
     if version is None:
         print(f"Successfully installed godata server version {response['version']}")
     else:
