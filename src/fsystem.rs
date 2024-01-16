@@ -351,8 +351,8 @@ impl Folder {
         }
         DbFolder {
             name: self.name.clone(),
-            folders_uuids: folders_uuids,
-            files: files,
+            folders_uuids,
+            files,
             metadata: self.metadata.clone()
         }
 

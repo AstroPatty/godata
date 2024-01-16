@@ -1,22 +1,22 @@
 
-use crate::project;
+
 use crate::project::ProjectManager;
 use crate::project::get_collection_names;
-use crate::storage;
+
 use std::sync::{Arc, Mutex};
 use std::convert::Infallible;
 use warp::http::StatusCode;
 use warp::reply::WithStatus;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use fs_extra::dir;
-use crate::storage::StorageManager;
-use crate::locations;
+
+
+
 
 
 pub(crate) fn get_version() -> Result<impl warp::Reply, Infallible> {
     Ok(warp::reply::with_status(warp::reply::json(
-        &format!("{}", env!("CARGO_PKG_VERSION"))
+        &env!("CARGO_PKG_VERSION").to_string()
     ), StatusCode::OK))
 }
 
@@ -55,11 +55,7 @@ pub(crate) fn load_project(project_manager: Arc<Mutex<ProjectManager>>, collecti
     }
     let message = format!("Sucessfully loaded project {collection}/{project_name}");
     tokio::task::spawn(async move {
-        let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
-        match project {
-            Ok(_) => {},
-            Err(_) => {}
-        }
+        let _ = project_manager.lock().unwrap().load_project(&project_name, &collection);
     });
     Ok(warp::reply::with_status(warp::reply::json(
        &message
@@ -289,12 +285,12 @@ pub(crate) fn export_project_tree(project_manager: Arc<Mutex<ProjectManager>>, c
     let result = project_manager.lock().unwrap().export_project(&project_name, &collection, PathBuf::from(&output_path));    
     match result {
         Ok(_) => {
-            return Ok(warp::reply::with_status(
+            Ok(warp::reply::with_status(
                 warp::reply::json(&format!("tree for project {project_name} in collection {collection} exported")),
                 StatusCode::OK))
         },
         Err(e) => {
-            return Ok(warp::reply::with_status(
+            Ok(warp::reply::with_status(
                 warp::reply::json(&e.to_string()),
                 StatusCode::CONFLICT))
         }
@@ -306,14 +302,14 @@ pub(crate) fn import_project_tree(project_manager: Arc<Mutex<ProjectManager>>, c
     let storage_path = PathBuf::from(&input_path);
     let result = project_manager.lock().unwrap().import_project(&project_name, &collection, "local", storage_path);
     match result {
-        Ok(p) => {
-            return Ok(warp::reply::with_status(
+        Ok(_p) => {
+            Ok(warp::reply::with_status(
                 warp::reply::json(&format!("tree for project {project_name} in collection {collection} imported")),
                 StatusCode::OK))
 
         },
         Err(e) => {
-            return Ok(warp::reply::with_status(
+            Ok(warp::reply::with_status(
                 warp::reply::json(&e.to_string()),
                 StatusCode::CONFLICT))
         }

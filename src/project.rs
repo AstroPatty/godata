@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::io::Result;
 use std::sync::{Arc, Mutex};
-use fs_extra::dir;
-use sled::Db;
+
+
 
 pub struct Project {
     pub(crate) tree: FileSystem,
@@ -155,7 +155,7 @@ impl ProjectManager {
         let project_dir = create_project_dir(name, collection, true)?;
         let tree_path = path.join(".tree");
         let db = sled::open(tree_path)?;
-        let root = db.get("root").unwrap().unwrap();
+        let _root = db.get("root").unwrap().unwrap();
         
         let db_export = db.export();
         let final_db = sled::open(&project_dir)?;
@@ -163,7 +163,7 @@ impl ProjectManager {
 
        
         self.storage_manager.add(name, collection, endpoint, path)?;
-        Ok((project_dir))
+        Ok(project_dir)
 
     }
     pub fn export_project(&mut self, name: &str, collection: &str, output_path: PathBuf) -> Result<()> {

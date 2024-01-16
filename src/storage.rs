@@ -154,14 +154,14 @@ impl StorageEndpoint for LocalEndpoint {
 
     fn get_relative_path(&self, path: &Path) -> Result<PathBuf> {
         let result = path.strip_prefix(&self.root_path);
-        let output = match result {
+        
+        match result {
             Ok(path) => Ok(path.to_path_buf()),
             Err(_) => Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Path is not internal to project")),
-        };
-        output
+        }
     }
     fn make_full_path(&self, relpath: &Path) -> PathBuf {
-        let full_path = self.root_path.join(relpath);
-        full_path
+        
+        self.root_path.join(relpath)
     }
 }

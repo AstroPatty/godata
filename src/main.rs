@@ -8,7 +8,7 @@ mod handlers;
 
 use clap::Parser;
 // Allow the server to return its version with a --version flag
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Parser)]
 struct Opts {
