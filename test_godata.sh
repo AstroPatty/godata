@@ -1,6 +1,16 @@
 #!/bin/bash --login
-
-docker build -t godata-test:latest . && docker run --env DATA_PATH=/home/data -v $GODATA_TEST_ROOT/test_data:/home/data -it godata-test:latest 
+OPTIND=1
+while getopts 'i' opt; do
+  case $opt in
+    i)
+      CMD="/bin/bash"
+      ;;
+    *)
+      CMD=""
+      ;;
+  esac
+done
+docker build -t godata-test:latest . && docker run --env DATA_PATH=/home/data --env RUST_BACKTRACE=1 -v $GODATA_TEST_ROOT/test_data:/home/data -it godata-test:latest $CMD
 # Run this script from the root of the project to test the godata server and
 # client. This docker daemon must be running.
 # Assumes there is an environment variable $GODATA_TEST_ROOT that points to the 

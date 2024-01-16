@@ -83,6 +83,8 @@ pub(crate) trait StorageEndpoint {
     fn copy_file(&self, from: &str, to: &str) -> Result<()>;
     fn delete_file(&self, path: &str) -> Result<()>;
     fn is_internal(&self, path: &Path) -> bool;
+    fn get_relative_path(&self, path: &Path) -> Result<PathBuf>;
+    fn make_full_path(&self, relpath: &Path) -> PathBuf;
 
 }
 
@@ -148,5 +150,18 @@ impl StorageEndpoint for LocalEndpoint {
             fs::remove_dir(parent_directory)?;
         }
         Ok(())
+    }
+
+    fn get_relative_path(&self, path: &Path) -> Result<PathBuf> {
+        let result = path.strip_prefix(&self.root_path);
+        
+        match result {
+            Ok(path) => Ok(path.to_path_buf()),
+            Err(_) => Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Path is not internal to project")),
+        }
+    }
+    fn make_full_path(&self, relpath: &Path) -> PathBuf {
+        
+        self.root_path.join(relpath)
     }
 }

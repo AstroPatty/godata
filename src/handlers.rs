@@ -1,15 +1,22 @@
 
+
 use crate::project::ProjectManager;
 use crate::project::get_collection_names;
+
 use std::sync::{Arc, Mutex};
 use std::convert::Infallible;
 use warp::http::StatusCode;
 use warp::reply::WithStatus;
 use std::collections::HashMap;
+use std::path::PathBuf;
+
+
+
+
 
 pub(crate) fn get_version() -> Result<impl warp::Reply, Infallible> {
     Ok(warp::reply::with_status(warp::reply::json(
-        &format!("{}", env!("CARGO_PKG_VERSION"))
+        &env!("CARGO_PKG_VERSION").to_string()
     ), StatusCode::OK))
 }
 
@@ -46,15 +53,12 @@ pub(crate) fn load_project(project_manager: Arc<Mutex<ProjectManager>>, collecti
         ), StatusCode::NOT_FOUND))
         
     }
+    let message = format!("Sucessfully loaded project {collection}/{project_name}");
     tokio::task::spawn(async move {
-        let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
-        match project {
-            Ok(_) => {},
-            Err(_) => {}
-        }
+        let _ = project_manager.lock().unwrap().load_project(&project_name, &collection);
     });
     Ok(warp::reply::with_status(warp::reply::json(
-       &"".to_string()
+       &message
     ), StatusCode::OK))
 }
 
@@ -92,8 +96,8 @@ pub(crate) fn list_project(project_manager: Arc<Mutex<ProjectManager>>, collecti
         }
     }
     Ok(warp::reply::with_status(warp::reply::json(
-        &format!("No project named {project_name} in collection {collection}")
-    ), StatusCode::NOT_FOUND))
+        &project.err().unwrap().to_string())
+    , StatusCode::NOT_FOUND))
 }
 
 pub(crate) fn create_project(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, force:bool, storage_location:Option<String>) -> Result<impl warp::Reply, Infallible> {
@@ -133,7 +137,8 @@ pub(crate) fn link_file(project_manager: Arc<Mutex<ProjectManager>>, collection:
     let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
     if project.is_ok() {
         let project = project.unwrap();
-        let result = project.lock().unwrap().add_file(&project_path, &file_path, force);
+        let parsed_file_path = PathBuf::from(&file_path);
+        let result = project.lock().unwrap().add_file(&project_path, parsed_file_path, force);
         match result {
             Ok(r) => {
                 let pervious_path = r.0;
@@ -142,7 +147,7 @@ pub(crate) fn link_file(project_manager: Arc<Mutex<ProjectManager>>, collection:
                 output.insert("overwritten".to_string(), 
                                 pervious_path.map_or("none".to_string(), |path| {
                                     if was_internal{
-                                        path
+                                        path.to_str().unwrap().to_string()
                                     }
                                     else{
                                         "none".to_string()
@@ -168,7 +173,8 @@ pub(crate) fn link_folder(project_manager: Arc<Mutex<ProjectManager>>, collectio
     let project = project_manager.lock().unwrap().load_project(&project_name, &collection);
     if project.is_ok() {
         let project = project.unwrap();
-        let result = project.lock().unwrap().add_folder(&project_path, &folder_path, recursive);
+        let parsed_folder_path = PathBuf::from(&folder_path);
+        let result = project.lock().unwrap().add_folder(&project_path, parsed_folder_path, recursive);
         match result {
             Ok(_) => {
                 let mut out = HashMap::new();
@@ -272,5 +278,41 @@ pub(crate) fn remove_file(project_manager: Arc<Mutex<ProjectManager>>, collectio
     Ok(warp::reply::with_status(
        warp::reply::json(&format!("No project named {project_name} in collection {collection}")),
        StatusCode::NOT_FOUND))
+
+}
+
+pub(crate) fn export_project_tree(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, output_path: String) -> Result<WithStatus<warp::reply::Json>,  Infallible> {
+    let result = project_manager.lock().unwrap().export_project(&project_name, &collection, PathBuf::from(&output_path));    
+    match result {
+        Ok(_) => {
+            Ok(warp::reply::with_status(
+                warp::reply::json(&format!("tree for project {project_name} in collection {collection} exported")),
+                StatusCode::OK))
+        },
+        Err(e) => {
+            Ok(warp::reply::with_status(
+                warp::reply::json(&e.to_string()),
+                StatusCode::CONFLICT))
+        }
+    }
+
+}
+
+pub(crate) fn import_project_tree(project_manager: Arc<Mutex<ProjectManager>>, collection: String, project_name: String, input_path: String) -> Result<WithStatus<warp::reply::Json>,  Infallible> {
+    let storage_path = PathBuf::from(&input_path);
+    let result = project_manager.lock().unwrap().import_project(&project_name, &collection, "local", storage_path);
+    match result {
+        Ok(_p) => {
+            Ok(warp::reply::with_status(
+                warp::reply::json(&format!("tree for project {project_name} in collection {collection} imported")),
+                StatusCode::OK))
+
+        },
+        Err(e) => {
+            Ok(warp::reply::with_status(
+                warp::reply::json(&e.to_string()),
+                StatusCode::CONFLICT))
+        }
+    }
 
 }

@@ -1,4 +1,5 @@
 import os
+import shutil
 import time
 from pathlib import Path
 
@@ -7,6 +8,7 @@ import pandas as pd
 import pytest
 
 from godata import create_project, list_collections, list_projects, load_project
+from godata.ie import export_project, import_project
 from godata.project import GodataProjectError
 
 data_path = Path(os.environ.get("DATA_PATH"))
@@ -69,7 +71,7 @@ def test_overwrite():
     stored_path = p.get("data/test_data", as_path=True)
 
     df_data = pd.read_csv(data_path / "test_df.csv")
-    p.store(df_data, "data/test_data")
+    p.store(df_data, "data/test_data", overwrite=True)
     data = p.get("data/test_data")
     assert np.all(data.values == df_data.values)
     assert not stored_path.exists()
@@ -126,4 +128,18 @@ def test_load_project():
     del p
     p = load_project("test12")
     data = p.get("data/test_data")
+    assert np.all(data == expected_data)
+
+
+def test_ie():
+    p = create_project("test13")
+    expected_data = np.ones((10, 10))
+    p.store(expected_data, "data/test_data")
+    p.link(data_path, "data2", recursive=True)
+    output_path = export_project("test13")
+    assert output_path.exists()
+    import_project(output_path, "test_import", verbose=True)
+    p2 = load_project("test_import")
+    # get the list of folders in this path
+    data = p2.get("data/test_data")
     assert np.all(data == expected_data)

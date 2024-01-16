@@ -8,7 +8,7 @@
 use std::io::Result;
 use std::collections::HashMap;
 use uuid::Uuid;
-use sled::Db;
+use sled::{Db, Batch};
 
 use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
@@ -30,9 +30,10 @@ impl FSObject {
 }
 
 struct File {
-    real_path: String,
+    real_path: PathBuf,
     pub(self) name: String,
     metadata: HashMap<String, String>,
+    _internal: bool,
     _uuid: String,
 }
 
@@ -59,6 +60,7 @@ struct DbFile {
     pub(self) name: String,
     real_path: String,
     uuid: String,
+    _internal: bool,
     #[serde(default)]
     metadata: HashMap<String, String>
 
@@ -115,6 +117,13 @@ impl FileSystem {
             db
         })
     }
+    pub(crate) fn export(&mut self) -> Result<Vec<(Vec<u8>, Vec<u8>, impl Iterator<Item = Vec<Vec<u8>>>)>> {
+        // Copy the database to the specified path
+        self.save();
+        self.db.flush()?;
+        let res = self.db.export();
+        Ok(res)
+    }
 
     pub(crate) fn load(name: &str, root_dir: PathBuf) -> Result<FileSystem> {
 
@@ -124,8 +133,9 @@ impl FileSystem {
 
         let root = match root_folder {
             None => {
-                return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "File system not found"))
-            },
+                // get a list of the found folders
+                return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "File system was opened, but no root folder was found".to_string()))
+                }
             Some(_) => {
                 Folder::from_tree(&db, "root".to_string())
             }
@@ -158,26 +168,26 @@ impl FileSystem {
         Ok(children)
     }
 
-    pub(crate) fn get(&self, virtual_path: &str) -> Result<String> {
+    pub(crate) fn get(&self, virtual_path: &str) -> Result<(PathBuf, bool)> {
         let file = self.root.get(virtual_path)?;
-        Ok(file.real_path.clone())
+        Ok((file.real_path.clone(), file._internal))
     }
 
-    pub(crate) fn insert(&mut self, project_path: &str, real_path: &str, overwrite: bool) -> Result<Option<String>> {
+    pub(crate) fn insert(&mut self, project_path: &str, real_path: PathBuf, internal: bool, overwrite: bool) -> Result<Option<(PathBuf, bool)>> {
         let name = project_path.split('/').last().unwrap().to_string();
         let result = if name == project_path {
-            let file = File::new(real_path.to_string(), name);
+            let file = File::new(real_path, name, internal);
             self.root.insert(FSObject::File(file), "", overwrite).unwrap()
         }
         else {
             let ppath = project_path.strip_suffix(format!("/{}", name).as_str()).unwrap();
-            let file = File::new(real_path.to_string(), name);
+            let file = File::new(real_path, name, internal);
             self.root.insert(FSObject::File(file), ppath, overwrite).unwrap()
         };
-        let path = match result {
+        let output = match result {
             Some(f) => {
                 match f {
-                    FSObject::File(f) => Some(f.real_path),
+                    FSObject::File(f) => Some((f.real_path, f._internal)),
                     FSObject::Folder(_) => {
                         panic!("Cannot overwrite a folder, but somehow we did!")
                     }
@@ -186,19 +196,20 @@ impl FileSystem {
             None => None
         };
         self._modified = true;
-        Ok(path)
+        self.save();
+        Ok(output)
     }
 
-    pub(crate) fn insert_many<I>(&mut self, files: I, virtual_path: &str) -> Result<()>
+    pub(crate) fn insert_many<I>(&mut self, files: I, virtual_path: &str, internal: bool) -> Result<()>
     where I: Iterator<Item = PathBuf>
     {
-        let file_objects = files.map(|x| {
-            let name = x.file_name().unwrap().to_str().unwrap().to_string();
-            let real_path = x.to_str().unwrap().to_string();
-            File::new(real_path, name)
+        let file_objects = files.map(|path| {
+            let name = path.file_name().unwrap().to_str().unwrap().to_string();
+            File::new(path, name, internal)
         });
         self.root.insert_many(file_objects, virtual_path)?;
         self._modified = true;
+        self.save();
         Ok(())
     }
 
@@ -208,6 +219,7 @@ impl FileSystem {
             self.db.remove(uuid.as_bytes())?;
         }
         self._modified = true;
+        self.save();
         Ok(())
     }
 
@@ -217,8 +229,14 @@ impl FileSystem {
 
     fn save(&mut self) {
         // Write the root folder to the database
-        self.root.to_tree(&self.db);
-        // Write the version to the database
+        let mut batch = Batch::default();
+        self.root.to_tree(&mut batch);
+        self.db.apply_batch(batch).unwrap();
+        self.root.reset();
+        self._modified = false;
+        // Batching and reseting like this ensures two things
+        // First, bulk changes (like adding folders) will always go through in full
+        // Second, The tree will only be unmodified if its changes are saved
     }
     
 }
@@ -239,6 +257,16 @@ impl Folder {
             metadata: HashMap::new(),
             _uuid: Uuid::new_v4().to_string(),
             _modified: true
+        }
+    }
+
+    fn reset(&mut self) {
+        self._modified = false;
+        for (_, child) in self.children.iter_mut() {
+            match child {
+                FSObject::File(_) => (),
+                FSObject::Folder(f) => f.reset()
+            }
         }
     }
 
@@ -266,19 +294,18 @@ impl Folder {
 
     }
 
-    fn to_tree(&mut self, db: &Db) {
+    fn to_tree(&mut self, batch: &mut Batch) {
         // Write the folder and all of its children to the database
         if self._modified {
 
-            self.write_to_db(db).unwrap();
+            self.write_to_db(batch).unwrap();
         }
         for (_, child) in self.children.iter_mut() {
             match child {
                 FSObject::File(_) => (),
-                FSObject::Folder(f) => f.to_tree(db)
+                FSObject::Folder(f) => f.to_tree(batch)
             }
         }
-        self._modified = false;
     }
 
     fn insert_many<I>(&mut self, files: I, virtual_path: &str) -> Result<()> 
@@ -342,19 +369,18 @@ impl Folder {
         }
         DbFolder {
             name: self.name.clone(),
-            folders_uuids: folders_uuids,
-            files: files,
+            folders_uuids,
+            files,
             metadata: self.metadata.clone()
         }
 
     }
 
-    fn write_to_db(&mut self, db: &Db) -> Result<()> {
+    fn write_to_db(&mut self, batch: &mut Batch) -> Result<()> {
         let db_folder = self.to_db_folder();
         let mut bytes = Vec::new();
         into_writer(&db_folder, &mut bytes).unwrap();
-        db.insert(self._uuid.as_bytes(), bytes)?;
-        self._modified = false;
+        batch.insert(self._uuid.as_bytes(), bytes);
         Ok(())
     }
 
@@ -605,11 +631,13 @@ impl Folder {
 
 impl File {
 
-    fn new(real_path: String, name: String) -> File {
+    fn new(real_path: PathBuf, name: String, internal: bool) -> File {
+
         File {
             real_path,
             name,
             metadata: HashMap::new(),
+            _internal: internal,
             _uuid: Uuid::new_v4().to_string()
         }
     }
@@ -620,18 +648,19 @@ impl File {
     fn to_db_file(&self) -> DbFile {
         DbFile {
             name: self.name.clone(),
-            real_path: self.real_path.clone(),
+            real_path: self.real_path.to_str().unwrap().to_string(),
             metadata: self.metadata.clone(),
+            _internal: self._internal,
             uuid: self._uuid.clone()
-
         }
     }
 
     fn from_db_file(db_file: DbFile) -> File {
         File {
             name: db_file.name,
-            real_path: db_file.real_path,
+            real_path: PathBuf::from(db_file.real_path),
             metadata: db_file.metadata,
+            _internal: db_file._internal,
             _uuid: db_file.uuid
         }
     }
