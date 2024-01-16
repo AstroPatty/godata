@@ -8,7 +8,7 @@
 use std::io::Result;
 use std::collections::HashMap;
 use uuid::Uuid;
-use sled::Db;
+use sled::{Db, Batch};
 
 use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
@@ -226,7 +226,9 @@ impl FileSystem {
 
     fn save(&mut self) {
         // Write the root folder to the database
-        self.root.to_tree(&self.db);
+        let mut batch = Batch::default();
+        self.root.to_tree(&mut batch);
+        self.db.apply_batch(batch).unwrap();
         // Write the version to the database
     }
     
@@ -275,16 +277,16 @@ impl Folder {
 
     }
 
-    fn to_tree(&mut self, db: &Db) {
+    fn to_tree(&mut self, batch: &mut Batch) {
         // Write the folder and all of its children to the database
         if self._modified {
 
-            self.write_to_db(db).unwrap();
+            self.write_to_db(batch).unwrap();
         }
         for (_, child) in self.children.iter_mut() {
             match child {
                 FSObject::File(_) => (),
-                FSObject::Folder(f) => f.to_tree(db)
+                FSObject::Folder(f) => f.to_tree(batch)
             }
         }
         self._modified = false;
@@ -358,11 +360,11 @@ impl Folder {
 
     }
 
-    fn write_to_db(&mut self, db: &Db) -> Result<()> {
+    fn write_to_db(&mut self, batch: &mut Batch) -> Result<()> {
         let db_folder = self.to_db_folder();
         let mut bytes = Vec::new();
         into_writer(&db_folder, &mut bytes).unwrap();
-        db.insert(self._uuid.as_bytes(), bytes)?;
+        batch.insert(self._uuid.as_bytes(), bytes);
         self._modified = false;
         Ok(())
     }
