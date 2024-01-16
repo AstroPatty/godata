@@ -14,9 +14,14 @@ change the server to only store relative paths when the file is internal.
 import zipfile
 from pathlib import Path
 
-from godata import create_project, delete_project, has_project, load_project
 from godata.client.client import export_tree, import_tree
-from godata.project import GodataProject
+from godata.project import (
+    GodataProject,
+    create_project,
+    delete_project,
+    has_project,
+    load_project,
+)
 
 
 def export_project(

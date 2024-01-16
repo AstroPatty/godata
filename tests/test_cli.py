@@ -52,8 +52,6 @@ def test_cli_add_folder():
     items = p.get("data2/test_ones.npy")
     expected_data = np.ones((10, 10))
     assert np.all(items == expected_data)
-    p.ls("data2")
-    p.ls()
     subfolder_item = p.get("data2/more_data/more_test_ones.npy")
     assert np.all(subfolder_item == expected_data)
 
@@ -76,11 +74,7 @@ def test_cli_get():
 
 def test_cli_ie():
     result = subprocess.run(
-        [
-            "godata",
-            "export",
-            "cli_test",
-        ],
+        ["godata", "export", "cli_test", "-o", str(Path.cwd())],
         capture_output=True,
     )
     path = Path.cwd() / "cli_test.zip"
@@ -90,6 +84,12 @@ def test_cli_ie():
             "godata",
             "import",
             str(path),
+            "cli_test_import",
         ],
         capture_output=True,
     )
+
+    p = load_project("cli_test_import")
+    items = p.get("data/test_ones")
+    expected_data = np.ones((10, 10))
+    assert np.all(items == expected_data)

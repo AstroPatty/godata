@@ -1,6 +1,6 @@
 import click
 
-from . import project
+from . import ie, project
 from .server import server
 
 
@@ -15,6 +15,8 @@ main.add_command(project.link)
 main.add_command(project.ls)
 main.add_command(project.list)
 main.add_command(project.get)
+main.add_command(ie.export_project)
+main.add_command(ie.import_project)
 main.add_command(server)
 
 
