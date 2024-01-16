@@ -196,6 +196,7 @@ impl FileSystem {
             None => None
         };
         self._modified = true;
+        self.save();
         Ok(output)
     }
 
@@ -208,6 +209,7 @@ impl FileSystem {
         });
         self.root.insert_many(file_objects, virtual_path)?;
         self._modified = true;
+        self.save();
         Ok(())
     }
 
@@ -217,6 +219,7 @@ impl FileSystem {
             self.db.remove(uuid.as_bytes())?;
         }
         self._modified = true;
+        self.save();
         Ok(())
     }
 
@@ -229,7 +232,11 @@ impl FileSystem {
         let mut batch = Batch::default();
         self.root.to_tree(&mut batch);
         self.db.apply_batch(batch).unwrap();
-        // Write the version to the database
+        self.root.reset();
+        self._modified = false;
+        // Batching and reseting like this ensures two things
+        // First, changes (like adding folders) will always go through in full
+        // Second, The tree will only be unmodified if its changes are saved
     }
     
 }
@@ -250,6 +257,16 @@ impl Folder {
             metadata: HashMap::new(),
             _uuid: Uuid::new_v4().to_string(),
             _modified: true
+        }
+    }
+
+    fn reset(&mut self) {
+        self._modified = false;
+        for (_, child) in self.children.iter_mut() {
+            match child {
+                FSObject::File(_) => (),
+                FSObject::Folder(f) => f.reset()
+            }
         }
     }
 
@@ -289,7 +306,6 @@ impl Folder {
                 FSObject::Folder(f) => f.to_tree(batch)
             }
         }
-        self._modified = false;
     }
 
     fn insert_many<I>(&mut self, files: I, virtual_path: &str) -> Result<()> 
@@ -365,7 +381,6 @@ impl Folder {
         let mut bytes = Vec::new();
         into_writer(&db_folder, &mut bytes).unwrap();
         batch.insert(self._uuid.as_bytes(), bytes);
-        self._modified = false;
         Ok(())
     }
 
