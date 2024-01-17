@@ -9,7 +9,7 @@ from loguru import logger
 
 from godata.client import client
 from godata.files import utils as file_utils
-from godata.io import get_known_writers, godataIoException, try_to_read
+from godata.io import find_writer, godataIoException, try_to_read
 from godata.utils import sanitize_project_path
 
 __all__ = ["load_project", "list_projects", "create_project", "GodataProjectError"]
@@ -60,7 +60,7 @@ class GodataProject:
             return path
         try:
             with portalocker.Lock(str(path), "rb"):
-                data = try_to_read(path)
+                data = try_to_read(path, file_info.get("obj_type"))
             return data
         except godataIoException:
             logger.info(
@@ -114,8 +114,7 @@ class GodataProject:
         if isinstance(to_read, Path):
             try:
                 obj = try_to_read(to_read)  # This can be very slow... Could be improved
-                writers = get_known_writers()
-                writer_fn, suffix = writers.get(type(obj), (None, None))
+                writer_fn, suffix = find_writer(obj, to_read)
 
             except godataIoException:
                 logger.warning(
@@ -128,6 +127,7 @@ class GodataProject:
                 storage_path = Path(storage_path)
                 storage_path = storage_path.with_suffix(to_read.suffix)
                 storage_path.parent.mkdir(parents=True, exist_ok=True)
+
                 self.link(
                     storage_path,
                     project_path,
@@ -139,10 +139,8 @@ class GodataProject:
                 return True
         else:
             obj = object
-            writers = get_known_writers()
-            writer_fn, suffix = writers.get(type(object), (None, None))
+            writer_fn, suffix = find_writer(object, format)
             if writer_fn is None:
-                self.remove(project_path)
                 raise godataIoException(
                     f"No writer found for object of type {type(object)}"
                 )

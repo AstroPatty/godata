@@ -34,6 +34,13 @@ class godataIoException(Exception):
     pass
 
 
+def get_typekey(cls):
+    class_name = cls.__name__
+    module_name = cls.__module__
+    type_key = f"{module_name}.{class_name}"
+    return type_key
+
+
 for loader, module_name, is_pkg in pkgutil.walk_packages(__path__):
     try:
         spec = loader.find_spec(module_name)
@@ -53,13 +60,12 @@ for loader, module_name, is_pkg in pkgutil.walk_packages(__path__):
                     raise ValueError("Writer functions must have type annotations")
                 elif not isinstance(par.annotation, type):
                     raise ValueError("Writer function annotations must be types")
-                elif par.annotation in _known_writers:
-                    raise ValueError(
-                        f"Writer function already registered for type "
-                        f"{par.annotation.__name__}"
-                    )
                 f_ = child(par.annotation)
-                _known_writers.update({par.annotation: f_})
+                key = get_typekey(par.annotation)
+                if key in _known_writers:
+                    _known_writers[key].append(f_)
+                else:
+                    _known_writers.update({key: [f_]})
             elif "read" in child.__name__:
                 if len(signature.parameters) != 1:
                     raise ValueError("Reader functions must take exactly one argument")
@@ -69,6 +75,8 @@ for loader, module_name, is_pkg in pkgutil.walk_packages(__path__):
                     raise ValueError(
                         "Reader functions must have a return type annotation"
                     )
+
+                return_type = get_typekey(signature.return_annotation)
                 if par.default == inspect._empty:
                     raise ValueError(
                         "Reader functions must a default value for their "
@@ -76,21 +84,12 @@ for loader, module_name, is_pkg in pkgutil.walk_packages(__path__):
                     )
                 elif not isinstance(par.default, str):
                     raise ValueError("Reader function annotations must be types")
-                elif par.default.strip(".") in _known_readers:
-                    raise ValueError(
-                        f"Reader function already registered for file type "
-                        f"{par.annotation.__name__}"
-                    )
 
-                f_ = child()
-                _known_readers.update({par.default.strip("."): (f_, return_type)})
+                if (key := par.default) in _known_readers:
+                    _known_readers[key].append((child(), return_type))
 
-for suffix, (f_, rtype) in _known_readers.items():
-    if rtype in _known_writers.keys():
-        writer_function = _known_writers[rtype]
-        _known_writers.update({rtype: (writer_function, suffix)})
-    else:
-        raise ValueError(f"Reader functions must have an equivalent writer function!")
+                else:
+                    _known_readers.update({key: [(child(), return_type)]})
 
 
 def get_known_readers():
@@ -101,13 +100,32 @@ def get_known_writers():
     return _known_writers
 
 
-def try_to_read(path: Path):
+def try_to_read(path: Path, obj_type: str = None):
     readers = get_known_readers()
-    suffix = path.suffix.strip(".")
+    suffix = path.suffix
+    print(readers)
+    print(suffix)
+    print("-------")
     if suffix not in readers:
         raise godataIoException(f"No reader found for file type {suffix}")
-    reader_fn = readers[suffix][0]
+    reader_fn = readers[suffix][0][0]
     return reader_fn(path)
 
 
-__all__ = ["get_known_readers", "get_known_writers"]
+def find_writer(obj, format: str = None):
+    obj_key = get_typekey(type(obj))
+    writers = get_known_writers()
+    if obj_key not in writers:
+        raise godataIoException(f"No writer found for object type {obj_key}")
+    available_writers = writers[obj_key]
+    if len(available_writers) == 1 or not format:
+        writer = available_writers[0]
+    else:
+        raise NotImplementedError(
+            "Multiple writers for a single object type are not yet supported"
+        )
+    suffix = writer.__sufix__
+    return writer, suffix
+
+
+__all__ = ["try_to_read", "find_writer"]
