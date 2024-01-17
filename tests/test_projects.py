@@ -75,6 +75,8 @@ def test_store_file():
     p.store(expected_data, "data/test_data")
     items = p.get("data/test_data")
     assert np.all(items == expected_data)
+    metadata = p.get_metadata("data/test_data")
+    assert metadata["obj_type"] == "numpy.ndarray"
 
 
 def test_overwrite():

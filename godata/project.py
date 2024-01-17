@@ -103,6 +103,11 @@ class GodataProject:
         except TypeError:
             to_read = object
 
+        class_name = type(object).__name__
+        module_name = type(object).__module__
+        type_key = f"{module_name}.{class_name}"
+        metadata = {"obj_type": type_key}
+
         # We link first, because it's better to have be tracking a file that doesn't
         # exist than to have a file that exists but isn't tracked.
 
@@ -123,7 +128,13 @@ class GodataProject:
                 storage_path = Path(storage_path)
                 storage_path = storage_path.with_suffix(to_read.suffix)
                 storage_path.parent.mkdir(parents=True, exist_ok=True)
-                self.link(storage_path, project_path, overwrite=overwrite, _force=True)
+                self.link(
+                    storage_path,
+                    project_path,
+                    overwrite=overwrite,
+                    metadata=metadata,
+                    _force=True,
+                )
                 shutil.copy(to_read, storage_path)
                 return True
         else:
@@ -146,7 +157,13 @@ class GodataProject:
         storage_path = Path(storage_path)
         storage_path = storage_path.with_suffix("." + suffix)
         storage_path.parent.mkdir(parents=True, exist_ok=True)
-        self.link(storage_path, project_path, overwrite=overwrite, _force=True)
+        self.link(
+            storage_path,
+            project_path,
+            overwrite=overwrite,
+            _force=True,
+            metadata=metadata,
+        )
         with portalocker.Lock(str(storage_path), "wb"):
             writer_fn(obj, storage_path)
 
