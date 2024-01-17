@@ -9,7 +9,7 @@ from loguru import logger
 
 from godata.client import client
 from godata.files import utils as file_utils
-from godata.io import find_writer, godataIoException, try_to_read
+from godata.io import find_writer, get_typekey, godataIoException, try_to_read
 from godata.utils import sanitize_project_path
 
 __all__ = ["load_project", "list_projects", "create_project", "GodataProjectError"]
@@ -46,7 +46,7 @@ class GodataProject:
         # will raise an error if it cannot be removed
         return True
 
-    def get(self, project_path: str, as_path=False) -> Any:
+    def get(self, project_path: str, as_path=False, load_type: type = None) -> Any:
         """
         Get an object at a given project path. This method will return a python object
         whenever possible. If godata doesn't know how to read in a file of this type,
@@ -59,8 +59,13 @@ class GodataProject:
         if as_path:
             return path
         try:
+            if load_type is not None:
+                format = get_typekey(load_type)
+            else:
+                format = file_info.get("obj_type")
+
             with portalocker.Lock(str(path), "rb"):
-                data = try_to_read(path, file_info.get("obj_type"))
+                data = try_to_read(path, format)
             return data
         except godataIoException:
             logger.info(
@@ -153,7 +158,7 @@ class GodataProject:
         storage_path = client.generate_path(self.collection, self.name, project_path)
 
         storage_path = Path(storage_path)
-        storage_path = storage_path.with_suffix("." + suffix)
+        storage_path = storage_path.with_suffix(suffix)
         storage_path.parent.mkdir(parents=True, exist_ok=True)
         self.link(
             storage_path,

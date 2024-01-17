@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 
 from godata import create_project, list_collections, list_projects, load_project
@@ -92,6 +93,14 @@ def test_overwrite():
     data = p.get("data/test_data")
     assert np.all(data.values == df_data.values)
     assert not stored_path.exists()
+
+
+def test_get_different_type():
+    p = load_project("test6")
+    stored_data = p.get("data/test_data", load_type=pl.DataFrame)
+    assert type(stored_data) == pl.DataFrame
+    stored_data = p.get("data/test_data")
+    assert type(stored_data) == pd.DataFrame
 
 
 def test_exists():

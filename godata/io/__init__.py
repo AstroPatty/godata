@@ -100,15 +100,23 @@ def get_known_writers():
     return _known_writers
 
 
-def try_to_read(path: Path, obj_type: str = None):
+def try_to_read(path: Path, obj_type: type = None):
     readers = get_known_readers()
     suffix = path.suffix
-    print(readers)
-    print(suffix)
-    print("-------")
     if suffix not in readers:
         raise godataIoException(f"No reader found for file type {suffix}")
-    reader_fn = readers[suffix][0][0]
+    if obj_type is None:
+        reader_fn = readers[suffix][0][0]
+
+    else:
+        for reader, type_ in readers[suffix]:
+            if type_ == obj_type:
+                return reader(path)
+        raise godataIoException(
+            f"No reader found for file type {suffix} and object type {obj_type}."
+            "Perhaps you need to install a library?"
+        )
+
     return reader_fn(path)
 
 

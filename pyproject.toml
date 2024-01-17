@@ -29,6 +29,7 @@ isort = "^5.13.0"
 numpy = "^1.26.2"
 pandas = "^2.1.4"
 toml = "^0.10.2"
+polars = "^0.20.5"
 
 
 [tool.isort]
