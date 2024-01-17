@@ -177,6 +177,7 @@ def link_file(
     project_name: str,
     project_path: str,
     file_path: str,
+    metadata: dict = {},
     force: bool = False,
 ):
     client = get_client()
@@ -185,6 +186,19 @@ def link_file(
         "real_path": file_path,
         "force": str(force).lower(),
     }
+    if set(metadata.keys()).intersection(set(params.keys())):
+        raise GodataClientError(
+            f"Metadata keys {set(metadata.keys())} conflict with parameter keys "
+            f"{set(params.keys())}."
+        )
+    for k, v in metadata.items():
+        try:
+            params.update({str(k): str(v)})
+        except TypeError:
+            raise GodataClientError(
+                "Metadata keys and values must be convertible strings."
+            ) from None
+
     resp = client.post(
         f"{SERVER_URL}/projects/{collection_name}/{project_name}/files", params=params
     )

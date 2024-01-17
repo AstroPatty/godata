@@ -16,7 +16,7 @@ pub struct Project {
 }
 
 impl Project {
-    pub(crate) fn add_file(&mut self, project_path: &str, real_path: PathBuf, overwrite: bool) -> Result<(Option<PathBuf>, bool)> {
+    pub(crate) fn add_file(&mut self, project_path: &str, real_path: PathBuf, metadata: HashMap<String, String>, overwrite: bool) -> Result<(Option<PathBuf>, bool)> {
         let relpath = self._endpoint.get_relative_path(&real_path);
         let (fpath, is_internal) = match relpath {
             Ok(relpath) => {
@@ -27,7 +27,7 @@ impl Project {
             }
         };
 
-        let previous_entry = self.tree.insert(project_path, fpath, is_internal, overwrite)?;
+        let previous_entry = self.tree.insert(project_path, fpath, metadata, is_internal, overwrite)?;
         let result = match previous_entry {
             Some((previous_entry, is_internal)) => {
                 let previous_path = if is_internal {
@@ -78,13 +78,22 @@ impl Project {
         Ok(())
     }
 
-    pub(crate) fn get_file(&self, project_path: &str) -> Result<PathBuf> {
+    pub(crate) fn get_file(&self, project_path: &str) -> Result<HashMap<String, String>> {
         let file = self.tree.get(project_path)?;
-        if file.1 {
-            let path = self._endpoint.make_full_path(&file.0);
-            return Ok(path);
+        let path = file.0;
+        let mut meta = file.1;
+        let is_internal = file.2;
+        let fpath = if is_internal {
+            self._endpoint.make_full_path(&path)
         }
-        Ok(file.0)
+        else {
+            path
+        };
+        
+        meta.insert("real_path".to_string(), fpath.to_str().unwrap().to_string());
+
+
+        Ok(meta)
     }
 
     pub(crate) fn list(&self, project_path: Option<String>) -> Result<HashMap<String, Vec<String>>> {

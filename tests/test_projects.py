@@ -48,6 +48,19 @@ def test_add_file():
     assert np.all(items == expected_data)
 
 
+def test_add_with_metadata():
+    p = load_project("test3")
+    p.link(data_path / "test_ones.npy", "data/test_meta", metadata={"test": "test"})
+    items = p.get("data/test_meta")
+    expected_data = np.ones((10, 10))
+    expected_metadata = {"test": "test"}
+    path = p.get("data/test_meta", as_path=True)
+    expected_metadata["real_path"] = str(path)
+    assert np.all(items == expected_data)
+    found_metadata = p.get_metadata("data/test_meta")
+    assert found_metadata == expected_metadata
+
+
 def test_add_folder():
     p = create_project("test4")
     p.link(data_path, "data")
@@ -71,6 +84,8 @@ def test_overwrite():
     stored_path = p.get("data/test_data", as_path=True)
 
     df_data = pd.read_csv(data_path / "test_df.csv")
+    with pytest.raises(GodataProjectError):
+        p.store(df_data, "data/test_data")
     p.store(df_data, "data/test_data", overwrite=True)
     data = p.get("data/test_data")
     assert np.all(data.values == df_data.values)

@@ -46,7 +46,6 @@ class GodataProject:
         # will raise an error if it cannot be removed
         return True
 
-    @sanitize_project_path
     def get(self, project_path: str, as_path=False) -> Any:
         """
         Get an object at a given project path. This method will return a python object
@@ -54,8 +53,8 @@ class GodataProject:
         it will return a path. The path can also be returned explicitly by passing
         as_path = True.
         """
-        path_str = client.get_file(self.collection, self.name, project_path)
-
+        file_info = self.get_metadata(project_path)
+        path_str = file_info["real_path"]
         path = Path(path_str)
         if as_path:
             return path
@@ -70,7 +69,23 @@ class GodataProject:
             return path
 
     @sanitize_project_path
-    def store(self, object: Any, project_path: str, overwrite=False) -> bool:
+    def get_metadata(self, project_path: str) -> dict:
+        """
+        Get the metadata for a given file. This will return a dictionary of metadata
+        for the file. If the file does not exist, this will throw an error.
+        """
+        file_info = client.get_file(self.collection, self.name, project_path)
+        return file_info
+
+    @sanitize_project_path
+    def store(
+        self,
+        object: Any,
+        project_path: str,
+        overwrite=False,
+        format: str = None,
+        writer_kwargs: dict = {},
+    ) -> bool:
         """
         Stores a given python object in godata's internal storage at the given path.
         Not having a writer defined in godata's python io module is not necessarily
@@ -142,6 +157,7 @@ class GodataProject:
         self,
         file_path: str,
         project_path: str,
+        metadata: dict = {},
         recursive: bool = False,
         overwrite=False,
         _force=False,
@@ -163,7 +179,12 @@ class GodataProject:
         else:
             try:
                 result = client.link_file(
-                    self.collection, self.name, project_path, str(fpath), overwrite
+                    self.collection,
+                    self.name,
+                    project_path,
+                    str(fpath),
+                    metadata=metadata,
+                    force=overwrite,
                 )
             except client.AlreadyExists:
                 raise GodataProjectError(
