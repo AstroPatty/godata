@@ -95,6 +95,18 @@ def test_overwrite():
     assert not stored_path.exists()
 
 
+def test_store_different_type():
+    p = load_project("test6")
+    df_data = pd.read_csv(data_path / "test_df.csv")
+    p.store(df_data, "data/test_data_parquet", format=".parquet")
+    stored_path = p.get("data/test_data_parquet", as_path=True)
+    assert stored_path.suffix == ".parquet"
+    read_df = pd.read_parquet(stored_path)
+    assert np.all(read_df.values == df_data.values)
+    read_df = p.get("data/test_data_parquet")
+    assert np.all(read_df.values == df_data.values)
+
+
 def test_get_different_type():
     p = load_project("test6")
     stored_data = p.get("data/test_data", load_type=pl.DataFrame)

@@ -111,11 +111,13 @@ def try_to_read(path: Path, obj_type: type = None):
     else:
         for reader, type_ in readers[suffix]:
             if type_ == obj_type:
-                return reader(path)
-        raise godataIoException(
-            f"No reader found for file type {suffix} and object type {obj_type}."
-            "Perhaps you need to install a library?"
-        )
+                reader_fn = reader
+                break
+        else:
+            raise godataIoException(
+                f"No reader found for file type {suffix} and object type {obj_type}."
+                "Perhaps you need to install a library?"
+            )
 
     return reader_fn(path)
 
@@ -128,10 +130,16 @@ def find_writer(obj, format: str = None):
     available_writers = writers[obj_key]
     if len(available_writers) == 1 or not format:
         writer = available_writers[0]
-    else:
-        raise NotImplementedError(
-            "Multiple writers for a single object type are not yet supported"
-        )
+    elif format:
+        for write_fn in available_writers:
+            if write_fn.__sufix__ == format:
+                writer = write_fn
+                break
+
+        else:
+            raise godataIoException(
+                f"No writer found for object type {obj_key} and format {format}"
+            )
     suffix = writer.__sufix__
     return writer, suffix
 

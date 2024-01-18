@@ -30,6 +30,7 @@ numpy = "^1.26.2"
 pandas = "^2.1.4"
 toml = "^0.10.2"
 polars = "^0.20.5"
+pyarrow = "^14.0.2"
 
 
 [tool.isort]
