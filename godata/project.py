@@ -46,7 +46,13 @@ class GodataProject:
         # will raise an error if it cannot be removed
         return True
 
-    def get(self, project_path: str, as_path=False, load_type: type = None) -> Any:
+    def get(
+        self,
+        project_path: str,
+        as_path: bool = False,
+        load_type: type = None,
+        reader_kwargs: dict = {},
+    ) -> Any:
         """
         Get an object at a given project path. This method will return a python object
         whenever possible. If godata doesn't know how to read in a file of this type,
@@ -65,7 +71,7 @@ class GodataProject:
                 format = file_info.get("obj_type")
 
             with portalocker.Lock(str(path), "rb"):
-                data = try_to_read(path, format)
+                data = try_to_read(path, format, reader_kwargs)
             return data
         except godataIoException as e:
             logger.info(

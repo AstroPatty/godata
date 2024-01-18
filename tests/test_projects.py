@@ -125,6 +125,12 @@ def test_store_with_kwargs():
     # This function will fail if defaults for pandas change
 
 
+def test_read_with_kwargs():
+    p = load_project("test6")
+    data = p.get("data/test_data_windex", reader_kwargs={"nrows": 2})
+    assert len(data) == 2
+
+
 def test_exists():
     p = create_project("test7")
     expected_data = np.ones((10, 10))

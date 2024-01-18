@@ -14,8 +14,10 @@ def get_pd_csv_writer(type_: pd.DataFrame):
 
 
 def get_pd_csv_reader(suffix=".csv") -> pd.DataFrame:
-    f_ = lambda path: pd.read_csv(path)
-    return f_
+    def pandas_csv_reader(path: Path, **kwargs):
+        return pd.read_csv(path, **kwargs)
+
+    return pandas_csv_reader
 
 
 def get_pd_parquet_writer(type_: pd.DataFrame):
@@ -29,5 +31,7 @@ def get_pd_parquet_writer(type_: pd.DataFrame):
 
 
 def get_pd_parquet_reader(suffix=".parquet") -> pd.DataFrame:
-    f_ = lambda path: pd.read_parquet(path)
-    return f_
+    def pandas_parquet_reader(path: Path, **kwargs):
+        return pd.read_parquet(path, **kwargs)
+
+    return pandas_parquet_reader

@@ -10,5 +10,7 @@ def get_json_writer(type_: dict):
 
 
 def get_json_reader(suffix=".json") -> dict:
-    f_ = lambda path: json.load(open(path, "r"))
-    return f_
+    def read_json(path: str, **kwargs):
+        return json.load(open(path, "r"), **kwargs)
+
+    return read_json

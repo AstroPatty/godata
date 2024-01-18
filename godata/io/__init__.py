@@ -100,7 +100,7 @@ def get_known_writers():
     return _known_writers
 
 
-def try_to_read(path: Path, obj_type: type = None):
+def try_to_read(path: Path, obj_type: type = None, reader_kwargs: dict = {}):
     readers = get_known_readers()
     suffix = path.suffix
     if suffix not in readers:
@@ -119,7 +119,7 @@ def try_to_read(path: Path, obj_type: type = None):
                 "Perhaps you need to install a library?"
             )
 
-    return reader_fn(path)
+    return reader_fn(path, **reader_kwargs)
 
 
 def find_writer(obj, format: str = None):

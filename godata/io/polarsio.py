@@ -12,5 +12,7 @@ def get_pd_writer(type_: pl.DataFrame):
 
 
 def get_pd_reader(suffix=".csv") -> pl.DataFrame:
-    f_ = lambda path: pl.read_csv(path)
-    return f_
+    def read_polars_csv(path: Path, **kwargs):
+        return pl.read_csv(path, **kwargs)
+
+    return read_polars_csv
