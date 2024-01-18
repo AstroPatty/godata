@@ -170,7 +170,7 @@ class GodataProject:
             metadata=metadata,
         )
         with portalocker.Lock(str(storage_path), "wb"):
-            writer_fn(obj, storage_path)
+            writer_fn(obj, storage_path, **writer_kwargs)
 
         return True
 

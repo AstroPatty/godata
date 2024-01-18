@@ -115,6 +115,16 @@ def test_get_different_type():
     assert type(stored_data) == pd.DataFrame
 
 
+def test_store_with_kwargs():
+    p = load_project("test6")
+    df_data = pd.read_csv(data_path / "test_df.csv")
+    p.store(df_data, "data/test_data_windex", writer_kwargs={"index": True})
+    stored_path = p.get("data/test_data_windex", as_path=True)
+    read_df = pd.read_csv(stored_path)
+    assert "Unnamed: 0" in read_df.columns and not "Unnamed: 0" in df_data.columns
+    # This function will fail if defaults for pandas change
+
+
 def test_exists():
     p = create_project("test7")
     expected_data = np.ones((10, 10))
