@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 
 from godata import create_project, list_collections, list_projects, load_project
@@ -48,6 +49,19 @@ def test_add_file():
     assert np.all(items == expected_data)
 
 
+def test_add_with_metadata():
+    p = load_project("test3")
+    p.link(data_path / "test_ones.npy", "data/test_meta", metadata={"test": "test"})
+    items = p.get("data/test_meta")
+    expected_data = np.ones((10, 10))
+    expected_metadata = {"test": "test"}
+    path = p.get("data/test_meta", as_path=True)
+    expected_metadata["real_path"] = str(path)
+    assert np.all(items == expected_data)
+    found_metadata = p.get_metadata("data/test_meta")
+    assert found_metadata == expected_metadata
+
+
 def test_add_folder():
     p = create_project("test4")
     p.link(data_path, "data")
@@ -62,6 +76,8 @@ def test_store_file():
     p.store(expected_data, "data/test_data")
     items = p.get("data/test_data")
     assert np.all(items == expected_data)
+    metadata = p.get_metadata("data/test_data")
+    assert metadata["obj_type"] == "numpy.ndarray"
 
 
 def test_overwrite():
@@ -71,10 +87,48 @@ def test_overwrite():
     stored_path = p.get("data/test_data", as_path=True)
 
     df_data = pd.read_csv(data_path / "test_df.csv")
+    with pytest.raises(GodataProjectError):
+        p.store(df_data, "data/test_data")
     p.store(df_data, "data/test_data", overwrite=True)
     data = p.get("data/test_data")
     assert np.all(data.values == df_data.values)
     assert not stored_path.exists()
+
+
+def test_store_different_type():
+    p = load_project("test6")
+    df_data = pd.read_csv(data_path / "test_df.csv")
+    p.store(df_data, "data/test_data_parquet", format=".parquet")
+    stored_path = p.get("data/test_data_parquet", as_path=True)
+    assert stored_path.suffix == ".parquet"
+    read_df = pd.read_parquet(stored_path)
+    assert np.all(read_df.values == df_data.values)
+    read_df = p.get("data/test_data_parquet")
+    assert np.all(read_df.values == df_data.values)
+
+
+def test_get_different_type():
+    p = load_project("test6")
+    stored_data = p.get("data/test_data", load_type=pl.DataFrame)
+    assert type(stored_data) == pl.DataFrame
+    stored_data = p.get("data/test_data")
+    assert type(stored_data) == pd.DataFrame
+
+
+def test_store_with_kwargs():
+    p = load_project("test6")
+    df_data = pd.read_csv(data_path / "test_df.csv")
+    p.store(df_data, "data/test_data_windex", writer_kwargs={"index": True})
+    stored_path = p.get("data/test_data_windex", as_path=True)
+    read_df = pd.read_csv(stored_path)
+    assert "Unnamed: 0" in read_df.columns and not "Unnamed: 0" in df_data.columns
+    # This function will fail if defaults for pandas change
+
+
+def test_read_with_kwargs():
+    p = load_project("test6")
+    data = p.get("data/test_data_windex", reader_kwargs={"nrows": 2})
+    assert len(data) == 2
 
 
 def test_exists():

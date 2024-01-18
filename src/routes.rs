@@ -98,26 +98,26 @@ fn project_link(project_manager: Arc<Mutex<ProjectManager>>) -> impl Filter<Extr
     warp::path!("projects" / String / String / "files")
         .and(warp::post())
         .and(warp::query::<HashMap<String, String>>())
-        .map(move |collection, project_name, params: HashMap<String, String>| {
-            let force = match params.get("force") {
+        .map(move |collection, project_name, mut params: HashMap<String, String>| {
+            let force = match params.remove("force") {
                 Some(force) => force.parse::<bool>().unwrap(),
                 None => false
             };
-            let ppath = match params.get("project_path") {
+            let ppath = match params.remove("project_path") {
                 Some(project_path) => project_path.to_owned(),
                 None => return Ok(warp::reply::with_status(warp::reply::json(&"Missing project_path argument".to_string()), StatusCode::BAD_REQUEST))     // invalid request
             };
-            let rpath = match params.get("real_path") {
+            let rpath = match params.remove("real_path") {
                 Some(storage_location) => storage_location.to_owned(),
                 None => return Ok(warp::reply::with_status(warp::reply::json(&"Missing real_path argument".to_string()), StatusCode::BAD_REQUEST))     // invalid request
             };
             
-            let type_ = match params.get("type") {
+            let type_ = match params.remove("type") {
                 Some(type_) => type_.to_owned(),
                 None => "file".to_owned()
             };
             if type_ == "file" {
-                handlers::link_file(project_manager.clone(), collection, project_name, ppath, rpath, force)
+                handlers::link_file(project_manager.clone(), collection, project_name, ppath, rpath, params, force)
             }
             else if type_ == "folder" {
                 let recursive = match params.get("recursive") {

@@ -5,7 +5,7 @@
 
 // As far as the rest of the library is concrened, 
 
-use std::io::Result;
+use std::{io::Result, hash::Hash};
 use std::collections::HashMap;
 use uuid::Uuid;
 use sled::{Db, Batch};
@@ -27,6 +27,14 @@ impl FSObject {
             FSObject::Folder(f) => f.get_name()
         }
     }
+
+    fn add_metadata(&mut self, data: HashMap<String, String>) {
+        match self {
+            FSObject::File(f) => f.metadata.extend(data),
+            FSObject::Folder(f) => f.metadata.extend(data)
+        }
+    }
+
 }
 
 struct File {
@@ -63,7 +71,6 @@ struct DbFile {
     _internal: bool,
     #[serde(default)]
     metadata: HashMap<String, String>
-
 }
 
 pub(crate) struct FileSystem {
@@ -168,21 +175,24 @@ impl FileSystem {
         Ok(children)
     }
 
-    pub(crate) fn get(&self, virtual_path: &str) -> Result<(PathBuf, bool)> {
+    pub(crate) fn get(&self, virtual_path: &str) -> Result<(PathBuf, HashMap<String, String>, bool)> {
         let file = self.root.get(virtual_path)?;
-        Ok((file.real_path.clone(), file._internal))
+
+        Ok((file.real_path.clone(), file.metadata.clone(), file._internal))
     }
 
-    pub(crate) fn insert(&mut self, project_path: &str, real_path: PathBuf, internal: bool, overwrite: bool) -> Result<Option<(PathBuf, bool)>> {
+    pub(crate) fn insert(&mut self, project_path: &str, real_path: PathBuf, metadata: HashMap<String, String>, internal: bool, overwrite: bool) -> Result<Option<(PathBuf, bool)>> {
         let name = project_path.split('/').last().unwrap().to_string();
         let result = if name == project_path {
-            let file = File::new(real_path, name, internal);
-            self.root.insert(FSObject::File(file), "", overwrite).unwrap()
+            let mut file = File::new(real_path, name, internal);
+            file.metadata = metadata;
+            self.root.insert(FSObject::File(file), "", overwrite)?
         }
         else {
             let ppath = project_path.strip_suffix(format!("/{}", name).as_str()).unwrap();
-            let file = File::new(real_path, name, internal);
-            self.root.insert(FSObject::File(file), ppath, overwrite).unwrap()
+            let mut file = File::new(real_path, name, internal);
+            file.metadata = metadata;
+            self.root.insert(FSObject::File(file), ppath, overwrite)?
         };
         let output = match result {
             Some(f) => {
@@ -222,7 +232,6 @@ impl FileSystem {
         self.save();
         Ok(())
     }
-
     pub(crate) fn exists(&self, virtual_path: &str) -> bool {
         self.root.exists(virtual_path)
     }

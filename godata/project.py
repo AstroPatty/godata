@@ -9,7 +9,7 @@ from loguru import logger
 
 from godata.client import client
 from godata.files import utils as file_utils
-from godata.io import get_known_writers, godataIoException, try_to_read
+from godata.io import find_writer, get_typekey, godataIoException, try_to_read
 from godata.utils import sanitize_project_path
 
 __all__ = ["load_project", "list_projects", "create_project", "GodataProjectError"]
@@ -46,31 +46,58 @@ class GodataProject:
         # will raise an error if it cannot be removed
         return True
 
-    @sanitize_project_path
-    def get(self, project_path: str, as_path=False) -> Any:
+    def get(
+        self,
+        project_path: str,
+        as_path: bool = False,
+        load_type: type = None,
+        reader_kwargs: dict = {},
+    ) -> Any:
         """
         Get an object at a given project path. This method will return a python object
         whenever possible. If godata doesn't know how to read in a file of this type,
         it will return a path. The path can also be returned explicitly by passing
         as_path = True.
         """
-        path_str = client.get_file(self.collection, self.name, project_path)
-
+        file_info = self.get_metadata(project_path)
+        path_str = file_info["real_path"]
         path = Path(path_str)
         if as_path:
             return path
         try:
+            if load_type is not None:
+                format = get_typekey(load_type)
+            else:
+                format = file_info.get("obj_type")
+
             with portalocker.Lock(str(path), "rb"):
-                data = try_to_read(path)
+                data = try_to_read(path, format, reader_kwargs)
             return data
-        except godataIoException:
+        except godataIoException as e:
             logger.info(
                 f"Could not find a reader for file {path}. Returning path instead."
+                f"Error: {e}"
             )
             return path
 
     @sanitize_project_path
-    def store(self, object: Any, project_path: str, overwrite=False) -> bool:
+    def get_metadata(self, project_path: str) -> dict:
+        """
+        Get the metadata for a given file. This will return a dictionary of metadata
+        for the file. If the file does not exist, this will throw an error.
+        """
+        file_info = client.get_file(self.collection, self.name, project_path)
+        return file_info
+
+    @sanitize_project_path
+    def store(
+        self,
+        object: Any,
+        project_path: str,
+        overwrite=False,
+        format: str = None,
+        writer_kwargs: dict = {},
+    ) -> bool:
         """
         Stores a given python object in godata's internal storage at the given path.
         Not having a writer defined in godata's python io module is not necessarily
@@ -88,19 +115,24 @@ class GodataProject:
         except TypeError:
             to_read = object
 
+        class_name = type(object).__name__
+        module_name = type(object).__module__
+        type_key = f"{module_name}.{class_name}"
+        metadata = {"obj_type": type_key}
+
         # We link first, because it's better to have be tracking a file that doesn't
         # exist than to have a file that exists but isn't tracked.
 
         if isinstance(to_read, Path):
             try:
                 obj = try_to_read(to_read)  # This can be very slow... Could be improved
-                writers = get_known_writers()
-                writer_fn, suffix = writers.get(type(obj), (None, None))
+                writer_fn, suffix = find_writer(obj, to_read)
 
-            except godataIoException:
+            except godataIoException as e:
                 logger.warning(
                     f"Could not find a reader for file {to_read}. The file will still"
                     "be stored, but godata will only be able to return a path."
+                    f"Error: {e}"
                 )
                 storage_path = client.generate_path(
                     self.collection, self.name, project_path
@@ -108,15 +140,20 @@ class GodataProject:
                 storage_path = Path(storage_path)
                 storage_path = storage_path.with_suffix(to_read.suffix)
                 storage_path.parent.mkdir(parents=True, exist_ok=True)
-                self.link(storage_path, project_path, overwrite=overwrite, _force=True)
+
+                self.link(
+                    storage_path,
+                    project_path,
+                    overwrite=overwrite,
+                    metadata=metadata,
+                    _force=True,
+                )
                 shutil.copy(to_read, storage_path)
                 return True
         else:
             obj = object
-            writers = get_known_writers()
-            writer_fn, suffix = writers.get(type(object), (None, None))
+            writer_fn, suffix = find_writer(object, format)
             if writer_fn is None:
-                self.remove(project_path)
                 raise godataIoException(
                     f"No writer found for object of type {type(object)}"
                 )
@@ -129,11 +166,17 @@ class GodataProject:
         storage_path = client.generate_path(self.collection, self.name, project_path)
 
         storage_path = Path(storage_path)
-        storage_path = storage_path.with_suffix("." + suffix)
+        storage_path = storage_path.with_suffix(suffix)
         storage_path.parent.mkdir(parents=True, exist_ok=True)
-        self.link(storage_path, project_path, overwrite=overwrite, _force=True)
+        self.link(
+            storage_path,
+            project_path,
+            overwrite=overwrite,
+            _force=True,
+            metadata=metadata,
+        )
         with portalocker.Lock(str(storage_path), "wb"):
-            writer_fn(obj, storage_path)
+            writer_fn(obj, storage_path, **writer_kwargs)
 
         return True
 
@@ -142,6 +185,7 @@ class GodataProject:
         self,
         file_path: str,
         project_path: str,
+        metadata: dict = {},
         recursive: bool = False,
         overwrite=False,
         _force=False,
@@ -163,7 +207,12 @@ class GodataProject:
         else:
             try:
                 result = client.link_file(
-                    self.collection, self.name, project_path, str(fpath), overwrite
+                    self.collection,
+                    self.name,
+                    project_path,
+                    str(fpath),
+                    metadata=metadata,
+                    force=overwrite,
                 )
             except client.AlreadyExists:
                 raise GodataProjectError(
