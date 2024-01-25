@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use tokio_stream::wrappers::UnixListenerStream;
 use tokio::signal;
 use directories::UserDirs;
+use sysinfo::System;
 
 
 pub struct Server {
@@ -18,6 +19,16 @@ pub struct Server {
 impl Server {
     pub async fn start(&self) {
         // check if the socket file already exists
+        if std::path::Path::new(&self.url).exists() {
+            // if it does, check if there is a "godata_server" process running
+            let system = System::new();
+            let mut processes = system.processes_by_name("godata_server");
+            if let Some(_) = processes.next() {
+                println!("A server is already running on {}", self.url);
+                return;
+            }
+            std::fs::remove_file(&self.url).unwrap();
+        }
 
         let listener = tokio::net::UnixListener::bind(&self.url).unwrap();
         let incoming = UnixListenerStream::new(listener);
