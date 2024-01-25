@@ -300,7 +300,7 @@ def has_collection(name: str) -> bool:
     try:
         collections = list_collections(True, False)
         n_projects = len(list_projects(name, True))
-    except client.NotFound:
+    except GodataProjectError:
         return False
     return name in collections and n_projects > 0
 
