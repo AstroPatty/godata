@@ -42,7 +42,12 @@ class GodataProject:
         Remove an file/folder at the given path. If a folder contains other
         files/folders, this will throw an error unless rucursive is set to True.
         """
-        client.remove_file(self.collection, self.name, project_path)
+        try:
+            client.remove_file(self.collection, self.name, project_path)
+        except client.NotFound:
+            raise GodataProjectError(
+                f"File or folder {project_path} does not exist in project {self.name}"
+            )
         # will raise an error if it cannot be removed
         return True
 
@@ -86,7 +91,12 @@ class GodataProject:
         Get the metadata for a given file. This will return a dictionary of metadata
         for the file. If the file does not exist, this will throw an error.
         """
-        file_info = client.get_file(self.collection, self.name, project_path)
+        try:
+            file_info = client.get_file(self.collection, self.name, project_path)
+        except client.NotFound:
+            raise GodataProjectError(
+                f"File or folder {project_path} does not exist in project {self.name}"
+            )
         return file_info
 
     @sanitize_project_path
@@ -200,12 +210,12 @@ class GodataProject:
             raise FileNotFoundError(f"Nothing found at {file_path}")
         fpath = fpath.resolve()
 
-        if fpath.is_dir():
-            result = client.link_folder(
-                self.collection, self.name, project_path, str(fpath), recursive
-            )
-        else:
-            try:
+        try:
+            if fpath.is_dir():
+                result = client.link_folder(
+                    self.collection, self.name, project_path, str(fpath), recursive
+                )
+            else:
                 result = client.link_file(
                     self.collection,
                     self.name,
@@ -214,11 +224,11 @@ class GodataProject:
                     metadata=metadata,
                     force=overwrite,
                 )
-            except client.AlreadyExists:
-                raise GodataProjectError(
-                    f"File already exists at {project_path}. Use overwrite=True to "
-                    "overwrite it."
-                )
+        except client.AlreadyExists:
+            raise GodataProjectError(
+                f"Something already exists at {project_path}. Use overwrite=True to "
+                "overwrite it."
+            )
         print(result["message"])
         file_utils.handle_overwrite(result)
         return True
@@ -346,18 +356,33 @@ def delete_project(name, collection="default", force=False) -> bool:
     this explicitly forces the user the suply True as an argument as a confirmation.
     In the future, we may implement an option to output the internal files somewhere.
     """
-    client.delete_project(collection, name, force)
+    try:
+        client.delete_project(collection, name, force)
+    except client.NotFound:
+        raise GodataProjectError(
+            f"Project {name} does not exist in collection {collection}"
+        )
+    except client.Forbidden as e:
+        raise GodataProjectError(f"{str(e)}")
     return True
 
 
 def load_project(name, collection="default") -> GodataProject:
     # this raises an error if the project doesn't exist
-    _ = client.load_project(collection, name)
+    try:
+        _ = client.load_project(collection, name)
+    except client.NotFound:
+        raise GodataProjectError(
+            f"Project {name} does not exist in collection {collection}"
+        )
     return GodataProject(collection, name)
 
 
 def list_projects(collection="default", show_hidden=False, display=False) -> list[str]:
-    projects = client.list_projects(collection, show_hidden)
+    try:
+        projects = client.list_projects(collection, show_hidden)
+    except client.NotFound:
+        raise GodataProjectError(f"Collection {collection} does not exist")
     if display:
         print(f"Projects in collection `{collection or 'default'}`:")
         for p in projects:
