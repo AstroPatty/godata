@@ -1,4 +1,4 @@
-__version__ = "0.8.2"
+__version__ = "0.8.3"
 __minimum_server_version__ = "0.8.0"
 
 from .ie import export_project, import_project
