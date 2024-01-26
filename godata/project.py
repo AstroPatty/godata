@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 import shutil
 from pathlib import Path
 from typing import Any
@@ -32,9 +33,13 @@ class GodataProject:
     def __init__(self, collection, name) -> GodataProject:
         self.collection = collection
         self.name = name
+        self.active = True
+        atexit.register(self.__del__)
 
     def __del__(self):
-        client.drop_project(self.collection, self.name)
+        if self.active:
+            client.drop_project(self.collection, self.name)
+            self.active = False
 
     @sanitize_project_path
     def remove(self, project_path: str) -> bool:
