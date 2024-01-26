@@ -105,6 +105,7 @@ class GodataProject:
         object: Any,
         project_path: str,
         overwrite=False,
+        verbose=True,
         format: str = None,
         writer_kwargs: dict = {},
     ) -> bool:
@@ -183,6 +184,7 @@ class GodataProject:
             project_path,
             overwrite=overwrite,
             _force=True,
+            verbose=verbose,
             metadata=metadata,
         )
         with portalocker.Lock(str(storage_path), "wb"):
@@ -198,6 +200,7 @@ class GodataProject:
         metadata: dict = {},
         recursive: bool = False,
         overwrite=False,
+        verbose=True,
         _force=False,
     ) -> bool:
         """
@@ -229,7 +232,8 @@ class GodataProject:
                 f"Something already exists at {project_path}. Use overwrite=True to "
                 "overwrite it."
             )
-        print(result["message"])
+        if verbose:
+            print(result["message"])
         file_utils.handle_overwrite(result)
         return True
 
