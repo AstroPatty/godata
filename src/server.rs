@@ -2,7 +2,6 @@ use crate::project::{get_project_manager, ProjectManager};
 use crate::routes;
 
 use std::sync::{Arc, Mutex};
-use tokio_stream::wrappers::UnixListenerStream;
 use tokio::signal;
 use directories::UserDirs;
 use sysinfo::System;
@@ -17,14 +16,24 @@ pub struct Server {
 
 
 impl Server {
+    pub async fn start_on_port(&self) {
+        let (_, server) = warp::serve(routes::routes(self.project_manager.clone()))
+            .bind_with_graceful_shutdown(([127, 0, 0, 1], self.url.1.unwrap()), async {
+                signal::ctrl_c().await.unwrap()
+            });
+        server.await
+    }
+    #[cfg(target_family = "windows")]
+    pub async fn start(&self) {
+        self.start_on_port().await;
+    }
+
+    #[cfg(target_family = "unix")]
     pub async fn start(&self) {
         // If there's a port, start a TCP server
+        use tokio_stream::wrappers::UnixListenerStream;
         if self.url.1.is_some() {
-            let (_, server) = warp::serve(routes::routes(self.project_manager.clone()))
-                .bind_with_graceful_shutdown(([127, 0, 0, 1], self.url.1.unwrap()), async {
-                    signal::ctrl_c().await.unwrap()
-                });
-            server.await
+            self.start_on_port().await;
         }
 
         // If there's no port, start a Unix socket server
