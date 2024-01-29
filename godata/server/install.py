@@ -10,7 +10,10 @@ import requests
 from godata import server
 
 ENDPOINT = "https://sqm13wjyaf.execute-api.us-west-2.amazonaws.com/godata/download"
-SERVER_INSTALL_PATH = "/usr/local/bin/godata_server"
+if os.name == "nt":
+    SERVER_INSTALL_PATH = "C:\\Program Files\\godata\\godata_server.exe"
+else:
+    SERVER_INSTALL_PATH = "/usr/local/bin/godata_server"
 
 
 def install(upgrade=False, version=None):
@@ -55,7 +58,8 @@ def install(upgrade=False, version=None):
     # remove the zip file
     os.remove("godata_server.zip")
     # make the binary executable
-    os.chmod(SERVER_INSTALL_PATH, 0o755)
+    if os.name != "nt":
+        os.chmod(SERVER_INSTALL_PATH, 0o755)
     print("Restarting server...")
     server.start()
     if version is None:

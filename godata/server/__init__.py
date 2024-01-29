@@ -9,6 +9,20 @@ from .install import SERVER_INSTALL_PATH, install, upgrade
 
 
 def start(port: int = None):
+    if os.name == "nt":
+        start_windows(port)
+    else:
+        start_unix(port)
+
+
+def stop():
+    if os.name == "nt":
+        stop_windows()
+    else:
+        stop_unix()
+
+
+def start_unix(port: int = None):
     # check if a godata_server process is already running
 
     try:
@@ -43,7 +57,7 @@ def start(port: int = None):
     return True
 
 
-def stop():
+def stop_unix():
     try:
         server_pid = subprocess.check_output(["pgrep", "godata_server"])
     except subprocess.CalledProcessError:
@@ -51,6 +65,50 @@ def stop():
         return
     # kill the server
     os.kill(int(server_pid), signal.SIGINT)
+    # remove the file that stores the server url
+    FILE_OUTPUT_PATH = Path.home() / ".godata_server"
+    if FILE_OUTPUT_PATH.exists():
+        FILE_OUTPUT_PATH.unlink()
+
+
+def start_windows(port: int = 8080):
+    # check if godata_server.exe is already running
+    try:
+        server_pid = subprocess.check_output(
+            ["tasklist", "/fi", "imagename eq godata_server.exe"]
+        )
+        print(
+            f"Server is already running with PID {int(server_pid)}. "
+            "Please stop the server before starting a new one."
+        )
+        return
+    except subprocess.CalledProcessError:
+        pass
+    command = SERVER_INSTALL_PATH
+    command += f"-p {port}"
+    try:
+        subprocess.Popen(command, close_fds=True, shell=True)
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            "Unable to start godata server: could not find the server binary. "
+            "Please run `godata server install` first."
+        )
+    url = f"http://localhost:{port}"
+    FILE_OUTPUT_PATH = Path.home() / ".godata_server"
+    with open(FILE_OUTPUT_PATH, "w") as f:
+        f.write(url)
+
+
+def stop_windows():
+    try:
+        server_pid = subprocess.check_output(
+            ["tasklist", "/fi", "imagename eq godata_server.exe"]
+        )
+    except subprocess.CalledProcessError:
+        print("Server is not running.")
+        return
+    # kill the server
+    subprocess.Popen(f"taskkill /F /PID {int(server_pid)}", shell=True)
     # remove the file that stores the server url
     FILE_OUTPUT_PATH = Path.home() / ".godata_server"
     if FILE_OUTPUT_PATH.exists():
