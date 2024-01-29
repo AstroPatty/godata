@@ -13,7 +13,11 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[derive(Parser)]
 struct Opts {
     #[clap(short, long)]
-    version: bool
+    version: bool,
+    #[clap(short, long)]
+    debug: bool,
+    #[clap(short, long)]
+    port: Option<u16>
 }
 
 
@@ -24,7 +28,7 @@ async fn main () {
         println!("{}", VERSION);
         return;
     }
-    let srv = server::get_server();
+    let srv = server::get_server(opts.port);
     srv.start().await;
 }
 

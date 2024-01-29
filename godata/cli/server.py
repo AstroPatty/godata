@@ -11,11 +11,20 @@ def server():
 
 # server subcommand
 @server.command()
-def start():
+@click.option(
+    "--port",
+    "-p",
+    help="Port to start the server on. Default is 8000",
+    type=int,
+)
+def start(port: int = None):
     """
-    Start the godata server. This will start the server in the background and return
+    Start the godata server. This will start the server in the background. By default,
+    the server will be started on a unix socker, unless the --port option is used,
+    in which case the server will be started on a TCP socket. If running on Windows,
+    the server will always be started on a TCP socket.
     """
-    srv.start()
+    srv.start(port=port)
 
 
 @server.command()
