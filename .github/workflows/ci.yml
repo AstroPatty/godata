@@ -92,7 +92,7 @@ jobs:
           command: build
           args: --release --target ${{ matrix.target }}
       - name: zip artifact
-        run: zip -j godata_server-${{ matrix.target }}.zip target/${{ matrix.target }}/release/godata_server.exe
+        run: Compress-Archive -DestinationPath godata_server-${{ matrix.target }}.zip -Path target/${{ matrix.target }}/release/godata_server.exe
       - uses: actions/upload-artifact@v3
         with:
           name: godata_server-${{ matrix.target }}
