@@ -194,12 +194,12 @@ jobs:
         run: C:\Users\runneradmin\.local\bin\poetry install --with test
       - name: Run tests
         run: |
-          Env:Data_PATH = Get-Location
-          Env:DATA_Path += \tests\test_io\test_data\
-          chmod +x ./server/godata_server
-          sudo mv ./server/godata_server /usr/local/bin/
+          ENV:PATH += ";C:\Users\runneradmin\.local\bin"
+          Env:DATA_PATH = Get-Location
+          Env:DATA_PATH += \tests\test_io\test_data\
+          Move-Item .\server\godata_server.exe C:\Users\runneradmin\.local\bin
           cd tests
-          C:\Users\runneradmin\.local\bin\poetry run pytest'
+          poetry run pytest
   check_tags:
     name: check tags
     runs-on: ubuntu-latest
