@@ -10,7 +10,7 @@ def get_np_writer(type_: np.ndarray):
 
 
 def get_np_reader(suffix=".npy") -> np.ndarray:
-    def load_numpy_array(path: str, **kwargs):
+    def read_numpy_array(path: str, **kwargs):
         return np.load(path, **kwargs)
 
-    return load_numpy_array
+    return read_numpy_array

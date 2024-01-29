@@ -99,10 +99,10 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@v1
       - name: Install godata
-        run: poetry install
+        run: poetry install --with test
       - name: Run tests
         run: |
-          export DATA_PATH=$(pwd)/tests/test_data/
+          export DATA_PATH=$(pwd)/tests/test_io/test_data/
           chmod +x ./server/godata_server
           sudo mv ./server/godata_server /usr/local/bin/
           cd tests
@@ -136,10 +136,10 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@v1
       - name: Install godata
-        run: poetry install
+        run: poetry install --with test
       - name: Run tests
         run: |
-          export DATA_PATH=$(pwd)/tests/test_data/
+          export DATA_PATH=$(pwd)/tests/test_io/test_data/
           chmod +x ./server/godata_server
           sudo mv ./server/godata_server /usr/local/bin/
           cd tests
