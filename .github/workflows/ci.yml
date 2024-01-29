@@ -194,9 +194,9 @@ jobs:
         run: C:\Users\runneradmin\.local\bin\poetry install --with test
       - name: Run tests
         run: |
-          ENV:PATH += ";C:\Users\runneradmin\.local\bin"
-          Env:DATA_PATH = Get-Location
-          Env:DATA_PATH += \tests\test_io\test_data\
+          $Env:PATH += ";C:\Users\runneradmin\.local\bin"
+          $Env:DATA_PATH = Get-Location
+          $Env:DATA_PATH += \tests\test_io\test_data\
           Move-Item .\server\godata_server.exe C:\Users\runneradmin\.local\bin
           cd tests
           poetry run pytest
