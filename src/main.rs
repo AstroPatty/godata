@@ -20,7 +20,23 @@ struct Opts {
     port: Option<u16>
 }
 
+#[cfg(target_family = "windows")]
+#[tokio::main]
+async fn main () {
+    let opts: Opts = Opts::parse();
+    if opts.version {
+        println!("{}", VERSION);
+        return;
+    }
+    if opts.port.is_none() {
+        println!("A port is required to start the server");
+        return;
+    }
+    let srv = server::get_server(opts.port);
+    srv.start().await;
+}
 
+#[cfg(target_family = "unix")]
 #[tokio::main]
 async fn main () {
     let opts: Opts = Opts::parse();
@@ -31,5 +47,7 @@ async fn main () {
     let srv = server::get_server(opts.port);
     srv.start().await;
 }
+
+
 
 
