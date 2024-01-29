@@ -7,3 +7,10 @@ def get_fits_writer(type_: fits.HDUList):
 
     write_fits.__sufix__ = ".fits"
     return write_fits
+
+
+def get_fits_reader(suffix=".fits") -> fits.HDUList:
+    def read_fits(path: str, **kwargs):
+        return fits.open(path, **kwargs)
+
+    return read_fits
