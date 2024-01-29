@@ -18,6 +18,7 @@ click = "^8.1.7"
 portalocker = "^2.8.2"
 appdirs = "^1.4.4"
 packaging = "^23.2"
+psutil = "^5.9.8"
 
 [tool.poetry.scripts]
 godata = "godata.cli.cli:main"

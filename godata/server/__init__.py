@@ -5,6 +5,8 @@ import time
 from pathlib import Path
 from urllib import parse
 
+import psutil
+
 from .install import SERVER_INSTALL_PATH, install, upgrade
 
 
@@ -73,17 +75,14 @@ def stop_unix():
 
 def start_windows(port: int = 8080):
     # check if godata_server.exe is already running
-    try:
-        server_pid = subprocess.check_output(
-            ["tasklist", "/fi", "imagename eq godata_server.exe"]
-        )
-        print(
-            f"Server is already running with PID {int(server_pid)}. "
-            "Please stop the server before starting a new one."
-        )
-        return
-    except subprocess.CalledProcessError:
-        pass
+    for p in psutil.process_iter(["pid", "name"]):
+        if p.info["name"] == "godata_server.exe":
+            print(
+                f"Server is already running with PID {p.info['pid']}. "
+                "Please stop the server before starting a new one."
+            )
+            return
+
     command = SERVER_INSTALL_PATH
     command += f"-p {port}"
     try:
@@ -100,11 +99,11 @@ def start_windows(port: int = 8080):
 
 
 def stop_windows():
-    try:
-        server_pid = subprocess.check_output(
-            ["tasklist", "/fi", "imagename eq godata_server.exe"]
-        )
-    except subprocess.CalledProcessError:
+    for p in psutil.process_iter(["pid", "name"]):
+        if p.info["name"] == "godata_server.exe":
+            server_pid = p.info["pid"]
+            break
+    else:
         print("Server is not running.")
         return
     # kill the server
