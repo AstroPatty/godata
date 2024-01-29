@@ -23,7 +23,7 @@ COPY godata /app/godata
 
 WORKDIR /app
 #install dependencies
-RUN ~/.local/bin/poetry install
+RUN ~/.local/bin/poetry install --with test
 
 COPY ./tests /app/tests
 RUN mv /app/tests/run_tests.sh /app/run_tests.sh

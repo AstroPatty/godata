@@ -39,13 +39,16 @@ def export_project(
     target_project = create_project(
         project_name, ".temp", storage_location=output_location
     )
+    print("Duplicating project for export")
     export_helper(source_project, target_project)
     # Now, zip up the temporary project
     zip_path = output_location / f"{project_name}.zip"
     expected_location = output_location / f".temp.{project_name}"
     if not expected_location.exists():
         raise RuntimeError("Something went wrong with the export")
+    print("Exporting project file tree...")
     export_tree(collection_name, project_name, expected_location)
+    print("Zipping up project...")
     with zipfile.ZipFile(zip_path, "w") as zip_file:
         # Recursively add all files in the temp project
         for f in expected_location.glob("**/*"):
@@ -61,6 +64,7 @@ def export_helper(
     destination_project: GodataProject,
     project_path: str = None,
 ) -> None:
+    print(f"Working on {project_path}...")
     folder_contents = source_project.list(project_path)
     files = folder_contents["files"]
     folders = folder_contents["folders"]
@@ -69,7 +73,7 @@ def export_helper(
     for f in files:
         file_project_path = f"{project_path}/{f}"
         file_real_path = source_project.get(file_project_path, as_path=True)
-        destination_project.store(file_real_path, file_project_path)
+        destination_project.store(file_real_path, file_project_path, verbose=False)
     for f in folders:
         export_helper(source_project, destination_project, f"{project_path}/{f}")
 
