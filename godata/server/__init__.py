@@ -10,6 +10,7 @@ from .install import SERVER_INSTALL_PATH, install, upgrade
 
 def start(port: int = None):
     # check if a godata_server process is already running
+
     try:
         server_pid = subprocess.check_output(["pgrep", "godata_server"])
         print(
@@ -21,10 +22,10 @@ def start(port: int = None):
         pass
 
     try:
-        command = [f"{SERVER_INSTALL_PATH}"]
+        command = SERVER_INSTALL_PATH
 
         if port:
-            command.append(f"--port {port}")
+            command += f" --port={port}"
             url = f"http://localhost:{port}"
         else:
             SERVER_PATH = str(Path.home() / ".godata.sock")
@@ -48,8 +49,12 @@ def stop():
     except subprocess.CalledProcessError:
         print("Server is not running.")
         return
-
+    # kill the server
     os.kill(int(server_pid), signal.SIGINT)
+    # remove the file that stores the server url
+    FILE_OUTPUT_PATH = Path.home() / ".godata_server"
+    if FILE_OUTPUT_PATH.exists():
+        FILE_OUTPUT_PATH.unlink()
 
 
 __all__ = ["start", "stop", "install", "upgrade"]

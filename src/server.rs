@@ -20,7 +20,6 @@ impl Server {
     pub async fn start(&self) {
         // If there's a port, start a TCP server
         if self.url.1.is_some() {
-            println!("Starting server on {}", self.url.1.unwrap());
             let (_, server) = warp::serve(routes::routes(self.project_manager.clone()))
                 .bind_with_graceful_shutdown(([127, 0, 0, 1], self.url.1.unwrap()), async {
                     signal::ctrl_c().await.unwrap()

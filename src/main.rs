@@ -15,6 +15,8 @@ struct Opts {
     #[clap(short, long)]
     version: bool,
     #[clap(short, long)]
+    debug: bool,
+    #[clap(short, long)]
     port: Option<u16>
 }
 
