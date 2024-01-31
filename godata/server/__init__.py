@@ -1,11 +1,40 @@
 import os
+import pickle
 import signal
 import subprocess
 import time
+from functools import cache
 from pathlib import Path
 from urllib import parse
 
-from .install import SERVER_INSTALL_PATH, install, upgrade
+import appdirs
+
+from .install import DEFAULT_SERVER_INSTALL_LOCATION, install, upgrade
+
+
+@cache
+def get_server_path():
+    config_path = Path(appdirs.user_config_dir("godata")) / "server_path"
+    if not config_path.exists():
+        return DEFAULT_SERVER_INSTALL_LOCATION / "godata_server"
+
+    with open(config_path, "rb") as f:
+        return pickle.load(f)
+
+
+@cache
+def get_server_location():
+    full_path = get_server_path()
+    return full_path.parent
+
+
+def set_server_location(path: Path):
+    server_path = path / "godata_server"
+    config_path = Path(appdirs.user_config_dir("godata"))
+    config_path.mkdir(parents=True, exist_ok=True)
+    path_path = config_path / "server_path"
+    with open(path_path, "wb") as f:
+        pickle.dump(server_path, f)
 
 
 def start(port: int = None):
@@ -22,8 +51,7 @@ def start(port: int = None):
         pass
 
     try:
-        command = SERVER_INSTALL_PATH
-
+        command = str(get_server_path())
         if port:
             command += f" --port={port}"
             url = f"http://localhost:{port}"

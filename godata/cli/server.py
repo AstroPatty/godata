@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import click
 
 from godata import server as srv
@@ -45,7 +47,16 @@ def stop():
     is_flag=True,
     help="Upgrade the server to the latest version.",
 )
-def install(upgrade):
+@click.option(
+    "--path",
+    "-p",
+    help="Path to install the server binary.",
+    type=click.Path(file_okay=False, resolve_path=True, path_type=Path),
+    default=srv.get_server_location(),
+)
+def install(upgrade: bool, path: Path):
+    print(f"Installing server at {path}")
+    srv.set_server_location(path)
     if upgrade:
         srv.upgrade()
     else:
