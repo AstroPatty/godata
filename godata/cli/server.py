@@ -55,10 +55,11 @@ def stop():
     default=srv.SERVER_INSTALL_PATH,
 )
 def install(upgrade: bool = False, path: Path = srv.SERVER_INSTALL_PATH):
+    srv.set_server_path(path)
     if upgrade:
-        srv.upgrade(path)
+        srv.upgrade()
     else:
-        srv.install(path)
+        srv.install()
 
 
 @server.command()

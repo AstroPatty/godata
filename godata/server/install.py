@@ -52,12 +52,13 @@ def install(upgrade=False, version=None):
     with zipfile.ZipFile("godata_server.zip", "r") as zip_ref:
         zip_ref.extractall()
     # move the binary to the install path
+    install_path = server.get_server_path()
 
-    shutil.move("godata_server", DEFAULT_SERVER_INSTALL_LOCATION)
+    shutil.move("godata_server", install_path)
     # remove the zip file
     os.remove("godata_server.zip")
     # make the binary executable
-    os.chmod(DEFAULT_SERVER_INSTALL_LOCATION, 0o755)
+    os.chmod(install_path, 0o755)
     print("Restarting server...")
     server.start()
     if version is None:
@@ -76,10 +77,9 @@ def upgrade(path: Path = server.SERVER):
 
 
 def get_version():
+    install_path = server.get_server_path()
     try:
-        return subprocess.check_output(
-            [f"{DEFAULT_SERVER_INSTALL_LOCATION}", "--version"]
-        ).decode("utf-8")
+        return subprocess.check_output([f"{install_path}", "--version"]).decode("utf-8")
     except FileNotFoundError:
         raise FileNotFoundError(
             "Unable to get godata server version: could not find the server binary. "
