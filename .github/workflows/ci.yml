@@ -104,7 +104,7 @@ jobs:
         run: |
           export DATA_PATH=$(pwd)/tests/test_io/test_data/
           chmod +x ./server/godata_server
-          sudo mv ./server/godata_server /usr/local/bin/
+          sudo mv ./server/godata_server {{$runner_home}}/.local/bin/ 
           cd tests
           sudo -E bash -c '/home/runner/.local/bin/poetry run pytest'
       - name: output godata version
@@ -141,7 +141,7 @@ jobs:
         run: |
           export DATA_PATH=$(pwd)/tests/test_io/test_data/
           chmod +x ./server/godata_server
-          sudo mv ./server/godata_server /usr/local/bin/
+          sudo mv ./server/godata_server {{$runner_home}}/.local/bin/ 
           cd tests
           sudo -E bash -c 'poetry run pytest'
 
