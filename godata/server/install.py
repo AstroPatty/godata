@@ -4,13 +4,14 @@ import platform
 import shutil
 import subprocess
 import zipfile
+from pathlib import Path
 
 import requests
 
 from godata import server
 
 ENDPOINT = "https://sqm13wjyaf.execute-api.us-west-2.amazonaws.com/godata/download"
-SERVER_INSTALL_PATH = "/usr/local/bin/godata_server"
+DEFAULT_SERVER_INSTALL_LOCATION = Path.home() / ".local/bin/godata_server"
 
 
 def install(upgrade=False, version=None):
@@ -51,11 +52,12 @@ def install(upgrade=False, version=None):
     with zipfile.ZipFile("godata_server.zip", "r") as zip_ref:
         zip_ref.extractall()
     # move the binary to the install path
-    shutil.move("godata_server", SERVER_INSTALL_PATH)
+
+    shutil.move("godata_server", DEFAULT_SERVER_INSTALL_LOCATION)
     # remove the zip file
     os.remove("godata_server.zip")
     # make the binary executable
-    os.chmod(SERVER_INSTALL_PATH, 0o755)
+    os.chmod(DEFAULT_SERVER_INSTALL_LOCATION, 0o755)
     print("Restarting server...")
     server.start()
     if version is None:
@@ -67,7 +69,7 @@ def install(upgrade=False, version=None):
         )
 
 
-def upgrade():
+def upgrade(path: Path = server.SERVER):
     """Upgrade the godata server binary to the latest version."""
     current_version = get_version().strip("\n")
     install(upgrade=True, version=current_version)
@@ -75,9 +77,9 @@ def upgrade():
 
 def get_version():
     try:
-        return subprocess.check_output([f"{SERVER_INSTALL_PATH}", "--version"]).decode(
-            "utf-8"
-        )
+        return subprocess.check_output(
+            [f"{DEFAULT_SERVER_INSTALL_LOCATION}", "--version"]
+        ).decode("utf-8")
     except FileNotFoundError:
         raise FileNotFoundError(
             "Unable to get godata server version: could not find the server binary. "
