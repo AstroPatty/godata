@@ -11,7 +11,7 @@ import requests
 from godata import server
 
 ENDPOINT = "https://sqm13wjyaf.execute-api.us-west-2.amazonaws.com/godata/download"
-DEFAULT_SERVER_INSTALL_LOCATION = Path.home() / ".local/bin/godata_server"
+DEFAULT_SERVER_INSTALL_LOCATION = Path.home() / ".local" / "bin"
 
 
 def install(upgrade=False, version=None):
@@ -70,7 +70,7 @@ def install(upgrade=False, version=None):
         )
 
 
-def upgrade(path: Path = server.SERVER):
+def upgrade():
     """Upgrade the godata server binary to the latest version."""
     current_version = get_version().strip("\n")
     install(upgrade=True, version=current_version)

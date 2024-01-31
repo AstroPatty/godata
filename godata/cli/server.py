@@ -51,11 +51,12 @@ def stop():
     "--path",
     "-p",
     help="Path to install the server binary.",
-    type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
-    default=srv.SERVER_INSTALL_PATH,
+    type=click.Path(file_okay=False, resolve_path=True, path_type=Path),
+    default=srv.get_server_location(),
 )
-def install(upgrade: bool = False, path: Path = srv.SERVER_INSTALL_PATH):
-    srv.set_server_path(path)
+def install(upgrade: bool, path: Path):
+    print(f"Installing server at {path}")
+    srv.set_server_location(path)
     if upgrade:
         srv.upgrade()
     else:
