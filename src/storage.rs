@@ -1,8 +1,8 @@
+use crate::locations::get_default_storage_dir;
+use sled::Db;
+use std::fs;
 use std::path::Path;
 use std::{io::Result, path::PathBuf};
-use std::fs;
-use sled::Db;
-use crate::locations::get_default_storage_dir;
 
 pub(crate) struct StorageManager {
     _root_path: PathBuf,
@@ -20,14 +20,23 @@ impl StorageManager {
         }
     }
 
-    pub(crate) fn add(&self, name: &str, collection: &str, endpoint: &str, path: PathBuf) -> Result<()> {
+    pub(crate) fn add(
+        &self,
+        name: &str,
+        collection: &str,
+        endpoint: &str,
+        path: PathBuf,
+    ) -> Result<()> {
         let key = format!("{}/{}", name, collection);
         let value = format!("{}:{}", endpoint, path.to_str().unwrap());
-        if  !path.exists() {
+        if !path.exists() {
             fs::create_dir_all(&path)?;
         }
         if self.storage_db.contains_key(&key).unwrap() {
-            return Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "Project already exists"));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                "Project already exists",
+            ));
         }
         self.storage_db.insert(key, value.as_bytes())?;
         Ok(())
@@ -38,10 +47,15 @@ impl StorageManager {
         let value = self.storage_db.get(key).unwrap();
         let value = match value {
             None => {
-                return Err(std::io::Error::new(std::io::ErrorKind::NotFound, format!("Storage information not found for project {}/{}", collection, name)));
-            },
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!(
+                        "Storage information not found for project {}/{}",
+                        collection, name
+                    ),
+                ));
+            }
             Some(value) => value,
-
         };
 
         let value = String::from_utf8(value.to_vec()).unwrap();
@@ -70,11 +84,9 @@ pub(crate) trait StorageEndpoint {
     // Responsible for producing fully qualified paths to data, and checking that the
     // endpoint is actually available, providing sensible errors if not.
 
-    // It is not actually responsible for reading or writing data. Since this is a 
+    // It is not actually responsible for reading or writing data. Since this is a
     // library designed for loading and storing data in python, we leave the actual
     // reading and writing to python.
-
-
 
     fn generate_path(&self, project_path: &str) -> Result<PathBuf>;
     fn is_available(&self) -> Result<()>;
@@ -85,19 +97,16 @@ pub(crate) trait StorageEndpoint {
     fn is_internal(&self, path: &Path) -> bool;
     fn get_relative_path(&self, path: &Path) -> Result<PathBuf>;
     fn make_full_path(&self, relpath: &Path) -> PathBuf;
-
 }
 
 pub(crate) struct LocalEndpoint {
-    // Represents a local disk location. 
+    // Represents a local disk location.
     root_path: PathBuf,
 }
 
 impl LocalEndpoint {
     pub(crate) fn new(root_path: PathBuf) -> LocalEndpoint {
-        LocalEndpoint {
-            root_path,
-        }
+        LocalEndpoint { root_path }
     }
 }
 
@@ -126,7 +135,10 @@ impl StorageEndpoint for LocalEndpoint {
         if expected_file_path.exists() {
             return Ok(expected_file_path);
         }
-        Err(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"))
+        Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "File not found",
+        ))
     }
 
     fn move_file(&self, from: &str, to: &str) -> Result<()> {
@@ -134,7 +146,6 @@ impl StorageEndpoint for LocalEndpoint {
         let to_path = self.generate_path(to)?;
         // copy the file
         fs::rename(from_path, to_path)
-
     }
     fn copy_file(&self, from: &str, to: &str) -> Result<()> {
         let from_path = self.generate_path(from)?;
@@ -154,14 +165,16 @@ impl StorageEndpoint for LocalEndpoint {
 
     fn get_relative_path(&self, path: &Path) -> Result<PathBuf> {
         let result = path.strip_prefix(&self.root_path);
-        
+
         match result {
             Ok(path) => Ok(path.to_path_buf()),
-            Err(_) => Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Path is not internal to project")),
+            Err(_) => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Path is not internal to project",
+            )),
         }
     }
     fn make_full_path(&self, relpath: &Path) -> PathBuf {
-        
         self.root_path.join(relpath)
     }
 }

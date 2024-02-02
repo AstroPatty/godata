@@ -1,12 +1,12 @@
-use crate::fsystem::{FileSystem, is_empty};
-use crate::locations::{create_project_dir, load_project_dir, load_collection_dir, delete_project_dir};
-use crate::storage::{StorageEndpoint, LocalEndpoint, StorageManager};
+use crate::fsystem::{is_empty, FileSystem};
+use crate::locations::{
+    create_project_dir, delete_project_dir, load_collection_dir, load_project_dir,
+};
+use crate::storage::{LocalEndpoint, StorageEndpoint, StorageManager};
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::io::Result;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-
-
 
 pub struct Project {
     pub(crate) tree: FileSystem,
@@ -16,18 +16,22 @@ pub struct Project {
 }
 
 impl Project {
-    pub(crate) fn add_file(&mut self, project_path: &str, real_path: PathBuf, metadata: HashMap<String, String>, overwrite: bool) -> Result<(Option<PathBuf>, bool)> {
+    pub(crate) fn add_file(
+        &mut self,
+        project_path: &str,
+        real_path: PathBuf,
+        metadata: HashMap<String, String>,
+        overwrite: bool,
+    ) -> Result<(Option<PathBuf>, bool)> {
         let relpath = self._endpoint.get_relative_path(&real_path);
         let (fpath, is_internal) = match relpath {
-            Ok(relpath) => {
-                (relpath, true)
-            },
-            Err(_) => {
-                (real_path, false)
-            }
+            Ok(relpath) => (relpath, true),
+            Err(_) => (real_path, false),
         };
 
-        let previous_entry = self.tree.insert(project_path, fpath, metadata, is_internal, overwrite)?;
+        let previous_entry =
+            self.tree
+                .insert(project_path, fpath, metadata, is_internal, overwrite)?;
         let result = match previous_entry {
             Some((previous_entry, is_internal)) => {
                 let previous_path = if is_internal {
@@ -37,8 +41,8 @@ impl Project {
                 };
 
                 (Some(previous_path), is_internal)
-            },
-            None => (None, false)
+            }
+            None => (None, false),
         };
         Ok(result)
     }
@@ -50,21 +54,26 @@ impl Project {
         Ok(())
     }
 
-    pub(crate) fn add_folder(&mut self, project_path: &str, real_path: PathBuf,  recursive: bool) -> Result<()> {
+    pub(crate) fn add_folder(
+        &mut self,
+        project_path: &str,
+        real_path: PathBuf,
+        recursive: bool,
+    ) -> Result<()> {
         let mut folders: Vec<PathBuf> = Vec::new();
         let files = std::fs::read_dir(real_path)?
-                                    .filter(|x| x.is_ok())
-                                    .filter_map(|x| {
-                                        let path = x.unwrap().path();
-                                        if path.is_file() {
-                                            Some(path)
-                                        } else {
-                                            if recursive {
-                                                folders.push(path);
-                                            }
-                                            None
-                                        }
-                                    });
+            .filter(|x| x.is_ok())
+            .filter_map(|x| {
+                let path = x.unwrap().path();
+                if path.is_file() {
+                    Some(path)
+                } else {
+                    if recursive {
+                        folders.push(path);
+                    }
+                    None
+                }
+            });
         self.tree.insert_many(files, project_path, false)?;
         if recursive {
             for folder in folders {
@@ -73,7 +82,6 @@ impl Project {
                 self.add_folder(&folder_project_path, folder, recursive)?;
             }
         }
-
 
         Ok(())
     }
@@ -85,18 +93,19 @@ impl Project {
         let is_internal = file.2;
         let fpath = if is_internal {
             self._endpoint.make_full_path(&path)
-        }
-        else {
+        } else {
             path
         };
-        
-        meta.insert("real_path".to_string(), fpath.to_str().unwrap().to_string());
 
+        meta.insert("real_path".to_string(), fpath.to_str().unwrap().to_string());
 
         Ok(meta)
     }
 
-    pub(crate) fn list(&self, project_path: Option<String>) -> Result<HashMap<String, Vec<String>>> {
+    pub(crate) fn list(
+        &self,
+        project_path: Option<String>,
+    ) -> Result<HashMap<String, Vec<String>>> {
         let list = self.tree.list(project_path)?;
         Ok(list)
     }
@@ -107,7 +116,6 @@ impl Project {
     }
 
     pub(crate) fn exists(&self, project_path: String) -> bool {
-        
         self.tree.exists(&project_path)
     }
 
@@ -115,7 +123,6 @@ impl Project {
         let path = self._endpoint.generate_path(project_path)?;
         Ok(path.to_str().unwrap().to_owned())
     }
-    
 }
 
 pub fn get_project_manager() -> ProjectManager {
@@ -127,7 +134,6 @@ pub fn get_project_manager() -> ProjectManager {
     }
 }
 
-
 pub struct ProjectManager {
     storage_manager: StorageManager,
     projects: HashMap<String, Arc<Mutex<Project>>>,
@@ -135,7 +141,13 @@ pub struct ProjectManager {
 }
 
 impl ProjectManager {
-    pub fn create_project(&mut self, name: &str, collection: &str, force: bool, storage_location: Option<String>) -> Result<Arc<Mutex<Project>>> {
+    pub fn create_project(
+        &mut self,
+        name: &str,
+        collection: &str,
+        force: bool,
+        storage_location: Option<String>,
+    ) -> Result<Arc<Mutex<Project>>> {
         let key = format!("{}/{}", collection, name);
         let project_dir = create_project_dir(name, collection, force)?;
         let tree = FileSystem::new(name.to_string(), project_dir)?;
@@ -143,11 +155,12 @@ impl ProjectManager {
             Some(path) => PathBuf::from(path),
             None => crate::locations::get_default_project_storage_dir(name, collection)?,
         };
-        self.storage_manager.add(name, collection, "local", base_path.clone())?;
+        self.storage_manager
+            .add(name, collection, "local", base_path.clone())?;
         let endpoint = LocalEndpoint::new(base_path);
         let p = Project {
             tree,
-            _name: name.to_string(), 
+            _name: name.to_string(),
             _collection: collection.to_string(),
             _endpoint: Box::new(endpoint),
         };
@@ -157,7 +170,13 @@ impl ProjectManager {
         Ok(project)
     }
 
-    pub fn import_project(&self, name: &str, collection: &str, endpoint: &str, path: PathBuf) -> Result<PathBuf> {
+    pub fn import_project(
+        &self,
+        name: &str,
+        collection: &str,
+        endpoint: &str,
+        path: PathBuf,
+    ) -> Result<PathBuf> {
         // The assumption is that the path points to a folder which contains the project data
         // Aditionally, it should contain a .tree folder which contains the tree data
 
@@ -165,17 +184,20 @@ impl ProjectManager {
         let tree_path = path.join(".tree");
         let db = sled::open(tree_path)?;
         let _root = db.get("root").unwrap().unwrap();
-        
+
         let db_export = db.export();
         let final_db = sled::open(&project_dir)?;
         final_db.import(db_export);
 
-       
         self.storage_manager.add(name, collection, endpoint, path)?;
         Ok(project_dir)
-
     }
-    pub fn export_project(&mut self, name: &str, collection: &str, output_path: PathBuf) -> Result<()> {
+    pub fn export_project(
+        &mut self,
+        name: &str,
+        collection: &str,
+        output_path: PathBuf,
+    ) -> Result<()> {
         let output_tree_path = output_path.join(".tree");
         let project = self.load_project(name, collection);
         if project.is_err() {
@@ -186,7 +208,6 @@ impl ProjectManager {
         project.duplicate_tree(output_tree_path)?;
         Ok(())
     }
-
 
     pub fn load_project(&mut self, name: &str, collection: &str) -> Result<Arc<Mutex<Project>>> {
         let key = format!("{}/{}", collection, name);
@@ -205,7 +226,7 @@ impl ProjectManager {
 
         let project = Project {
             tree,
-            _name: name.to_string(), 
+            _name: name.to_string(),
             _collection: collection.to_string(),
             _endpoint: Box::new(endpoint),
         };
@@ -218,19 +239,22 @@ impl ProjectManager {
         let key = format!("{}/{}", collection, name);
         let count = self.counts.get(&key);
         if count.is_none() {
-            return Err(std::io::Error::new(std::io::ErrorKind::NotFound, format!("Tried to drop a project {} that is not loaded!", key)));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Tried to drop a project {} that is not loaded!", key),
+            ));
         }
         let count = count.unwrap();
-        if  count == &1{
+        if count == &1 {
             self.projects.remove(&key);
             self.counts.remove(&key);
-        }
-        else if count < &0 {
+        } else if count < &0 {
             self.counts.remove(&key);
-            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Tried to drop a project {} that does not exist", key)));
-        }
-        
-        else {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Tried to drop a project {} that does not exist", key),
+            ));
+        } else {
             self.counts.insert(key, count - 1);
         }
         Ok(())
@@ -243,7 +267,7 @@ impl ProjectManager {
             let obj = obj.lock().unwrap();
             drop(obj);
         }
-        
+
         let project_dir = load_project_dir(name, collection)?;
         let storage_dir = self.storage_manager.get(name, collection);
         let project_is_empty = is_empty(&project_dir);
@@ -259,33 +283,39 @@ impl ProjectManager {
             delete_project_dir(name, collection)?;
             let storage_dir = self.storage_manager.get(name, collection);
             if storage_dir.is_ok() {
-                 self.storage_manager.delete(name, collection)?;
+                self.storage_manager.delete(name, collection)?;
             }
-            return Ok(())
-        } 
-        Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Project is not empty"))
+            return Ok(());
+        }
+        Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Project is not empty",
+        ))
     }
 
     pub fn get_project_names(&self, collection: String, show_hidden: bool) -> Result<Vec<String>> {
         let collection_dir = load_collection_dir(&collection);
         if collection_dir.is_err() {
-            return Err(std::io::Error::new(std::io::ErrorKind::NotFound, format!("Collection `{}` does not exist", collection)));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Collection `{}` does not exist", collection),
+            ));
         }
         let collection_dir = collection_dir.unwrap();
-    
+
         let mut names = Vec::new();
         for entry in std::fs::read_dir(collection_dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.is_dir() && (!path.file_name().unwrap().to_str().unwrap().starts_with('.') || show_hidden) {
+            if path.is_dir()
+                && (!path.file_name().unwrap().to_str().unwrap().starts_with('.') || show_hidden)
+            {
                 let name = path.file_name().unwrap().to_str().unwrap().to_string();
                 names.push(name);
             }
         }
         Ok(names)
     }
-
-     
 }
 
 pub fn get_collection_names(show_hidden: bool) -> Result<Vec<String>> {
@@ -294,7 +324,9 @@ pub fn get_collection_names(show_hidden: bool) -> Result<Vec<String>> {
     for entry in std::fs::read_dir(main_dir)? {
         let entry = entry?;
         let path = entry.path();
-        if path.is_dir() && (!path.file_name().unwrap().to_str().unwrap().starts_with('.') || show_hidden) {
+        if path.is_dir()
+            && (!path.file_name().unwrap().to_str().unwrap().starts_with('.') || show_hidden)
+        {
             let name = path.file_name().unwrap().to_str().unwrap().to_string();
             names.push(name);
         }
