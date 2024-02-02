@@ -5,7 +5,7 @@
 
 // As far as the rest of the library is concrened, 
 
-use std::{io::Result, hash::Hash};
+use std::io::Result;
 use std::collections::HashMap;
 use uuid::Uuid;
 use sled::{Db, Batch};
@@ -28,12 +28,6 @@ impl FSObject {
         }
     }
 
-    fn add_metadata(&mut self, data: HashMap<String, String>) {
-        match self {
-            FSObject::File(f) => f.metadata.extend(data),
-            FSObject::Folder(f) => f.metadata.extend(data)
-        }
-    }
 
 }
 
@@ -239,7 +233,7 @@ impl FileSystem {
     fn save(&mut self) {
         // Write the root folder to the database
         let mut batch = Batch::default();
-        self.root.to_tree(&mut batch);
+        self.root.write_to_tree(&mut batch);
         self.db.apply_batch(batch).unwrap();
         self.root.reset();
         self._modified = false;
@@ -303,7 +297,7 @@ impl Folder {
 
     }
 
-    fn to_tree(&mut self, batch: &mut Batch) {
+    fn write_to_tree(&mut self, batch: &mut Batch) {
         // Write the folder and all of its children to the database
         if self._modified {
 
@@ -312,7 +306,7 @@ impl Folder {
         for (_, child) in self.children.iter_mut() {
             match child {
                 FSObject::File(_) => (),
-                FSObject::Folder(f) => f.to_tree(batch)
+                FSObject::Folder(f) => f.write_to_tree(batch)
             }
         }
     }

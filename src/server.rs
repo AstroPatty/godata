@@ -35,7 +35,7 @@ impl Server {
                 // if it does, check if there is a "godata_server" process running
                 let system = System::new();
                 let mut processes = system.processes_by_name("godata_server");
-                if let Some(_) = processes.next() {
+                if processes.next().is_some() {
                     println!("A server is already running on {}", self.url.0);
                     return;
                 }
