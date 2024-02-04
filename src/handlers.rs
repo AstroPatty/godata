@@ -431,9 +431,11 @@ pub(crate) fn remove_file(
         let project = project.unwrap();
         let result = project.lock().unwrap().remove_file(&project_path);
         match result {
-            Ok(_) => return Ok(warp::reply::with_status(
-                warp::reply::json(&format!("File {project_path} removed from project {project_name} in collection {collection}")),
-                StatusCode::OK)),
+            Ok(v) => return Ok(warp::reply::with_status(
+                warp::reply::json(&v),
+                StatusCode::OK,
+            )),
+
             Err(_) => return Ok(warp::reply::with_status(
                 warp::reply::json(&format!("File {project_path} does not exist!")),
                 StatusCode::NOT_FOUND)),

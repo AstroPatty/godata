@@ -48,11 +48,12 @@ class GodataProject:
         files/folders, this will throw an error unless rucursive is set to True.
         """
         try:
-            client.remove_file(self.collection, self.name, project_path)
+            paths = client.remove_file(self.collection, self.name, project_path)
         except client.NotFound:
             raise GodataProjectError(
                 f"File or folder {project_path} does not exist in project {self.name}"
             )
+        file_utils.handle_removal(paths)
         # will raise an error if it cannot be removed
         return True
 
@@ -183,7 +184,6 @@ class GodataProject:
 
         storage_path = Path(storage_path)
         storage_path = storage_path.with_suffix(suffix)
-        storage_path.parent.mkdir(parents=True, exist_ok=True)
         self.link(
             storage_path,
             project_path,
@@ -192,6 +192,8 @@ class GodataProject:
             verbose=verbose,
             metadata=metadata,
         )
+        storage_path.parent.mkdir(parents=True, exist_ok=True)
+
         with portalocker.Lock(str(storage_path), "wb"):
             writer_fn(obj, storage_path, **writer_kwargs)
 

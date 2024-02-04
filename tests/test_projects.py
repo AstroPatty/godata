@@ -147,15 +147,35 @@ def test_delete():
     expected_data = np.ones((10, 10))
     p.store(expected_data, "data/test_data")
     p.store(expected_data, "data2/test_data")
+
+    path = p.get("data/test_data", as_path=True)
+    path2 = p.get("data2/test_data", as_path=True)
+    print(path)
     p.remove("data/test_data")
     hp1 = p.has_path("data/test_data")
     children = p.list()
     assert not hp1 and not children["files"] and children["folders"] == ["data2"]
+    assert not path.exists()
 
     p.remove("data2")
     hp2 = p.has_path("data2")
     children = p.list()
     assert not hp2 and not children["files"] and not children["folders"]
+    assert not path2.exists()
+
+
+def test_delete_link():
+    p = create_project("test_delete_link")
+    p.link(data_path / "test_ones.npy", "data/test_data")
+
+    path = p.get("data/test_data", as_path=True)
+
+    p.remove("data/test_data")
+    hp1 = p.has_path("data/test_data")
+    children = p.list()
+    assert not hp1 and not children["files"] and not children["folders"]
+
+    assert path.exists()
 
 
 def test_list_collections():

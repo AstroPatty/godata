@@ -88,6 +88,29 @@ pub(crate) fn is_empty(path: &PathBuf) -> bool {
     true
 }
 
+fn get_paths(folder: Folder) -> (Vec<PathBuf>, Vec<PathBuf>) {
+    // note: consumes the folder
+    let mut internal_paths = Vec::new();
+    let mut external_paths = Vec::new();
+    for (_, child) in folder.children.into_iter() {
+        match child {
+            FSObject::File(f) => {
+                if f._internal {
+                    internal_paths.push(f.real_path);
+                } else {
+                    external_paths.push(f.real_path);
+                }
+            } 
+            FSObject::Folder(f) => {
+                let mut child_paths = get_paths(f);
+                internal_paths.append(&mut child_paths.0);
+                external_paths.append(&mut child_paths.1);
+            }
+        }
+    }
+    (internal_paths, external_paths)
+}
+
 impl FileSystem {
     pub(crate) fn new(name: String, root_path: PathBuf) -> Result<FileSystem> {
         let db = sled::open(root_path)?;
@@ -261,24 +284,45 @@ impl FileSystem {
         Ok(())
     }
 
-    pub(crate) fn remove(&mut self, virtual_path: &str) -> Result<()> {
+    pub(crate) fn remove(&mut self, virtual_path: &str) -> Result<Vec<PathBuf>> {
         let result = self.root.delete(virtual_path)?;
         let mut batch = Batch::default();
-        match result {
+        let output = match result {
             RemoveResult::IsEmpty => {
-                self.root.drop_from_tree(&mut batch);
+                self.root.drop_from_tree(&mut batch); 
+                let mut paths: Vec<PathBuf> = Vec::new();
+                for (_, child) in self.root.children.drain() {
+                    match child {
+                        FSObject::File(f) => {
+                            if f._internal {
+                                paths.push(f.real_path);
+                            }
+                        }
+                        FSObject::Folder(f) => {
+                            let mut child_paths = get_paths(f);
+                            paths.append(&mut child_paths.0);
+                        }
+                    }
+                }
                 self.root.children.clear();
+                paths
             }
             RemoveResult::Item(f) => {
                 match f {
-                    FSObject::File(_) => (),
-                    FSObject::Folder(mut f) => f.drop_from_tree(&mut batch),
+                    FSObject::File(f) => {
+                        vec![f.real_path]
+                    },
+                    FSObject::Folder(mut f) => {
+                        f.drop_from_tree(&mut batch);
+                        get_paths(f).0
+                    }
                 }
             }
-        }
+        };
         self.db.apply_batch(batch).unwrap();
         self._modified = true;
-        Ok(())
+
+        Ok(output)
     }
     pub(crate) fn exists(&self, virtual_path: &str) -> bool {
         self.root.exists(virtual_path)

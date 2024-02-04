@@ -110,9 +110,14 @@ impl Project {
         Ok(list)
     }
 
-    pub(crate) fn remove_file(&mut self, project_path: &str) -> Result<()> {
-        self.tree.remove(project_path)?;
-        Ok(())
+    pub(crate) fn remove_file(&mut self, project_path: &str) -> Result<Vec<PathBuf>> {
+        let removed_internal_paths = self.tree.remove(project_path)?;
+        // filter out paths that are not internal
+        let need_to_remove: Vec<PathBuf> = removed_internal_paths
+            .into_iter()
+            .map(|x| self._endpoint.make_full_path(&x))
+            .collect();
+        Ok(need_to_remove)
     }
 
     pub(crate) fn exists(&self, project_path: String) -> bool {
