@@ -142,7 +142,7 @@ def test_exists():
     assert hp1 and not hp2
 
 
-def test_delete_file():
+def test_delete():
     p = create_project("test8")
     expected_data = np.ones((10, 10))
     p.store(expected_data, "data/test_data")
@@ -151,6 +151,11 @@ def test_delete_file():
     hp1 = p.has_path("data/test_data")
     children = p.list()
     assert not hp1 and not children["files"] and children["folders"] == ["data2"]
+
+    p.remove("data2")
+    hp2 = p.has_path("data2")
+    children = p.list()
+    assert not hp2 and not children["files"] and not children["folders"]
 
 
 def test_list_collections():

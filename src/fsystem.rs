@@ -69,6 +69,11 @@ pub(crate) struct FileSystem {
     db: Db,
 }
 
+enum RemoveResult {
+    Item(FSObject),
+    IsEmpty,
+}
+
 pub(crate) fn is_empty(path: &PathBuf) -> bool {
     let db = sled::open(path).unwrap();
     // Count the entries in the database
@@ -150,11 +155,24 @@ impl FileSystem {
         virtual_path: Option<String>,
     ) -> Result<HashMap<String, Vec<String>>> {
         let folder = match virtual_path {
-            Some(p) => self.root.get_folder(&p)?,
+            Some(path) => {
+                let f_ = self.root.get(&path)?;
+                match f_ {
+                    FSObject::File(_) => {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "Path is a file",
+                        ))
+                    }
+                    FSObject::Folder(f) => f,
+                }
+
+            },
             None => &self.root,
         };
-        let mut folders = Vec::new();
         let mut files = Vec::new();
+        let mut folders = Vec::new();
+
         for (name, child) in folder.children.iter() {
             match child {
                 FSObject::File(_) => files.push(name.clone()),
@@ -172,12 +190,21 @@ impl FileSystem {
         virtual_path: &str,
     ) -> Result<(PathBuf, HashMap<String, String>, bool)> {
         let file = self.root.get(virtual_path)?;
-
-        Ok((
-            file.real_path.clone(),
-            file.metadata.clone(),
-            file._internal,
-        ))
+        match file {
+            FSObject::Folder(_) => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Path is a folder",
+                ))
+            }
+            FSObject::File(f) => {
+                Ok((
+                    f.real_path.clone(),
+                    f.metadata.clone(),
+                    f._internal,
+                ))        
+            },
+        }
     }
 
     pub(crate) fn insert(
@@ -236,11 +263,21 @@ impl FileSystem {
 
     pub(crate) fn remove(&mut self, virtual_path: &str) -> Result<()> {
         let result = self.root.delete(virtual_path)?;
-        for uuid in result {
-            self.db.remove(uuid.as_bytes())?;
+        let mut batch = Batch::default();
+        match result {
+            RemoveResult::IsEmpty => {
+                self.root.drop_from_tree(&mut batch);
+                self.root.children.clear();
+            }
+            RemoveResult::Item(f) => {
+                match f {
+                    FSObject::File(_) => (),
+                    FSObject::Folder(mut f) => f.drop_from_tree(&mut batch),
+                }
+            }
         }
+        self.db.apply_batch(batch).unwrap();
         self._modified = true;
-        self.save();
         Ok(())
     }
     pub(crate) fn exists(&self, virtual_path: &str) -> bool {
@@ -322,6 +359,17 @@ impl Folder {
             }
         }
     }
+
+    fn drop_from_tree(&mut self, batch: &mut Batch) {
+        // Remove the folder and all of its children from the database
+        batch.remove(self._uuid.as_bytes());
+        for (_, child) in self.children.iter_mut() {
+            if let FSObject::Folder(f) = child {
+                f.drop_from_tree(batch);
+            }   
+        }    
+    }
+
 
     fn insert_many<I>(&mut self, files: I, virtual_path: &str) -> Result<()>
     where
@@ -433,21 +481,22 @@ impl Folder {
         }
     }
 
-    fn get(&self, virtual_path: &str) -> Result<&File> {
+    fn get(&self, virtual_path: &str) -> Result<&FSObject> {
         // Get a file from the folder. Will fail if there is no file located
         // at the virtual path.
 
         // split up the path
         let path_parts = virtual_path.split('/');
-        self._get(path_parts)
+        let path: Vec<&str> = path_parts.collect();
+        self._get(&path)
     }
 
-    fn _get(&self, mut path_parts: std::str::Split<char>) -> Result<&File> {
+    fn _get(&self, path_parts: &[&str]) -> Result<&FSObject> {
         // Get a file or folder from the folder.
         // If path is this folder's name, return it
         // If path is a subfolder, return it from the subfolder
 
-        let path_part = path_parts.next();
+        let path_part = path_parts.first();
         let child = match path_part {
             None => {
                 return Err(std::io::Error::new(
@@ -455,69 +504,35 @@ impl Folder {
                     "File not found",
                 ))
             }
-            Some(part) => self.children.get(part),
+            Some(&part) => self.children.get(part),
         };
 
-        match child {
-            None => Err(std::io::Error::new(
+        if child.is_none() {
+            return Err(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 "File not found",
-            )), // child doesn't exist
-            Some(f) => {
-                match f {
-                    FSObject::File(f) => {
-                        if path_parts.next().is_none() {
-                            Ok(f)
-                        } else {
-                            Err(std::io::Error::new(
-                                std::io::ErrorKind::NotFound,
-                                "File not found",
-                            ))
-                        }
-                    }
-                    FSObject::Folder(f) => return f._get(path_parts), // We have a folder with this name, and we need to check the rest of the path
-                }
-            }
+            ));
         }
-    }
 
-    fn get_folder(&self, virtual_path: &str) -> Result<&Folder> {
-        // Get a folder from the folder. Will fail if there is no folder located
-        // at the virtual path.
+        else if path_parts.len() == 1 {
+            return Ok(child.unwrap());
+        }
 
-        // split up the path
-        let path_parts = virtual_path.split('/');
-        self._get_folder(path_parts)
-    }
-
-    fn _get_folder(&self, mut path_parts: std::str::Split<char>) -> Result<&Folder> {
-        // Get a file or folder from the folder.
-        // If path is this folder's name, return it
-        // If path is a subfolder, return it from the subfolder
-
-        let path_part = path_parts.next();
-        let child = match path_part {
-            None => return Ok(self),
-            Some(part) => self.children.get(part),
-        };
-
-        match child {
-            None => Err(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "Folder not found",
-            )), // child doesn't exist
-            Some(f) => {
-                match f {
-                    FSObject::File(_) => Err(std::io::Error::new(
+        else {
+            match child.unwrap() {
+                FSObject::File(_) => {
+                    return Err(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
-                        "Folder not found",
-                    )), // We have a file with this name, and nothing is left in the path
-                    FSObject::Folder(f) => {
-                        return f._get_folder(path_parts); // We have a folder with this name, and we need to check the rest of the path
-                    }
+                        "File not found",
+                    ))
+                }
+                FSObject::Folder(f) => {
+                    return f._get(&path_parts[1..]);
                 }
             }
+
         }
+
     }
 
     fn insert(
@@ -605,77 +620,66 @@ impl Folder {
         }
     }
 
-    fn delete(&mut self, virtual_path: &str) -> Result<Vec<String>> {
+    fn delete(&mut self, virtual_path: &str) -> Result<RemoveResult> {
         // Delete a file or folder from the folder.
         // If path is this folder's name, delete it here
         // If path is a subfolder, delete it from the subfolder
 
         // split up the path
-        let path_parts = virtual_path.split('/');
-        let result = self._delete(path_parts)?;
-        Ok(result.1)
+        let path: Vec<&str> = virtual_path.split('/').collect();
+        self._delete(&path)
     }
 
-    fn _delete(&mut self, mut path_parts: std::str::Split<char>) -> Result<(bool, Vec<String>)> {
+    fn _delete(&mut self, path: &[&str]) -> Result<RemoveResult> {
         // Delete a file or folder from the folder.
         // If path is this folder's name, delete it here
         // If path is a subfolder, delete it from the subfolder
 
         // split up the path
-        let path_part = path_parts.next();
-        let child = match path_part {
-            None => {
-                // This folder is getting deleted, so we need to tell the parent to remove it
-                let storage = Vec::new();
-                return Ok((true, storage));
+        let path_part = path.first();
+        if path_part.is_none() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Invalid path",
+            ));
+        }
+        let path_part = path_part.unwrap();
+        if !self.children.contains_key(*path_part) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "File not found",
+            ));
+        }
+        if path.len() == 1 {
+            self._modified = true;
+            if self.children.len() == 1 {
+                return Ok(RemoveResult::IsEmpty);
             }
-            Some(part) => self.children.remove(part),
-        };
-        let mut child = match child {
-            None => {
-                // child doesn't exist, raise an error
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "Path not found",
-                ));
-            }
-
-            Some(child_obj) => child_obj,
-        };
-
-        let output = match child {
+            return Ok(RemoveResult::Item(self.children.remove(*path_part).unwrap()));
+        }
+        match self.children.get_mut(*path_part).unwrap() {
             FSObject::File(_) => {
-                // We have a file with this name...
-                if path_parts.next().is_none() {
-                    // ...and nothing is left in the path
-                    self._modified = true; // We've modified the folder, so we need to write it to the database
-                    let storage = Vec::new();
-                    return Ok((self.children.is_empty(), storage)); // The removal was sucessful, but the folder above us doesn't need to do anything
-                } else {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "Path not found",
-                    ));
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Invalid path",
+                ))
+            }
+            FSObject::Folder(f) => {
+                let rm_result = f._delete(&path[1..])?;
+                match rm_result {
+                    RemoveResult::IsEmpty => {
+                        if self.children.len() == 1 {
+                            return Ok(RemoveResult::IsEmpty);
+                        }
+                        return Ok(RemoveResult::Item(self.children.remove(*path_part).unwrap()));
+                    }
+                    RemoveResult::Item(_) => {
+                        return Ok(rm_result);
+                    }
+                    
                 }
             }
-
-            FSObject::Folder(ref mut f) => {
-                // We have a folder with this name, and we need to check the rest of the path
-                let result = f._delete(path_parts)?;
-                if result.0 {
-                    // The child needs to be deleted, so remove it
-                    let mut to_remove = result.1;
-                    to_remove.push(f._uuid.clone());
-                    self._modified = true; // We've modified the folder, so we need to write it to the database
-                    return Ok((self.children.is_empty(), to_remove)); // If we're empty now, signal our parent to remove us
-                } else {
-                    Ok(result)
-                }
-            }
-        };
-
-        self.children.insert(path_part.unwrap().to_string(), child);
-        output
+        }
     }
 
     fn get_name(&self) -> &str {
