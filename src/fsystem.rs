@@ -224,7 +224,7 @@ impl FileSystem {
         real_path: PathBuf,
         metadata: HashMap<String, String>,
         overwrite: bool,
-    ) -> Result<Option<File>> {
+    ) -> Result<Option<Vec<File>>> {
         let name = project_path.split('/').last().unwrap().to_string();
         let result = if name == project_path {
             let mut file = File::new(real_path, name);
@@ -238,18 +238,9 @@ impl FileSystem {
             file.metadata = metadata;
             self.root.insert(FSObject::File(file), ppath, overwrite)?
         };
-        let output = match result {
-            Some(f) => match f {
-                FSObject::File(f) => Some(f),
-                FSObject::Folder(_) => {
-                    panic!("Cannot overwrite a folder, but somehow we did!")
-                }
-            },
-            None => None,
-        };
         self._modified = true;
         self.save();
-        Ok(output)
+        Ok(result)
     }
 
     pub(crate) fn insert_many<I>(
@@ -309,7 +300,7 @@ impl FileSystem {
         Ok(output)
     }
 
-    pub(crate) fn move_(&mut self, source_path: &str, dest_path: &str, overwrite: bool) -> Result<()> {
+    pub(crate) fn move_(&mut self, source_path: &str, dest_path: &str, overwrite: bool) -> Result<Option<Vec<File>>> {
         if !self.root.exists(source_path) {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
@@ -325,11 +316,11 @@ impl FileSystem {
         let item = self.root.get(source_path)?;
         // make a copy of the item
         let item = (*item).clone();
-        self.root.insert(item, dest_path, overwrite)?;
-        self.root.delete(source_path)?;
+        let result = self.root.insert(item, dest_path, overwrite)?;
+        self.remove(source_path)?;
         self._modified = true;
         self.save();
-        Ok(())
+        Ok(result)
 
     }
 
@@ -593,7 +584,7 @@ impl Folder {
         fs_object: FSObject,
         virtual_path: &str,
         overwrite: bool,
-    ) -> Result<Option<FSObject>> {
+    ) -> Result<Option<Vec<File>>> {
         // Insert a file or folder into the folder.
         // If path is this folder's name, insert it here
         // If path is a subfolder, insert it into the subfolder
@@ -608,7 +599,7 @@ impl Folder {
         fs_object: FSObject,
         mut path_parts: std::str::Split<char>,
         overwrite: bool,
-    ) -> Result<Option<FSObject>> {
+    ) -> Result<Option<Vec<File>>> {
         // Insert a file or folder into the folder.
         // If path is this folder's name, insert it here
         // If path is a subfolder, insert it into the subfolder
@@ -625,21 +616,18 @@ impl Folder {
                             "Something already exists at that path!",
                         ));
                     } else {
-                        let previous = self.children.get(fs_object.get_name()).unwrap();
-                        match previous {
-                            FSObject::File(_) => (),
-                            FSObject::Folder(_) => {
-                                return Err(std::io::Error::new(
-                                    std::io::ErrorKind::AlreadyExists,
-                                    "Cannot overwrite a folder!",
-                                ))
-                            }
-                        }
-                        let previous_ = self.children.remove(fs_object.get_name()).unwrap();
+                       let previous = self.children.remove(fs_object.get_name()).unwrap();
                         self.children
                             .insert(fs_object.get_name().to_string(), fs_object);
                         self._modified = true;
-                        return Ok(Some(previous_));
+                        let output = match previous {
+                            FSObject::File(f) => Some(vec![f]),
+                            FSObject::Folder(f) => {
+                                let mut files = drain(f);
+                                Some(files)
+                            }
+                        };
+                        return Ok(output);
                     }
                 } else {
                     self.children

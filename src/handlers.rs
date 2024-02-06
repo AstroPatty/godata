@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use warp::http::StatusCode;
 use warp::reply::WithStatus;
+use serde::Serialize;
 
 pub(crate) fn get_version() -> Result<impl warp::Reply, Infallible> {
     Ok(warp::reply::with_status(
@@ -203,6 +204,12 @@ pub(crate) fn delete_project(
     }
 }
 
+#[derive(Serialize)]
+struct LinkResponse {
+    message: String,
+    overwritten: Vec<String>,
+}
+
 pub(crate) fn link_file(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,
@@ -224,16 +231,14 @@ pub(crate) fn link_file(
                 .lock()
                 .unwrap()
                 .add_file(&project_path, parsed_file_path, metadata, force);
+
+
         match result {
-            Ok(previous_path) => {
-                let mut output: HashMap<String, _> = HashMap::new();
-                output.insert(
-                    "overwritten".to_string(),
-                    previous_path.map_or("none".to_string(), |path| {
-                            path.to_string_lossy().to_string()
-                        })
-                );
-                output.insert("message".to_string(), format!("File {file_path} linked to {project_path} in project {project_name} in collection {collection}"));
+            Ok(previous_paths) => {
+                let output: LinkResponse = LinkResponse {
+                    message: format!("File {file_path} linked to {project_path} in project {project_name} in collection {collection}"),
+                    overwritten: previous_paths.unwrap_or(Vec::new()),
+                };
 
                 return Ok(warp::reply::with_status(
                     warp::reply::json(&output),

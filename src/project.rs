@@ -22,7 +22,7 @@ impl Project {
         real_path: PathBuf,
         metadata: HashMap<String, String>,
         overwrite: bool,
-    ) -> Result<Option<PathBuf>> {
+    ) -> Result<Option<Vec<String>>> {
 
         let relpath = self._endpoint.get_relative_path(&real_path);
         let previous_entry =
@@ -30,13 +30,18 @@ impl Project {
         if previous_entry.is_none() {
             return Ok(None);
         }
-        let previous_entry = previous_entry.unwrap();
-        let previous_path = self._endpoint.resolve(&previous_entry.real_path);
-        if self._endpoint.is_internal(&previous_path) {
-            Ok(Some(previous_path))
-        } else {
-            Ok(None)
+        let previous_entries = previous_entry.unwrap();
+        if previous_entries.len() == 0 {
+            return Ok(None);
         }
+        let output: Vec<String> = previous_entries
+            .into_iter()
+            .map(|x| self._endpoint.resolve(&x.real_path))
+            .filter(|x| self._endpoint.is_internal(x))
+            .map(|x| x.to_str().unwrap().to_string())
+            .collect();
+
+        Ok(Some(output))
     }
 
     pub(crate) fn duplicate_tree(&mut self, output_path: PathBuf) -> Result<()> {
@@ -78,7 +83,7 @@ impl Project {
 
         Ok(())
     }
-
+    
     pub(crate) fn get_file(&self, project_path: &str) -> Result<HashMap<String, String>> {
         let file = self.tree.get(project_path)?;
         let fpath = self._endpoint.resolve(&file.real_path);

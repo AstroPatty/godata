@@ -216,6 +216,7 @@ def link_file(
         f"{url}/projects/{collection_name}/{project_name}/files", params=params
     )
     if resp.status_code == 201:
+        print(resp.json())
         return resp.json()
     elif resp.status_code == 409:
         raise AlreadyExists(f"{resp.json()}")
