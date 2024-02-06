@@ -249,7 +249,7 @@ def link_folder(
         raise GodataClientError(f"{resp.status_code}: {resp.text}")
 
 
-def copy_(
+def move(
     collection_name: str,
     project_name: str,
     source_path: str,
@@ -265,7 +265,7 @@ def copy_(
     resp = client.post(
         f"{url}/projects/{collection_name}/{project_name}/files/move", params=params
     )
-    if resp.status_code == 201:
+    if resp.status_code == 200:
         return resp.json()
     elif resp.status_code == 409:
         raise AlreadyExists(f"{resp.json()}")

@@ -245,6 +245,36 @@ class GodataProject:
         return True
 
     @sanitize_project_path
+    def move(
+        self,
+        src_project_path: str,
+        dest_project_path: str,
+        overwrite: bool = False,
+        recursive: bool = False,
+        verbose: bool = True,
+    ) -> bool:
+        """
+        Copy a file or folder from one location to another in the project. This will
+        not move any data, just create a reference to the file.
+        """
+        try:
+            result = client.move(
+                self.collection,
+                self.name,
+                src_project_path,
+                dest_project_path,
+                overwrite,
+            )
+        except client.AlreadyExists:
+            raise GodataProjectError(
+                f"Something already exists at {dest_project_path}. Use overwrite=True "
+                "to overwrite it."
+            )
+        if verbose:
+            print(result["message"])
+        return True
+
+    @sanitize_project_path
     def ls(self, project_path: str = None) -> None:
         """
         A basic ls utility for looking at projects. If a path is given, this will

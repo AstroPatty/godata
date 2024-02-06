@@ -70,6 +70,27 @@ def test_add_folder():
     assert np.all(items == expected_data)
 
 
+def test_move():
+    p = load_project("test4")
+    print(p.ls("data"))
+    p.move("data/test_ones.npy", "data/test_ones_moved.npy")
+    p.ls("data")
+    items = p.get("data/test_ones_moved.npy")
+    expected_data = np.ones((10, 10))
+    assert np.all(items == expected_data)
+    assert not p.has_path("data/test_ones.npy")
+
+
+def test_move_folder():
+    p = load_project("test4")
+    p.move("data", "data_moved")
+    p.ls()
+    items = p.get("data_moved/test_ones_moved.npy")
+    expected_data = np.ones((10, 10))
+    assert np.all(items == expected_data)
+    assert not p.has_path("data/test_ones_moved.npy")
+
+
 def test_store_file():
     p = create_project("test5")
     expected_data = np.ones((10, 10))

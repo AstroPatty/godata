@@ -25,6 +25,13 @@ impl FSObject {
             FSObject::Folder(f) => f.get_name(),
         }
     }
+
+    fn rename(&mut self, new_name: String) {
+        match self {
+            FSObject::File(f) => f.name = new_name,
+            FSObject::Folder(f) => f.name = new_name,
+        }
+    }
 }
 #[derive(Clone)]
 pub(crate) struct File {
@@ -305,9 +312,15 @@ impl FileSystem {
             ));
         }
         let item = self.root.get(source_path)?;
+        // HANDLE RENAME SEMANTICS
         // make a copy of the item
-        let item = (*item).clone();
-        let result = self.root.insert(item, dest_path, overwrite)?;
+        let (fpath, fname) = dest_path.rsplit_once('/')
+                            .unwrap_or(("", dest_path));        
+        let mut item = (*item).clone();
+        item.rename(fname.to_string());
+        // Split the destination path into path and name
+
+        let result = self.root.insert(item, fpath, overwrite)?;
         self.remove(source_path)?;
         self._modified = true;
         self.save();
@@ -573,7 +586,11 @@ impl Folder {
         // If path is a subfolder, insert it into the subfolder
 
         // split up the path
-        let path_parts = virtual_path.split('/');
+        let mut path_parts = virtual_path.split('/');
+        if virtual_path == "" {
+            // go to the end of the iterator
+            _ = path_parts.next();
+        }
         self._insert(fs_object, path_parts, overwrite)
     }
 

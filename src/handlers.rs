@@ -207,7 +207,7 @@ pub(crate) fn delete_project(
 #[derive(Serialize)]
 struct LinkResponse {
     message: String,
-    overwritten: Vec<String>,
+    removed: Vec<String>,
 }
 
 pub(crate) fn link_file(
@@ -236,7 +236,7 @@ pub(crate) fn link_file(
             Ok(previous_paths) => {
                 let output: LinkResponse = LinkResponse {
                     message: format!("File {file_path} linked to {project_path} in project {project_name} in collection {collection}"),
-                    overwritten: previous_paths.unwrap_or(Vec::new()),
+                    removed: previous_paths.unwrap_or(Vec::new()),
                 };
 
                 return Ok(warp::reply::with_status(
@@ -282,9 +282,10 @@ pub(crate) fn link_folder(
                 .add_folder(&project_path, parsed_folder_path, recursive);
         match result {
             Ok(_) => {
-                let mut out = HashMap::new();
-                out.insert("message".to_string(), format!("Folder {folder_path} linked to {project_path} in project {project_name} in collection {collection}"));
-                out.insert("overwritten".to_string(), "none".to_string());
+                let out = LinkResponse {
+                    message: format!("Folder {folder_path} linked to {project_path} in project {project_name} in collection {collection}"),
+                    removed: Vec::new(),
+                };
                 return Ok(warp::reply::with_status(
                     warp::reply::json(&out),
                     StatusCode::CREATED,
@@ -436,7 +437,7 @@ pub(crate) fn move_(
                     warp::reply::json(
                         &LinkResponse {
                             message: format!("File {project_path} moved to {new_project_path} in project {project_name} in collection {collection}"),
-                            overwritten: v.unwrap_or(Vec::new()),
+                            removed: v.unwrap_or(Vec::new()),
                         }
                     ),
                     StatusCode::OK,

@@ -8,7 +8,7 @@ def handle_overwrite(link_result: dict):
     and should be delted from disk. This happens whenver a file that was stored in
     the project is overwritten.
     """
-    overwritten_files = link_result["overwritten"]
+    overwritten_files = link_result["removed"]
     if overwritten_files != "none":
         handle_removal(overwritten_files)
 
