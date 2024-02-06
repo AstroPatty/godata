@@ -415,6 +415,50 @@ pub(crate) fn path_exists(
     ))
 }
 
+pub(crate) fn move_(
+    project_manager: Arc<Mutex<ProjectManager>>,
+    collection: String,
+    project_name: String,
+    project_path: String,
+    new_project_path: String,
+    overwrite: bool,
+) -> Result<WithStatus<warp::reply::Json>, Infallible> {
+    let project = project_manager
+        .lock()
+        .unwrap()
+        .load_project(&project_name, &collection);
+    if project.is_ok() {
+        let project = project.unwrap();
+        let result = project.lock().unwrap().move_(&project_path, &new_project_path, overwrite);
+        match result {
+            Ok(v) => {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(
+                        &LinkResponse {
+                            message: format!("File {project_path} moved to {new_project_path} in project {project_name} in collection {collection}"),
+                            overwritten: v.unwrap_or(Vec::new()),
+                        }
+                    ),
+                    StatusCode::OK,
+                ))
+            }
+
+            Err(_) => {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&format!("File {project_path} does not exist!")),
+                    StatusCode::NOT_FOUND,
+                ))
+            }
+        }
+    }
+    Ok(warp::reply::with_status(
+        warp::reply::json(&format!(
+            "No project named {project_name} in collection {collection}"
+        )),
+        StatusCode::NOT_FOUND,
+    ))
+}
+
 pub(crate) fn remove_file(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,

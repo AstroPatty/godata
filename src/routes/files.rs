@@ -14,6 +14,7 @@ pub(super) fn routes(
         .or(projects_path_exists(project_manager.clone()))
         .or(project_generate_path(project_manager.clone()))
         .or(project_remove_file(project_manager.clone()))
+        .or(move_file(project_manager.clone()))
 }
 
 fn project_link(
@@ -219,6 +220,48 @@ fn project_remove_file(
                     collection,
                     project_name,
                     project_path,
+                )
+            },
+        )
+}
+
+fn move_file(
+    project_manager: Arc<Mutex<ProjectManager>>,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path!("projects" / String / String / "files" / "move")
+        .and(warp::post())
+        .and(warp::query::<HashMap<String, String>>())
+        .map(
+            move |collection, project_name, params: HashMap<String, String>| {
+                let project_path = match params.get("source_path") {
+                    Some(project_path) => project_path.to_owned(),
+                    None => {
+                        return Ok(warp::reply::with_status(
+                            warp::reply::json(&"Missing project_path argument".to_string()),
+                            StatusCode::BAD_REQUEST,
+                        ))
+                    } // invalid request
+                };
+                let new_path = match params.get("destination_path") {
+                    Some(new_path) => new_path.to_owned(),
+                    None => {
+                        return Ok(warp::reply::with_status(
+                            warp::reply::json(&"Missing new_path argument".to_string()),
+                            StatusCode::BAD_REQUEST,
+                        ))
+                    } // invalid request
+                };
+                let overwrite = match params.get("overwrite") {
+                    Some(overwrite) => overwrite.parse::<bool>().unwrap(),
+                    None => false,
+                };
+                handlers::move_(
+                    project_manager.clone(),
+                    collection,
+                    project_name,
+                    project_path,
+                    new_path,
+                    overwrite,
                 )
             },
         )

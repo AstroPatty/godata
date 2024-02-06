@@ -112,6 +112,21 @@ impl Project {
         Ok(need_to_remove)
     }
 
+    pub(crate) fn move_(&mut self, from: &str, to: &str, overwrite: bool) -> Result<Option<Vec<String>>> {
+        let result = self.tree.move_(from, to, overwrite)?;
+        if result.is_none() {
+            return Ok(None);
+        }
+        let result = result.unwrap();
+        let moved: Vec<String> = result
+            .into_iter()
+            .map(|x| self._endpoint.resolve(&x.real_path))
+            .filter(|x| self._endpoint.is_internal(x))
+            .map(|x| x.to_str().unwrap().to_string())
+            .collect();
+        Ok(Some(moved))
+    }
+
     pub(crate) fn exists(&self, project_path: String) -> bool {
         self.tree.exists(&project_path)
     }

@@ -249,6 +249,30 @@ def link_folder(
         raise GodataClientError(f"{resp.status_code}: {resp.text}")
 
 
+def copy_(
+    collection_name: str,
+    project_name: str,
+    source_path: str,
+    destination_path: str,
+    overwrite: bool = False,
+):
+    client, url = get_client()
+    params = {
+        "source_path": source_path,
+        "destination_path": destination_path,
+        "overwrite": str(overwrite).lower(),
+    }
+    resp = client.post(
+        f"{url}/projects/{collection_name}/{project_name}/files/move", params=params
+    )
+    if resp.status_code == 201:
+        return resp.json()
+    elif resp.status_code == 409:
+        raise AlreadyExists(f"{resp.json()}")
+    else:
+        raise GodataClientError(f"{resp.status_code}: {resp.text}")
+
+
 def list_project_contents(
     collection_name: str,
     project_name: str,
