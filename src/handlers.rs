@@ -1,13 +1,13 @@
 use crate::project::get_collection_names;
 use crate::project::ProjectManager;
 
+use serde::Serialize;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use warp::http::StatusCode;
 use warp::reply::WithStatus;
-use serde::Serialize;
 
 pub(crate) fn get_version() -> Result<impl warp::Reply, Infallible> {
     Ok(warp::reply::with_status(
@@ -232,7 +232,6 @@ pub(crate) fn link_file(
                 .unwrap()
                 .add_file(&project_path, parsed_file_path, metadata, force);
 
-
         match result {
             Ok(previous_paths) => {
                 let output: LinkResponse = LinkResponse {
@@ -430,14 +429,19 @@ pub(crate) fn remove_file(
         let project = project.unwrap();
         let result = project.lock().unwrap().remove_file(&project_path);
         match result {
-            Ok(v) => return Ok(warp::reply::with_status(
-                warp::reply::json(&v),
-                StatusCode::OK,
-            )),
+            Ok(v) => {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&v),
+                    StatusCode::OK,
+                ))
+            }
 
-            Err(_) => return Ok(warp::reply::with_status(
-                warp::reply::json(&format!("File {project_path} does not exist!")),
-                StatusCode::NOT_FOUND)),
+            Err(_) => {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&format!("File {project_path} does not exist!")),
+                    StatusCode::NOT_FOUND,
+                ))
+            }
         }
     }
     Ok(warp::reply::with_status(

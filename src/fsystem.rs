@@ -94,7 +94,7 @@ fn drain(mut folder: Folder) -> Vec<File> {
             FSObject::File(f) => {
                 files.push(f);
             }
-            FSObject::Folder(mut f) => {
+            FSObject::Folder(f) => {
                 let mut child_files = drain(f);
                 files.append(&mut child_files);
             }
@@ -181,8 +181,7 @@ impl FileSystem {
                     }
                     FSObject::Folder(f) => f,
                 }
-
-            },
+            }
             None => &self.root,
         };
         let mut files = Vec::new();
@@ -200,21 +199,14 @@ impl FileSystem {
         Ok(children)
     }
 
-    pub(crate) fn get(
-        &self,
-        virtual_path: &str,
-    ) -> Result<&File> {
+    pub(crate) fn get(&self, virtual_path: &str) -> Result<&File> {
         let file = self.root.get(virtual_path)?;
         match file {
-            FSObject::Folder(_) => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "Path is a folder",
-                ))
-            }
-            FSObject::File(f) => {
-                return Ok(f);
-            },
+            FSObject::Folder(_) => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Path is a folder",
+            )),
+            FSObject::File(f) => Ok(f),
         }
     }
 
@@ -243,11 +235,7 @@ impl FileSystem {
         Ok(result)
     }
 
-    pub(crate) fn insert_many<I>(
-        &mut self,
-        files: I,
-        virtual_path: &str,
-    ) -> Result<()>
+    pub(crate) fn insert_many<I>(&mut self, files: I, virtual_path: &str) -> Result<()>
     where
         I: Iterator<Item = PathBuf>,
     {
@@ -266,7 +254,7 @@ impl FileSystem {
         let mut batch = Batch::default();
         let output = match result {
             RemoveResult::IsEmpty => {
-                self.root.drop_from_tree(&mut batch); 
+                self.root.drop_from_tree(&mut batch);
                 let mut files: Vec<File> = Vec::new();
                 for (_, child) in self.root.children.drain() {
                     match child {
@@ -282,17 +270,15 @@ impl FileSystem {
                 self.root.children.clear();
                 files
             }
-            RemoveResult::Item(f) => {
-                match f {
-                    FSObject::File(f) => {
-                        vec![f]
-                    },
-                    FSObject::Folder(mut f) => {
-                        f.drop_from_tree(&mut batch);
-                        drain(f)
-                    }
+            RemoveResult::Item(f) => match f {
+                FSObject::File(f) => {
+                    vec![f]
                 }
-            }
+                FSObject::Folder(mut f) => {
+                    f.drop_from_tree(&mut batch);
+                    drain(f)
+                }
+            },
         };
         self.db.apply_batch(batch).unwrap();
         self._modified = true;
@@ -300,7 +286,12 @@ impl FileSystem {
         Ok(output)
     }
 
-    pub(crate) fn move_(&mut self, source_path: &str, dest_path: &str, overwrite: bool) -> Result<Option<Vec<File>>> {
+    pub(crate) fn move_(
+        &mut self,
+        source_path: &str,
+        dest_path: &str,
+        overwrite: bool,
+    ) -> Result<Option<Vec<File>>> {
         if !self.root.exists(source_path) {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
@@ -321,7 +312,6 @@ impl FileSystem {
         self._modified = true;
         self.save();
         Ok(result)
-
     }
 
     pub(crate) fn exists(&self, virtual_path: &str) -> bool {
@@ -410,10 +400,9 @@ impl Folder {
         for (_, child) in self.children.iter_mut() {
             if let FSObject::Folder(f) = child {
                 f.drop_from_tree(batch);
-            }   
-        }    
+            }
+        }
     }
-
 
     fn insert_many<I>(&mut self, files: I, virtual_path: &str) -> Result<()>
     where
@@ -552,17 +541,13 @@ impl Folder {
         };
 
         if child.is_none() {
-            return Err(std::io::Error::new(
+            Err(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 "File not found",
-            ));
-        }
-
-        else if path_parts.len() == 1 {
+            ))
+        } else if path_parts.len() == 1 {
             return Ok(child.unwrap());
-        }
-
-        else {
+        } else {
             match child.unwrap() {
                 FSObject::File(_) => {
                     return Err(std::io::Error::new(
@@ -574,9 +559,7 @@ impl Folder {
                     return f._get(&path_parts[1..]);
                 }
             }
-
         }
-
     }
 
     fn insert(
@@ -616,14 +599,14 @@ impl Folder {
                             "Something already exists at that path!",
                         ));
                     } else {
-                       let previous = self.children.remove(fs_object.get_name()).unwrap();
+                        let previous = self.children.remove(fs_object.get_name()).unwrap();
                         self.children
                             .insert(fs_object.get_name().to_string(), fs_object);
                         self._modified = true;
                         let output = match previous {
                             FSObject::File(f) => Some(vec![f]),
                             FSObject::Folder(f) => {
-                                let mut files = drain(f);
+                                let files = drain(f);
                                 Some(files)
                             }
                         };
@@ -696,15 +679,15 @@ impl Folder {
             if self.children.len() == 1 {
                 return Ok(RemoveResult::IsEmpty);
             }
-            return Ok(RemoveResult::Item(self.children.remove(*path_part).unwrap()));
+            return Ok(RemoveResult::Item(
+                self.children.remove(*path_part).unwrap(),
+            ));
         }
         match self.children.get_mut(*path_part).unwrap() {
-            FSObject::File(_) => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "Invalid path",
-                ))
-            }
+            FSObject::File(_) => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Invalid path",
+            )),
             FSObject::Folder(f) => {
                 let rm_result = f._delete(&path[1..])?;
                 match rm_result {
@@ -712,12 +695,11 @@ impl Folder {
                         if self.children.len() == 1 {
                             return Ok(RemoveResult::IsEmpty);
                         }
-                        return Ok(RemoveResult::Item(self.children.remove(*path_part).unwrap()));
+                        Ok(RemoveResult::Item(
+                            self.children.remove(*path_part).unwrap(),
+                        ))
                     }
-                    RemoveResult::Item(_) => {
-                        return Ok(rm_result);
-                    }
-                    
+                    RemoveResult::Item(_) => Ok(rm_result),
                 }
             }
         }

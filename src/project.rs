@@ -23,15 +23,15 @@ impl Project {
         metadata: HashMap<String, String>,
         overwrite: bool,
     ) -> Result<Option<Vec<String>>> {
-
         let relpath = self._endpoint.get_relative_path(&real_path);
-        let previous_entry =
-            self.tree.insert(project_path, relpath, metadata, overwrite)?;
+        let previous_entry = self
+            .tree
+            .insert(project_path, relpath, metadata, overwrite)?;
         if previous_entry.is_none() {
             return Ok(None);
         }
         let previous_entries = previous_entry.unwrap();
-        if previous_entries.len() == 0 {
+        if previous_entries.is_empty() {
             return Ok(None);
         }
         let output: Vec<String> = previous_entries
@@ -57,7 +57,6 @@ impl Project {
         real_path: PathBuf,
         recursive: bool,
     ) -> Result<()> {
-        
         let mut folders: Vec<PathBuf> = Vec::new();
         let files = std::fs::read_dir(real_path)?
             .filter(|x| x.is_ok())
@@ -83,7 +82,7 @@ impl Project {
 
         Ok(())
     }
-    
+
     pub(crate) fn get_file(&self, project_path: &str) -> Result<HashMap<String, String>> {
         let file = self.tree.get(project_path)?;
         let fpath = self._endpoint.resolve(&file.real_path);
