@@ -13,11 +13,11 @@ use ciborium::{from_reader, into_writer};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+#[derive(Clone)]
 enum FSObject {
     File(File),
     Folder(Folder),
 }
-
 impl FSObject {
     fn get_name(&self) -> &str {
         match self {
@@ -26,14 +26,14 @@ impl FSObject {
         }
     }
 }
-
+#[derive(Clone)]
 pub(crate) struct File {
     pub(crate) real_path: PathBuf,
     pub(crate) name: String,
     pub(crate) metadata: HashMap<String, String>,
     _uuid: String,
 }
-
+#[derive(Clone)]
 struct Folder {
     pub(self) name: String,
     children: HashMap<String, FSObject>,
@@ -84,27 +84,6 @@ pub(crate) fn is_empty(path: &PathBuf) -> bool {
         return false;
     }
     true
-}
-
-fn get_paths(folder: Folder) -> Vec<PathBuf> {
-    // note: consumes the folder
-    // Iterate through the children.
-    // If the child is a file, add its path to the list of files
-    // if the child is a folder, call this function on the folder and add the results to the list of folders
-    let mut files = Vec::new();
-    folder.children.into_iter()
-                   .for_each(|(_, child)| {
-                       match child {
-                           FSObject::File(f) => {
-                                files.push(f.real_path);
-                           },
-                           FSObject::Folder(f) => {
-                                 let mut child_paths = get_paths(f);
-                                 files.append(&mut child_paths);
-                           }
-                       }
-                   });
-    files
 }
 
 fn drain(mut folder: Folder) -> Vec<File> {
@@ -329,6 +308,31 @@ impl FileSystem {
 
         Ok(output)
     }
+
+    pub(crate) fn move_(&mut self, source_path: &str, dest_path: &str, overwrite: bool) -> Result<()> {
+        if !self.root.exists(source_path) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "Source path does not exist",
+            ));
+        }
+        if self.root.exists(dest_path) && !overwrite {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                "Destination path already exists",
+            ));
+        }
+        let item = self.root.get(source_path)?;
+        // make a copy of the item
+        let item = (*item).clone();
+        self.root.insert(item, dest_path, overwrite)?;
+        self.root.delete(source_path)?;
+        self._modified = true;
+        self.save();
+        Ok(())
+
+    }
+
     pub(crate) fn exists(&self, virtual_path: &str) -> bool {
         self.root.exists(virtual_path)
     }
