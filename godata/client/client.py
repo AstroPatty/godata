@@ -54,11 +54,8 @@ def check_server(client, url):
 
 @cache
 def get_client():
-    try:
-        with open(Path.home() / ".godata_server", "r") as f:
-            SERVER_URL = f.read().strip()
-    except FileNotFoundError:
-        SERVER_URL = None
+    server_config = server.get_config()
+    SERVER_URL = server_config.server_url
 
     if not SERVER_URL:
         server.start()
