@@ -48,11 +48,12 @@ class GodataProject:
         files/folders, this will throw an error unless rucursive is set to True.
         """
         try:
-            client.remove_file(self.collection, self.name, project_path)
+            paths = client.remove_file(self.collection, self.name, project_path)
         except client.NotFound:
             raise GodataProjectError(
                 f"File or folder {project_path} does not exist in project {self.name}"
             )
+        file_utils.handle_removal(paths)
         # will raise an error if it cannot be removed
         return True
 
@@ -183,7 +184,6 @@ class GodataProject:
 
         storage_path = Path(storage_path)
         storage_path = storage_path.with_suffix(suffix)
-        storage_path.parent.mkdir(parents=True, exist_ok=True)
         self.link(
             storage_path,
             project_path,
@@ -192,6 +192,8 @@ class GodataProject:
             verbose=verbose,
             metadata=metadata,
         )
+        storage_path.parent.mkdir(parents=True, exist_ok=True)
+
         with portalocker.Lock(str(storage_path), "wb"):
             writer_fn(obj, storage_path, **writer_kwargs)
 
@@ -240,6 +242,36 @@ class GodataProject:
         if verbose:
             print(result["message"])
         file_utils.handle_overwrite(result)
+        return True
+
+    @sanitize_project_path
+    def move(
+        self,
+        src_project_path: str,
+        dest_project_path: str,
+        overwrite: bool = False,
+        recursive: bool = False,
+        verbose: bool = True,
+    ) -> bool:
+        """
+        Copy a file or folder from one location to another in the project. This will
+        not move any data, just create a reference to the file.
+        """
+        try:
+            result = client.move(
+                self.collection,
+                self.name,
+                src_project_path,
+                dest_project_path,
+                overwrite,
+            )
+        except client.AlreadyExists:
+            raise GodataProjectError(
+                f"Something already exists at {dest_project_path}. Use overwrite=True "
+                "to overwrite it."
+            )
+        if verbose:
+            print(result["message"])
         return True
 
     @sanitize_project_path
@@ -352,6 +384,7 @@ def create_project(
             )
         project_dir.mkdir(parents=True, exist_ok=True)
         storage_location = project_dir
+
     response = client.create_project(
         collection, name, force=True, storage_location=storage_location
     )

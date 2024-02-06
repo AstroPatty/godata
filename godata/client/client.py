@@ -116,7 +116,6 @@ def create_project(
     args = {"force": str(force).lower()}
     if storage_location:
         args["storage_location"] = storage_location
-
     result = client.post(f"{url}/create/{collection_name}/{project_name}", params=args)
     if result.status_code == 201:
         return result.json()
@@ -217,6 +216,7 @@ def link_file(
         f"{url}/projects/{collection_name}/{project_name}/files", params=params
     )
     if resp.status_code == 201:
+        print(resp.json())
         return resp.json()
     elif resp.status_code == 409:
         raise AlreadyExists(f"{resp.json()}")
@@ -242,6 +242,30 @@ def link_folder(
         f"{url}/projects/{collection_name}/{project_name}/files", params=params
     )
     if resp.status_code == 201:
+        return resp.json()
+    elif resp.status_code == 409:
+        raise AlreadyExists(f"{resp.json()}")
+    else:
+        raise GodataClientError(f"{resp.status_code}: {resp.text}")
+
+
+def move(
+    collection_name: str,
+    project_name: str,
+    source_path: str,
+    destination_path: str,
+    overwrite: bool = False,
+):
+    client, url = get_client()
+    params = {
+        "source_path": source_path,
+        "destination_path": destination_path,
+        "overwrite": str(overwrite).lower(),
+    }
+    resp = client.post(
+        f"{url}/projects/{collection_name}/{project_name}/files/move", params=params
+    )
+    if resp.status_code == 200:
         return resp.json()
     elif resp.status_code == 409:
         raise AlreadyExists(f"{resp.json()}")

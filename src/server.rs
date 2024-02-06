@@ -1,20 +1,16 @@
 use crate::project::{get_project_manager, ProjectManager};
 use crate::routes;
 
-use std::sync::{Arc, Mutex};
-use tokio_stream::wrappers::UnixListenerStream;
-use tokio::signal;
 use directories::UserDirs;
+use std::sync::{Arc, Mutex};
 use sysinfo::System;
-
+use tokio::signal;
+use tokio_stream::wrappers::UnixListenerStream;
 
 pub struct Server {
     project_manager: Arc<Mutex<ProjectManager>>,
-    url: (String, Option<u16>)
+    url: (String, Option<u16>),
 }
-
-
-
 
 impl Server {
     pub async fn start(&self) {
@@ -26,16 +22,14 @@ impl Server {
                 });
             server.await
         }
-
         // If there's no port, start a Unix socket server
-
         else {
             if std::path::Path::new(&self.url.0).exists() {
                 // check if the socket file already exists
                 // if it does, check if there is a "godata_server" process running
                 let system = System::new();
                 let mut processes = system.processes_by_name("godata_server");
-                if let Some(_) = processes.next() {
+                if processes.next().is_some() {
                     println!("A server is already running on {}", self.url.0);
                     return;
                 }
@@ -65,7 +59,13 @@ impl Drop for Server {
 pub fn get_server(port: Option<u16>) -> Server {
     let url = match port {
         Some(p) => format!("localhost:{}", p),
-        None => UserDirs::new().unwrap().home_dir().join(".godata.sock").to_str().unwrap().to_string()
+        None => UserDirs::new()
+            .unwrap()
+            .home_dir()
+            .join(".godata.sock")
+            .to_str()
+            .unwrap()
+            .to_string(),
     };
     println!("Starting godata server on {}", url);
     Server {
