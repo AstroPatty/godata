@@ -354,6 +354,7 @@ def create_project(
             )
         project_dir.mkdir(parents=True, exist_ok=True)
         storage_location = project_dir
+
     response = client.create_project(
         collection, name, force=True, storage_location=storage_location
     )

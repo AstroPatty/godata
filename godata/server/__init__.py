@@ -78,8 +78,10 @@ def stop():
         print("Server is not running.")
         return
     # kill the server
+    print(int(server_pid))
     os.kill(int(server_pid), signal.SIGINT)
     # remove the file that stores the server url
+    print("STOPPED")
     FILE_OUTPUT_PATH = Path.home() / ".godata_server"
     if FILE_OUTPUT_PATH.exists():
         FILE_OUTPUT_PATH.unlink()

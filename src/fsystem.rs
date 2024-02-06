@@ -27,11 +27,10 @@ impl FSObject {
     }
 }
 
-struct File {
-    real_path: PathBuf,
-    pub(self) name: String,
-    metadata: HashMap<String, String>,
-    _internal: bool,
+pub(crate) struct File {
+    pub(crate) real_path: PathBuf,
+    pub(crate) name: String,
+    pub(crate) metadata: HashMap<String, String>,
     _uuid: String,
 }
 
@@ -57,7 +56,6 @@ struct DbFile {
     pub(self) name: String,
     real_path: String,
     uuid: String,
-    _internal: bool,
     #[serde(default)]
     metadata: HashMap<String, String>,
 }
@@ -88,27 +86,42 @@ pub(crate) fn is_empty(path: &PathBuf) -> bool {
     true
 }
 
-fn get_paths(folder: Folder) -> (Vec<PathBuf>, Vec<PathBuf>) {
+fn get_paths(folder: Folder) -> Vec<PathBuf> {
     // note: consumes the folder
-    let mut internal_paths = Vec::new();
-    let mut external_paths = Vec::new();
-    for (_, child) in folder.children.into_iter() {
+    // Iterate through the children.
+    // If the child is a file, add its path to the list of files
+    // if the child is a folder, call this function on the folder and add the results to the list of folders
+    let mut files = Vec::new();
+    folder.children.into_iter()
+                   .for_each(|(_, child)| {
+                       match child {
+                           FSObject::File(f) => {
+                                files.push(f.real_path);
+                           },
+                           FSObject::Folder(f) => {
+                                 let mut child_paths = get_paths(f);
+                                 files.append(&mut child_paths);
+                           }
+                       }
+                   });
+    files
+}
+
+fn drain(mut folder: Folder) -> Vec<File> {
+    // Consume the folder and return a list of all the files in the folder and its children
+    let mut files: Vec<File> = Vec::new();
+    for (_, child) in folder.children.drain() {
         match child {
             FSObject::File(f) => {
-                if f._internal {
-                    internal_paths.push(f.real_path);
-                } else {
-                    external_paths.push(f.real_path);
-                }
-            } 
-            FSObject::Folder(f) => {
-                let mut child_paths = get_paths(f);
-                internal_paths.append(&mut child_paths.0);
-                external_paths.append(&mut child_paths.1);
+                files.push(f);
+            }
+            FSObject::Folder(mut f) => {
+                let mut child_files = drain(f);
+                files.append(&mut child_files);
             }
         }
     }
-    (internal_paths, external_paths)
+    files
 }
 
 impl FileSystem {
@@ -211,7 +224,7 @@ impl FileSystem {
     pub(crate) fn get(
         &self,
         virtual_path: &str,
-    ) -> Result<(PathBuf, HashMap<String, String>, bool)> {
+    ) -> Result<&File> {
         let file = self.root.get(virtual_path)?;
         match file {
             FSObject::Folder(_) => {
@@ -221,11 +234,7 @@ impl FileSystem {
                 ))
             }
             FSObject::File(f) => {
-                Ok((
-                    f.real_path.clone(),
-                    f.metadata.clone(),
-                    f._internal,
-                ))        
+                return Ok(f);
             },
         }
     }
@@ -235,25 +244,24 @@ impl FileSystem {
         project_path: &str,
         real_path: PathBuf,
         metadata: HashMap<String, String>,
-        internal: bool,
         overwrite: bool,
-    ) -> Result<Option<(PathBuf, bool)>> {
+    ) -> Result<Option<File>> {
         let name = project_path.split('/').last().unwrap().to_string();
         let result = if name == project_path {
-            let mut file = File::new(real_path, name, internal);
+            let mut file = File::new(real_path, name);
             file.metadata = metadata;
             self.root.insert(FSObject::File(file), "", overwrite)?
         } else {
             let ppath = project_path
                 .strip_suffix(format!("/{}", name).as_str())
                 .unwrap();
-            let mut file = File::new(real_path, name, internal);
+            let mut file = File::new(real_path, name);
             file.metadata = metadata;
             self.root.insert(FSObject::File(file), ppath, overwrite)?
         };
         let output = match result {
             Some(f) => match f {
-                FSObject::File(f) => Some((f.real_path, f._internal)),
+                FSObject::File(f) => Some(f),
                 FSObject::Folder(_) => {
                     panic!("Cannot overwrite a folder, but somehow we did!")
                 }
@@ -269,14 +277,13 @@ impl FileSystem {
         &mut self,
         files: I,
         virtual_path: &str,
-        internal: bool,
     ) -> Result<()>
     where
         I: Iterator<Item = PathBuf>,
     {
         let file_objects = files.map(|path| {
             let name = path.file_name().unwrap().to_str().unwrap().to_string();
-            File::new(path, name, internal)
+            File::new(path, name)
         });
         self.root.insert_many(file_objects, virtual_path)?;
         self._modified = true;
@@ -284,37 +291,35 @@ impl FileSystem {
         Ok(())
     }
 
-    pub(crate) fn remove(&mut self, virtual_path: &str) -> Result<Vec<PathBuf>> {
+    pub(crate) fn remove(&mut self, virtual_path: &str) -> Result<Vec<File>> {
         let result = self.root.delete(virtual_path)?;
         let mut batch = Batch::default();
         let output = match result {
             RemoveResult::IsEmpty => {
                 self.root.drop_from_tree(&mut batch); 
-                let mut paths: Vec<PathBuf> = Vec::new();
+                let mut files: Vec<File> = Vec::new();
                 for (_, child) in self.root.children.drain() {
                     match child {
                         FSObject::File(f) => {
-                            if f._internal {
-                                paths.push(f.real_path);
-                            }
+                            files.push(f);
                         }
                         FSObject::Folder(f) => {
-                            let mut child_paths = get_paths(f);
-                            paths.append(&mut child_paths.0);
+                            let mut child_files = drain(f);
+                            files.append(&mut child_files);
                         }
                     }
                 }
                 self.root.children.clear();
-                paths
+                files
             }
             RemoveResult::Item(f) => {
                 match f {
                     FSObject::File(f) => {
-                        vec![f.real_path]
+                        vec![f]
                     },
                     FSObject::Folder(mut f) => {
                         f.drop_from_tree(&mut batch);
-                        get_paths(f).0
+                        drain(f)
                     }
                 }
             }
@@ -732,12 +737,11 @@ impl Folder {
 }
 
 impl File {
-    fn new(real_path: PathBuf, name: String, internal: bool) -> File {
+    fn new(real_path: PathBuf, name: String) -> File {
         File {
             real_path,
             name,
             metadata: HashMap::new(),
-            _internal: internal,
             _uuid: Uuid::new_v4().to_string(),
         }
     }
@@ -750,7 +754,6 @@ impl File {
             name: self.name.clone(),
             real_path: self.real_path.to_str().unwrap().to_string(),
             metadata: self.metadata.clone(),
-            _internal: self._internal,
             uuid: self._uuid.clone(),
         }
     }
@@ -760,7 +763,6 @@ impl File {
             name: db_file.name,
             real_path: PathBuf::from(db_file.real_path),
             metadata: db_file.metadata,
-            _internal: db_file._internal,
             _uuid: db_file.uuid,
         }
     }

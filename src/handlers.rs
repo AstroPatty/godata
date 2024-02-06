@@ -225,19 +225,13 @@ pub(crate) fn link_file(
                 .unwrap()
                 .add_file(&project_path, parsed_file_path, metadata, force);
         match result {
-            Ok(r) => {
-                let pervious_path = r.0;
-                let was_internal = r.1;
+            Ok(previous_path) => {
                 let mut output: HashMap<String, _> = HashMap::new();
                 output.insert(
                     "overwritten".to_string(),
-                    pervious_path.map_or("none".to_string(), |path| {
-                        if was_internal {
-                            path.to_str().unwrap().to_string()
-                        } else {
-                            "none".to_string()
-                        }
-                    }),
+                    previous_path.map_or("none".to_string(), |path| {
+                            path.to_string_lossy().to_string()
+                        })
                 );
                 output.insert("message".to_string(), format!("File {file_path} linked to {project_path} in project {project_name} in collection {collection}"));
 

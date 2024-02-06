@@ -116,7 +116,6 @@ def create_project(
     args = {"force": str(force).lower()}
     if storage_location:
         args["storage_location"] = storage_location
-
     result = client.post(f"{url}/create/{collection_name}/{project_name}", params=args)
     if result.status_code == 201:
         return result.json()

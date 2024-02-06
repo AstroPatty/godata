@@ -22,29 +22,21 @@ impl Project {
         real_path: PathBuf,
         metadata: HashMap<String, String>,
         overwrite: bool,
-    ) -> Result<(Option<PathBuf>, bool)> {
+    ) -> Result<Option<PathBuf>> {
+
         let relpath = self._endpoint.get_relative_path(&real_path);
-        let (fpath, is_internal) = match relpath {
-            Ok(relpath) => (relpath, true),
-            Err(_) => (real_path, false),
-        };
-
         let previous_entry =
-            self.tree
-                .insert(project_path, fpath, metadata, is_internal, overwrite)?;
-        let result = match previous_entry {
-            Some((previous_entry, is_internal)) => {
-                let previous_path = if is_internal {
-                    self._endpoint.make_full_path(&previous_entry)
-                } else {
-                    previous_entry
-                };
-
-                (Some(previous_path), is_internal)
-            }
-            None => (None, false),
-        };
-        Ok(result)
+            self.tree.insert(project_path, relpath, metadata, overwrite)?;
+        if previous_entry.is_none() {
+            return Ok(None);
+        }
+        let previous_entry = previous_entry.unwrap();
+        let previous_path = self._endpoint.resolve(&previous_entry.real_path);
+        if self._endpoint.is_internal(&previous_path) {
+            Ok(Some(previous_path))
+        } else {
+            Ok(None)
+        }
     }
 
     pub(crate) fn duplicate_tree(&mut self, output_path: PathBuf) -> Result<()> {
@@ -60,6 +52,7 @@ impl Project {
         real_path: PathBuf,
         recursive: bool,
     ) -> Result<()> {
+        
         let mut folders: Vec<PathBuf> = Vec::new();
         let files = std::fs::read_dir(real_path)?
             .filter(|x| x.is_ok())
@@ -74,7 +67,7 @@ impl Project {
                     None
                 }
             });
-        self.tree.insert_many(files, project_path, false)?;
+        self.tree.insert_many(files, project_path)?;
         if recursive {
             for folder in folders {
                 let folder_name = folder.file_name().unwrap().to_str().unwrap().to_string();
@@ -88,14 +81,8 @@ impl Project {
 
     pub(crate) fn get_file(&self, project_path: &str) -> Result<HashMap<String, String>> {
         let file = self.tree.get(project_path)?;
-        let path = file.0;
-        let mut meta = file.1;
-        let is_internal = file.2;
-        let fpath = if is_internal {
-            self._endpoint.make_full_path(&path)
-        } else {
-            path
-        };
+        let fpath = self._endpoint.resolve(&file.real_path);
+        let mut meta = file.metadata.clone();
 
         meta.insert("real_path".to_string(), fpath.to_str().unwrap().to_string());
 
@@ -115,7 +102,8 @@ impl Project {
         // filter out paths that are not internal
         let need_to_remove: Vec<PathBuf> = removed_internal_paths
             .into_iter()
-            .map(|x| self._endpoint.make_full_path(&x))
+            .map(|x| self._endpoint.resolve(&x.real_path))
+            .filter(|x| self._endpoint.is_internal(x))
             .collect();
         Ok(need_to_remove)
     }
