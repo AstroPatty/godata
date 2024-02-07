@@ -166,6 +166,9 @@ def drop_project(collection_name: str, project_name: str):
         return {}
     if resp.status_code == 200:
         return resp.json()
+    elif resp.status_code == 404:
+        # Project is not loaded, so we don't care
+        return {}
     else:
         raise GodataClientError(f"{resp.status_code}: {resp.text}")
 

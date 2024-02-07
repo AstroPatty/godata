@@ -60,7 +60,7 @@ def start(port: int = None):
             f.write(config.model_dump_json(indent=2))
             time.sleep(0.1)
 
-    return True
+        return not already_running
 
 
 def stop():
