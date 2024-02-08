@@ -57,8 +57,7 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
-      - run: cargo install cross --git https://github.com/cross-rs/cross
-      - run: cross build --release --target ${{ matrix.target }} 
+      - run: cargo build --release --target ${{ matrix.target }} 
       - name: zip artifact
         run: zip -j godata_server-${{ matrix.target }}.zip target/${{ matrix.target }}/release/godata_server
 
@@ -79,7 +78,7 @@ jobs:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: godata_server-${{ matrix.target }}
           path: server
@@ -116,7 +115,7 @@ jobs:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: godata_server-${{ matrix.target }}
           path: server
@@ -215,7 +214,7 @@ jobs:
     - name: "Build Changelog"
       id: build_changelog
       uses: mikepenz/release-changelog-builder-action@v4.1.1
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
     - uses: ncipollo/release-action@v1.13.0
       with:
         token: ${{ secrets.RELEASE_TOKEN }}
