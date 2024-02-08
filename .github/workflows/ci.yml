@@ -85,7 +85,7 @@ jobs:
       - name: unzip artifact
         run: unzip -j server/godata_server-${{ matrix.target }}.zip -d server
       - name: install python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install Poetry
@@ -123,7 +123,7 @@ jobs:
         run: unzip -j server/godata_server-${{ matrix.target }}.zip -d server
   
       - name: install python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install Poetry
