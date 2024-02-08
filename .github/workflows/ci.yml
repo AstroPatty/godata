@@ -34,14 +34,11 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --release --target ${{ matrix.target }}
+      - run: cargo build --release --target ${{ matrix.target }} 
+
       - name: zip artifact
         run: zip -j godata_server-${{ matrix.target }}.zip  target/${{ matrix.target }}/release/godata_server
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: godata_server-${{ matrix.target }}
           path: godata_server-${{ matrix.target }}.zip 
@@ -63,7 +60,7 @@ jobs:
       - name: zip artifact
         run: zip -j godata_server-${{ matrix.target }}.zip target/${{ matrix.target }}/release/godata_server
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: godata_server-${{ matrix.target }}
           path: godata_server-${{ matrix.target }}.zip
