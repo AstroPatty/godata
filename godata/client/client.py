@@ -54,11 +54,8 @@ def check_server(client, url):
 
 @cache
 def get_client():
-    try:
-        with open(Path.home() / ".godata_server", "r") as f:
-            SERVER_URL = f.read().strip()
-    except FileNotFoundError:
-        SERVER_URL = None
+    server_config = server.get_config()
+    SERVER_URL = server_config.server_url
 
     if not SERVER_URL:
         server.start()
@@ -169,6 +166,9 @@ def drop_project(collection_name: str, project_name: str):
         return {}
     if resp.status_code == 200:
         return resp.json()
+    elif resp.status_code == 404:
+        # Project is not loaded, so we don't care
+        return {}
     else:
         raise GodataClientError(f"{resp.status_code}: {resp.text}")
 

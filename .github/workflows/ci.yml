@@ -29,23 +29,21 @@ jobs:
       matrix:
         target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --release --target ${{ matrix.target }}
+          targets: ${{ matrix.target }}
+      - run: cargo install cross --git https://github.com/cross-rs/cross
+      - run: cross build --release --target ${{ matrix.target }} 
+
       - name: zip artifact
         run: zip -j godata_server-${{ matrix.target }}.zip  target/${{ matrix.target }}/release/godata_server
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: godata_server-${{ matrix.target }}
           path: godata_server-${{ matrix.target }}.zip 
+
   mac_build_server:
     name: Build server on macOS
     runs-on: macos-latest
@@ -54,22 +52,16 @@ jobs:
       matrix:
         target: [x86_64-apple-darwin, aarch64-apple-darwin]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
-      - id: build
-        uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --release --target ${{ matrix.target }}
+          targets: ${{ matrix.target }}
+      - run: cargo build --release --target ${{ matrix.target }} 
       - name: zip artifact
         run: zip -j godata_server-${{ matrix.target }}.zip target/${{ matrix.target }}/release/godata_server
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: godata_server-${{ matrix.target }}
           path: godata_server-${{ matrix.target }}.zip
@@ -85,15 +77,15 @@ jobs:
         target: [x86_64-unknown-linux-gnu]
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
           name: godata_server-${{ matrix.target }}
           path: server
       - name: unzip artifact
         run: unzip -j server/godata_server-${{ matrix.target }}.zip -d server
       - name: install python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install Poetry
@@ -122,8 +114,8 @@ jobs:
         target: [x86_64-apple-darwin]
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
           name: godata_server-${{ matrix.target }}
           path: server
@@ -131,7 +123,7 @@ jobs:
         run: unzip -j server/godata_server-${{ matrix.target }}.zip -d server
   
       - name: install python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install Poetry
@@ -154,7 +146,7 @@ jobs:
     outputs:
       tag: ${{ steps.get_tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: get commit tag
         id: get_tag
         uses: olegtarasov/get-tag@v2.1.2
@@ -204,7 +196,7 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: build and publish to pypi
         uses: JRubics/poetry-publish@v1.17
         with:
@@ -222,7 +214,7 @@ jobs:
     - name: "Build Changelog"
       id: build_changelog
       uses: mikepenz/release-changelog-builder-action@v4.1.1
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
     - uses: ncipollo/release-action@v1.13.0
       with:
         token: ${{ secrets.RELEASE_TOKEN }}
