@@ -23,4 +23,6 @@ def test_many_start():
     # run the command in n threads, and collect the return values
     with mp.Pool(n) as pool:
         results = pool.map(start, range(n))
-    assert results[0] and not any(results[1:])
+
+    # We should get one True and n-1 False
+    assert results.count(True) == 1
