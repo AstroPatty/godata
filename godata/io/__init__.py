@@ -43,7 +43,7 @@ def get_typekey(cls):
 
 for loader, module_name, is_pkg in pkgutil.walk_packages(__path__):
     try:
-        spec = loader.find_spec(module_name)
+        spec = loader.find_spec(module_name, None)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
     except ImportError:
@@ -100,7 +100,7 @@ def get_known_writers():
     return _known_writers
 
 
-def try_to_read(path: Path, obj_type: type = None, reader_kwargs: dict = {}):
+def try_to_read(path: Path, obj_type: type | None = None, reader_kwargs: dict = {}):
     readers = get_known_readers()
     suffix = path.suffix
     if suffix not in readers:
@@ -122,7 +122,7 @@ def try_to_read(path: Path, obj_type: type = None, reader_kwargs: dict = {}):
     return reader_fn(path, **reader_kwargs)
 
 
-def find_writer(obj, format: str = None):
+def find_writer(obj, format: str | None = None):
     obj_key = get_typekey(type(obj))
     writers = get_known_writers()
     if obj_key not in writers:

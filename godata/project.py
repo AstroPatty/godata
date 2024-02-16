@@ -1,6 +1,6 @@
 """
 The godata project module contains all of themain functionality for interacting with
-projects. This includes creating, deleting, and listing projects, as well as adding,    
+projects. This includes creating, deleting, and listing projects, as well as adding,
 removing, and listing files in projects.
 """
 
@@ -41,7 +41,7 @@ class GodataProject:
     existing one, respectively.
     """
 
-    def __init__(self, collection: str, name: str) -> GodataProject:
+    def __init__(self, collection: str, name: str):
         self.collection = collection
         self.name = name
         self.active = True
@@ -127,7 +127,7 @@ class GodataProject:
         project_path: str,
         overwrite=False,
         verbose=True,
-        format: str = None,
+        format: str | None = None,
         writer_kwargs: dict = {},
     ) -> bool:
         """
@@ -249,7 +249,7 @@ class GodataProject:
         self,
         project_path: str,
         as_path: bool = False,
-        load_type: type = None,
+        load_type: type | None = None,
         reader_kwargs: dict = {},
     ) -> Any:
         """
@@ -395,7 +395,7 @@ class GodataProject:
         return file_info
 
     @sanitize_project_path
-    def list(self, project_path: str = None) -> dict[str, str]:
+    def list(self, project_path: str | None = None) -> dict[str, str]:
         """
         List the contents of a given project path. This will return a dictionary
         containing the files and folders at the given path. If no path is given,
@@ -421,7 +421,7 @@ class GodataProject:
         return client.list_project_contents(self.collection, self.name, project_path)
 
     @sanitize_project_path
-    def ls(self, project_path: str = None) -> None:
+    def ls(self, project_path: str | None = None) -> None:
         """
         Utility function for listing the contents of a given directory in a
         human-readable format. This is used for the godata CLI, or for working
@@ -523,7 +523,7 @@ def has_collection(name: str) -> bool:
 
 
 def create_project(
-    name: str, collection: str = None, storage_location: str = None
+    name: str, collection: str | None = None, storage_location: str | None = None
 ) -> GodataProject:
     """
     Create a new project in the given collection. If no collection is given, this
