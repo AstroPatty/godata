@@ -2,8 +2,8 @@ Projects API
 ============
 
 The godata projects API is the primary tool you will use to interact with your project.
-It provides tools for creating and loading projects, as well as adding, getting and 
-removing project data. If you're using godata in a script, Jupyter notebook or even 
+It provides tools for creating and loading projects, as well as adding, getting and
+removing project data. If you're using godata in a script, Jupyter notebook or even
 a larger application, you probably won't ever have to go beyond the tools documented
 here.
 
@@ -23,7 +23,7 @@ deleted. Creating a project inside a collection is as simple as:
     # Create 'my_project' inside 'my_collection'
     project = create_project('my_project', collection='my_collection')
 
-If you do not specify a collection, the project will be created in the 'default' 
+If you do not specify a collection, the project will be created in the 'default'
 collection.
 
 Loading projects that you have previously created is just as easy:
@@ -38,7 +38,7 @@ Loading projects that you have previously created is just as easy:
 Projects can only be created once, but can be loaded any number of times from any
 number of python sessions including those executing concurrently.
 
-If you forget the name of a project or collection, you can list them using the 
+If you forget the name of a project or collection, you can list them using the
 ``list_projects`` and ``list_collections`` functions:
 
 .. code-block:: python
@@ -47,7 +47,7 @@ If you forget the name of a project or collection, you can list them using the
 
     # List all collections
     print(list_collections())
-    
+
     # List all projects in 'my_collection'
     print(list_projects("my_collection"))
 
@@ -63,7 +63,7 @@ Hidden Collections and Projects
 -------------------------------
 
 Hidden collections and projects are hidden from the ``list_collections`` and ``list_projects``
-functions by default. You can list hidden collections and projects by passing the 
+functions by default. You can list hidden collections and projects by passing the
 ``hidden=True`` argument to the list functions. In general, hidden collections and projects
 are designed to be used by libraries built on top of godata, which store data
 that is not intended to be accessed directly by the user. Note that projects and collections
@@ -96,8 +96,8 @@ Output:
 Working with Projects
 ======================
 
-Once you have created or loaded a project, working with it is simple. 
-The :class:`godata.project.GodataProject` class provides a number of methods for 
+Once you have created or loaded a project, working with it is simple.
+The :class:`godata.project.GodataProject` class provides a number of methods for
 adding, getting, listing, and removing data from the project. In general, you should
 never create a :class:`godata.project.GodataProject` object directly. You should always
 use the ``create_project`` and ``load_project`` functions.
@@ -141,25 +141,25 @@ When it comes to using the data, there is no difference between linked and store
 
 :meth:`GodataProject.link <godata.project.GodataProject.link>`  is used to link pre-existing
 data to a project without actually copying the data into godata. This is useful when you have
-a large amount of pre-existing data that you want to work with in godata. If the 
+a large amount of pre-existing data that you want to work with in godata. If the
 data is in a format that godata can read, it will be returned as a python object when you
 request it.
 
-One key difference between linked and stored data is that linked data does not have to 
-be a known format. If you link to a file that godata does not recognize, it will always 
+One key difference between linked and stored data is that linked data does not have to
+be a known format. If you link to a file that godata does not recognize, it will always
 be returned as a path when you request it.
 
 A second key difference is the way that linked and stored data will be handled when you
 delete them from a project (or delete the project itself). Linked data will *never* be
-deleted by godata under any circumstances. 
+deleted by godata under any circumstances.
 
 :meth:`GodataProject.store <godata.project.GodataProject.store>` is used to store data in
-godata. This is most useful when you are creating and storing objects in python that 
+godata. This is most useful when you are creating and storing objects in python that
 you want to able be access later. Godata will handle the serialization and deserialization
 of the data for you, and track it on disk.
 
 Unlike linked data, stored data *will* be deleted by godata when you delete it from a project
-or when the project itself is deleted. 
+or when the project itself is deleted.
 
 You can also store data that already exists on disk by passing a path to the ``store`` method.
 In this case, godata will create a copy of the data, while leaving the original data untouched.
@@ -169,7 +169,13 @@ on disk in its original location.
 
 
 
+=============
+API Reference
+=============
 
+The :meth:`godata.create_project` and :meth:`godata.load_project` return a :class:`godata.project.GodataProject`
+object, which is used to interact with the project. You should never create a :class:`godata.project.GodataProject`
+object directly.
 
 
 .. autofunction:: godata.create_project
@@ -183,5 +189,3 @@ on disk in its original location.
 
 .. autoclass:: godata.project.GodataProject
     :members: link, store, get, move, remove, list, ls, has_path
-
-
