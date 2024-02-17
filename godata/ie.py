@@ -7,10 +7,10 @@ but with all files stored (and linked!) in the temporary project's storage. Then
 we just zip it up and we're done.
 
 The only complications is that files in the tree store their full path, and this path
-will obviously change when the projected is imported. We need to either fix that or 
+will obviously change when the projected is imported. We need to either fix that or
 change the server to only store relative paths when the file is internal.
-
 """
+
 import zipfile
 from pathlib import Path
 
@@ -37,7 +37,7 @@ def export_project(
 
     source_project = load_project(project_name, collection_name)
     target_project = create_project(
-        project_name, ".temp", storage_location=output_location
+        project_name, ".temp", storage_location=str(output_location)
     )
     print("Duplicating project for export")
     export_helper(source_project, target_project)
@@ -62,13 +62,13 @@ def export_project(
 def export_helper(
     source_project: GodataProject,
     destination_project: GodataProject,
-    project_path: str = None,
+    project_path: str | None = None,
 ) -> None:
     print(f"Working on {project_path}...")
     folder_contents = source_project.list(project_path)
     files = folder_contents["files"]
     folders = folder_contents["folders"]
-    if not project_path:
+    if project_path is None:
         project_path = ""
     for f in files:
         file_project_path = f"{project_path}/{f}"
@@ -80,14 +80,14 @@ def export_helper(
 
 def import_project(
     zip_path: Path,
-    project_name: str = None,
+    project_name: str | None = None,
     collection_name: str = "default",
     output_location=None,
     verbose=False,
 ) -> None:
     if not zip_path.exists():
         raise ValueError("Zip file does not exist")
-    if not project_name:
+    if project_name is None:
         project_name = zip_path.stem
 
     if has_project(project_name, collection_name):
