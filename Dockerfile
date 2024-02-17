@@ -17,7 +17,7 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 # copy the python code into the container
 COPY pyproject.toml /app/pyproject.toml
 COPY poetry.lock /app/poetry.lock
-COPY README.md /app/README.md
+COPY README.rst /app/README.rst
 COPY godata /app/godata
 
 
@@ -29,6 +29,3 @@ COPY ./tests /app/tests
 RUN mv /app/tests/run_tests.sh /app/run_tests.sh
 RUN chmod +x run_tests.sh
 CMD ["./run_tests.sh"]
-
-
-
