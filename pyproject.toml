@@ -47,6 +47,11 @@ astropy = "^6.0.0"
 [tool.poetry.group.tests.dependencies]
 astropy = "^6.0.0"
 
+
+[tool.poetry.group.docs.dependencies]
+m2r2 = "^0.3.3.post2"
+sphinx-rtd-theme = "^2.0.0"
+
 [tool.isort]
 profile = "black"
 
