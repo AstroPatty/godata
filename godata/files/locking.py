@@ -29,13 +29,14 @@ def get_file_lock(path: Path) -> portalocker.Lock:
 
 
 REDIS_HOST = environ.get("REDIS_HOST") or "localhost"
-REDIS_PORT = environ.get("REDIS_PORT")  # NOT YET SUPPORTED
+REDIS_PORT = environ.get("REDIS_PORT")
+REDIS_PASSWORD = environ.get("REDIS_PASSWORD")  # NOT YET SUPPORTED
+
 try:
     REDIS_PORT = int(REDIS_PORT)
 except (ValueError, TypeError):
     REDIS_PORT = 6379
 
-REDIS_PASSWORD = environ.get("REDIS_PASSWORD")  # NOT YET SUPPORTED
 client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD)
 
 try:
