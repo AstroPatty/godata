@@ -65,6 +65,21 @@ jobs:
         with:
           name: godata_server-${{ matrix.target }}
           path: godata_server-${{ matrix.target }}.zip
+  
+  start_redis:
+    name: Start Redis
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Wait for Redis to start
+        run: redis-cli -h redis ping
 
   test_linux:
     name: Test on Linux
@@ -93,6 +108,9 @@ jobs:
       - name: Install godata
         run: poetry install --with test
       - name: Run tests
+        env:
+          REDIS_HOST: redis
+          REDIS_PORT: 6379
         run: |
           export DATA_PATH=$(pwd)/tests/test_io/test_data/
           chmod +x ./server/godata_server
