@@ -12,10 +12,10 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-import portalocker
 from loguru import logger
 
 from godata.client import client
+from godata.files import get_lock
 from godata.files import utils as file_utils
 from godata.io import find_writer, get_typekey, godataIoException, try_to_read
 from godata.utils import sanitize_project_path
@@ -239,9 +239,9 @@ class GodataProject:
             metadata=metadata,
         )
         storage_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with portalocker.Lock(str(storage_path), "wb"):
-            writer_fn(obj, storage_path, **writer_kwargs)
+        lock = get_lock(storage_path)
+        with lock:
+            writer_fn(obj, str(storage_path), **writer_kwargs)
 
         return True
 
@@ -292,8 +292,7 @@ class GodataProject:
                 format = get_typekey(load_type)
             else:
                 format = file_info.get("obj_type")
-
-            with portalocker.Lock(str(path), "rb"):
+            with get_lock(path):
                 data = try_to_read(path, format, reader_kwargs)
             return data
         except godataIoException as e:

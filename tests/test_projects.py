@@ -243,3 +243,11 @@ def test_ie():
     # get the list of folders in this path
     data = p2.get("data/test_data")
     assert np.all(data == expected_data)
+
+
+def test_place_in_root():
+    p = create_project("test14")
+    expected_data = np.ones((10, 10))
+    p.store(expected_data, "test_data")
+    data = p.get("test_data")
+    assert np.all(data == expected_data)

@@ -15,7 +15,7 @@ loguru = "^0.7.2"
 aiohttp = "^3.9.1"
 requests = "^2.31.0"
 click = "^8.1.7"
-portalocker = "^2.8.2"
+portalocker = {extras = ["redis"], version = "^2.8.2"}
 appdirs = "^1.4.4"
 packaging = "^23.2"
 pydantic = "^2.6.1"
