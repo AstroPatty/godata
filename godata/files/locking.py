@@ -28,24 +28,29 @@ def get_file_lock(path: Path) -> portalocker.Lock:
     return lock
 
 
-REDIS_HOST = environ.get("REDIS_HOST") or "localhost"
+REDIS_HOST = environ.get("REDIS_HOST")
 REDIS_PORT = environ.get("REDIS_PORT")
 REDIS_PASSWORD = environ.get("REDIS_PASSWORD")  # NOT YET SUPPORTED
 
-try:
-    REDIS_PORT = int(REDIS_PORT)
-except (ValueError, TypeError):
-    REDIS_PORT = 6379
 
-client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD)
+if REDIS_HOST is not None:
+    try:
+        REDIS_PORT = int(REDIS_PORT)
+    except (ValueError, TypeError):
+        REDIS_PORT = 6379
 
-try:
-    client.ping()
+    client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD)
+    try:
+        client.ping()
+    except redis.ConnectionError:
+        raise ValueError(
+            f"Could not connec to the redis server at {REDIS_HOST}:{REDIS_PORT}"
+        )
 
     def get_lock(path: Path):
         return get_redis_lock(path, client)
 
-except redis.ConnectionError:
+else:
     loguru.logger.warning("No redis server found. Falling back on file locks.")
     get_lock = get_file_lock
     client = None

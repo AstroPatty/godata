@@ -101,7 +101,7 @@ jobs:
         run: poetry install --with test
       - name: Run tests
         env:
-          REDIS_HOST: redis
+          REDIS_HOST: localhost
           REDIS_PORT: 6379
         run: |
           export DATA_PATH=$(pwd)/tests/test_io/test_data/
