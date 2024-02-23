@@ -69,6 +69,7 @@ jobs:
   start_redis:
     name: Start Redis
     runs-on: ubuntu-latest
+    needs: [linux_build_server]
     services:
       redis:
         image: redis
@@ -82,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       godata_version: ${{ steps.get_godata_version.outputs.version }}
-    needs: [linux_build_server]
+    needs: [linux_build_server, start_redis]
     strategy:
       matrix:
         target: [x86_64-unknown-linux-gnu]
