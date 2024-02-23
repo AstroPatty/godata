@@ -77,10 +77,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    steps:
-      - name: Wait for Redis to start
-        run: redis-cli -h redis ping
-
   test_linux:
     name: Test on Linux
     runs-on: ubuntu-latest
