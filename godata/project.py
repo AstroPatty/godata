@@ -189,11 +189,11 @@ class GodataProject:
         if isinstance(to_read, Path):
             try:
                 obj = try_to_read(to_read)  # This can be very slow... Could be improved
-                writer_fn, suffix = find_writer(obj, to_read)
+                writer_fn, suffix = find_writer(obj, to_read.suffix)
 
             except godataIoException as e:
                 logger.warning(
-                    f"Could not find a reader for file {to_read}. The file will still"
+                    f"Could not find a reader for file {to_read}. The file will still "
                     "be stored, but godata will only be able to return a path."
                     f"Error: {e}"
                 )
