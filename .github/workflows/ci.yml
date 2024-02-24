@@ -65,10 +65,19 @@ jobs:
         with:
           name: godata_server-${{ matrix.target }}
           path: godata_server-${{ matrix.target }}.zip
-
   test_linux:
     name: Test on Linux
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     outputs:
       godata_version: ${{ steps.get_godata_version.outputs.version }}
     needs: [linux_build_server]
@@ -93,13 +102,16 @@ jobs:
       - name: Install godata
         run: poetry install --with test
       - name: Run tests
+        env:
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
         run: |
           export DATA_PATH=$(pwd)/tests/test_io/test_data/
           chmod +x ./server/godata_server
           mkdir -p /home/runner/.local/bin
           sudo mv ./server/godata_server /home/runner/.local/bin/ 
           cd tests
-          sudo -E bash -c '/home/runner/.local/bin/poetry run pytest'
+          sudo -E bash -c '/home/runner/.local/bin/poetry run pytest -s'
       - name: output godata version
         id: get_godata_version
         run: |
@@ -136,7 +148,7 @@ jobs:
           chmod +x ./server/godata_server
           sudo mv ./server/godata_server /Users/runner/.local/bin
           cd tests
-          sudo -E bash -c 'poetry run pytest'
+          sudo -E bash -c 'poetry run pytest -s'
 
   check_tags:
     name: check tags
