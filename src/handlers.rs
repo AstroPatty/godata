@@ -10,18 +10,39 @@ use std::sync::{Arc, Mutex};
 use warp::http::StatusCode;
 use warp::reply::WithStatus;
 
+#[instrument(
+    name = "handlers.get_version",
+    level = "info",
+)]
 pub(crate) fn get_version() -> Result<impl warp::Reply, Infallible> {
     Ok(warp::reply::with_status(
         warp::reply::json(&env!("CARGO_PKG_VERSION").to_string()),
         StatusCode::OK,
     ))
 }
-
+#[instrument(
+    name = "handlers.list_collections",
+    level = "info",
+    fields(
+        show_hidden = %show_hidden
+    )
+)]
 pub(crate) fn list_collections(show_hidden: bool) -> Result<impl warp::Reply, Infallible> {
     let collections = get_collection_names(show_hidden);
     Ok(warp::reply::json(&collections.unwrap()))
 }
 
+#[
+instrument(
+    name = "handlers.list_projects",
+    level = "info",
+    skip(project_manager),
+    fields(
+        collection = %collection,
+        show_hidden = %show_hidden
+    )
+)
+]
 pub(crate) fn list_projects(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,
@@ -44,7 +65,7 @@ pub(crate) fn list_projects(
 }
 
 #[instrument(
-    name = "load_project",
+    name = "handlers.load_project",
     level = "info",
     skip(project_manager),
     fields(
@@ -60,7 +81,6 @@ pub(crate) fn load_project(
     // Preload a project into memory. The idea is that in typical use, we want the "load_project" command on the Python side to be effective instant,
     // so we load the project into memory in a separate thread. By the time the user actually tries to USE the project, it should be loaded.
     // This really only matters for large projects, but it's a nice feature to have.
-    tracing::error!("Loading project {project_name} in collection {collection}");
     let project_names = project_manager
         .lock()
         .unwrap()
@@ -68,6 +88,7 @@ pub(crate) fn load_project(
     match project_names {
         Ok(project_list) => {
             if !project_list.contains(&project_name) {
+                tracing::error!("No project named {project_name} in collection {collection}");
                 return Ok(warp::reply::with_status(
                     warp::reply::json(&format!(
                         "No project named {project_name} in collection {collection}"
@@ -77,6 +98,7 @@ pub(crate) fn load_project(
             }
         }
         Err(_) => {
+            tracing::error!("No collection named {collection}");
             return Ok(warp::reply::with_status(
                 warp::reply::json(&format!("No collection named {collection}")),
                 StatusCode::NOT_FOUND,
@@ -84,6 +106,7 @@ pub(crate) fn load_project(
         }
     }
     let message = format!("Sucessfully loaded project {collection}/{project_name}");
+    tracing::info!("Loading project {project_name} in collection {collection}");
     tokio::task::spawn(async move {
         let _ = project_manager
             .lock()
@@ -96,6 +119,15 @@ pub(crate) fn load_project(
     ))
 }
 
+#[instrument(
+    name = "handlers.drop_project",
+    level = "info",
+    skip(project_manager),
+    fields(
+        project_name = %project_name,
+        collection = %collection
+    )
+)]
 pub(crate) fn drop_project(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,
@@ -106,23 +138,43 @@ pub(crate) fn drop_project(
         .unwrap()
         .drop_project(&project_name, &collection);
     match project {
-        Ok(_) => Ok(warp::reply::with_status(
+        Ok(_) => {
+            tracing::info!("Project {project_name} dropped.");
+            Ok(warp::reply::with_status(
             warp::reply::json(&format!("Project {project_name} dropped.")),
             StatusCode::OK,
-        )),
+        ))}
+        ,
         Err(e) => match e.kind() {
-            std::io::ErrorKind::InvalidData => Ok(warp::reply::with_status(
+            std::io::ErrorKind::InvalidData => {
+                tracing::error!("Project {project_name} cannot be dropped. Error: {e}");
+                Ok(warp::reply::with_status(
                 warp::reply::json(&e.to_string()),
                 StatusCode::INTERNAL_SERVER_ERROR,
-            )),
-            _ => Ok(warp::reply::with_status(
+            ))
+        },
+            _ => {
+                tracing::error!("Project {project_name} cannot be dropped, it is not loaded.");
+                Ok(warp::reply::with_status(
                 warp::reply::json(&e.to_string()),
                 StatusCode::NOT_FOUND,
-            )),
+            ))
+            },
         },
     }
 }
 
+#[instrument(
+    name = "handlers.list_project",
+    level = "info",
+    skip(project_manager),
+    fields(
+        collection = %collection,
+        project_name = %project_name,
+        project_path = format!("{:?}", project_path),
+        show_hidden = %_show_hidden
+    )
+)]
 pub(crate) fn list_project(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,
@@ -158,6 +210,17 @@ pub(crate) fn list_project(
     ))
 }
 
+#[instrument(
+    name = "handlers.create_project",
+    level = "info",
+    skip(project_manager),
+    fields(
+        collection = %collection,
+        project_name = %project_name,
+        force = %force,
+        storage_location = format!("{:?}", storage_location)
+    )
+)]
 pub(crate) fn create_project(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,
@@ -185,6 +248,16 @@ pub(crate) fn create_project(
     }
 }
 
+#[instrument(
+    name = "handlers.delete_project",
+    level = "info",
+    skip(project_manager),
+    fields(
+        collection = %collection,
+        project_name = %project_name,
+        force = %force
+    )
+)]
 pub(crate) fn delete_project(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,
@@ -221,6 +294,18 @@ struct LinkResponse {
     removed: Vec<String>,
 }
 
+#[instrument(
+    name = "handlers.link_file",
+    level = "info",
+    skip(project_manager),
+    fields(
+        collection = %collection,
+        project_name = %project_name,
+        project_path = %project_path,
+        file_path = %file_path,
+        force = %force
+    )
+)]
 pub(crate) fn link_file(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,
@@ -271,6 +356,18 @@ pub(crate) fn link_file(
     ))
 }
 
+#[instrument(
+    name = "handlers.link_folder",
+    level = "info",
+    skip(project_manager),
+    fields(
+        collection = %collection,
+        project_name = %project_name,
+        project_path = %project_path,
+        folder_path = %folder_path,
+        recursive = %recursive
+    )
+)]
 pub(crate) fn link_folder(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,
@@ -319,6 +416,16 @@ pub(crate) fn link_folder(
     ))
 }
 
+#[instrument(
+    name = "handlers.get_file",
+    level = "info",
+    skip(project_manager),
+    fields(
+        collection = %collection,
+        project_name = %project_name,
+        project_path = %project_path
+    )
+)]
 pub(crate) fn get_file(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,
@@ -356,6 +463,16 @@ pub(crate) fn get_file(
     ))
 }
 
+#[instrument(
+    name = "handlers.generate_path",
+    level = "info",
+    skip(project_manager),
+    fields(
+        collection = %collection,
+        project_name = %project_name,
+        project_path = %project_path
+    )
+)]
 pub(crate) fn generate_path(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,
@@ -427,6 +544,18 @@ pub(crate) fn path_exists(
     ))
 }
 
+#[instrument(
+    name = "handlers.move_",
+    level = "info",
+    skip(project_manager),
+    fields(
+        collection = %collection,
+        project_name = %project_name,
+        project_path = %project_path,
+        new_project_path = %new_project_path,
+        overwrite = %overwrite
+    )
+)]
 pub(crate) fn move_(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,
@@ -471,6 +600,16 @@ pub(crate) fn move_(
     ))
 }
 
+#[instrument(
+    name = "handlers.remove_file",
+    level = "info",
+    skip(project_manager),
+    fields(
+        collection = %collection,
+        project_name = %project_name,
+        project_path = %project_path
+    )
+)]
 pub(crate) fn remove_file(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,
@@ -508,6 +647,17 @@ pub(crate) fn remove_file(
     ))
 }
 
+#[instrument(
+    name = "handlers.export_project_tree",
+    level = "info",
+    skip(project_manager),
+    fields(
+        collection = %collection,
+        project_name = %project_name,
+        output_path = %output_path
+    )
+)
+]
 pub(crate) fn export_project_tree(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,
@@ -533,6 +683,17 @@ pub(crate) fn export_project_tree(
     }
 }
 
+#[instrument(
+    name = "handlers.import_project_tree",
+    level = "info",
+    skip(project_manager),
+    fields(
+        collection = %collection,
+        project_name = %project_name,
+        input_path = %input_path
+    )
+)
+]
 pub(crate) fn import_project_tree(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,
