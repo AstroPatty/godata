@@ -2,6 +2,7 @@ use crate::project::get_collection_names;
 use crate::project::ProjectManager;
 
 use serde::Serialize;
+use tracing::instrument;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::path::PathBuf;
@@ -42,6 +43,15 @@ pub(crate) fn list_projects(
     }
 }
 
+#[instrument(
+    name = "load_project",
+    level = "info",
+    skip(project_manager),
+    fields(
+        project_name = %project_name,
+        collection = %collection
+    )
+)]
 pub(crate) fn load_project(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,
@@ -50,6 +60,7 @@ pub(crate) fn load_project(
     // Preload a project into memory. The idea is that in typical use, we want the "load_project" command on the Python side to be effective instant,
     // so we load the project into memory in a separate thread. By the time the user actually tries to USE the project, it should be loaded.
     // This really only matters for large projects, but it's a nice feature to have.
+    tracing::error!("Loading project {project_name} in collection {collection}");
     let project_names = project_manager
         .lock()
         .unwrap()
