@@ -9,3 +9,5 @@ fi
 
 poetry run pytest -W ignore::ResourceWarning
 pkill godata_server
+
+cp $HOME/godata/logs/* /home/logs
