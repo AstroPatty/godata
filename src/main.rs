@@ -1,16 +1,15 @@
 mod fsystem;
 mod handlers;
 mod locations;
+mod log;
 mod project;
 mod routes;
 mod server;
 mod storage;
-mod log;
 
 use clap::Parser;
 // Allow the server to return its version with a --version flag
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-
 #[derive(Parser)]
 struct Opts {
     #[clap(short, long)]

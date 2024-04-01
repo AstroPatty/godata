@@ -2,18 +2,15 @@ use crate::project::get_collection_names;
 use crate::project::ProjectManager;
 
 use serde::Serialize;
-use tracing::instrument;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use tracing::instrument;
 use warp::http::StatusCode;
 use warp::reply::WithStatus;
 
-#[instrument(
-    name = "handlers.get_version",
-    level = "info",
-)]
+#[instrument(name = "handlers.get_version", level = "info")]
 pub(crate) fn get_version() -> Result<impl warp::Reply, Infallible> {
     Ok(warp::reply::with_status(
         warp::reply::json(&env!("CARGO_PKG_VERSION").to_string()),
@@ -102,7 +99,7 @@ pub(crate) fn load_project(
             return Ok(warp::reply::with_status(
                 warp::reply::json(&format!("No collection named {collection}")),
                 StatusCode::NOT_FOUND,
-            ))
+            ));
         }
     }
     let message = format!("Sucessfully loaded project {collection}/{project_name}");
@@ -141,25 +138,25 @@ pub(crate) fn drop_project(
         Ok(_) => {
             tracing::info!("Project {project_name} dropped.");
             Ok(warp::reply::with_status(
-            warp::reply::json(&format!("Project {project_name} dropped.")),
-            StatusCode::OK,
-        ))}
-        ,
+                warp::reply::json(&format!("Project {project_name} dropped.")),
+                StatusCode::OK,
+            ))
+        }
         Err(e) => match e.kind() {
             std::io::ErrorKind::InvalidData => {
                 tracing::error!("Project {project_name} cannot be dropped. Error: {e}");
                 Ok(warp::reply::with_status(
-                warp::reply::json(&e.to_string()),
-                StatusCode::INTERNAL_SERVER_ERROR,
-            ))
-        },
+                    warp::reply::json(&e.to_string()),
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                ))
+            }
             _ => {
                 tracing::error!("Project {project_name} cannot be dropped, it is not loaded.");
                 Ok(warp::reply::with_status(
-                warp::reply::json(&e.to_string()),
-                StatusCode::NOT_FOUND,
-            ))
-            },
+                    warp::reply::json(&e.to_string()),
+                    StatusCode::NOT_FOUND,
+                ))
+            }
         },
     }
 }
@@ -570,7 +567,10 @@ pub(crate) fn move_(
         .load_project(&project_name, &collection);
     if project.is_ok() {
         let project = project.unwrap();
-        let result = project.lock().unwrap().move_(&project_path, &new_project_path, overwrite);
+        let result = project
+            .lock()
+            .unwrap()
+            .move_(&project_path, &new_project_path, overwrite);
         match result {
             Ok(v) => {
                 return Ok(warp::reply::with_status(
