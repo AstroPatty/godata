@@ -1,6 +1,7 @@
 mod fsystem;
 mod handlers;
 mod locations;
+mod log;
 mod project;
 mod routes;
 mod server;
@@ -9,7 +10,6 @@ mod storage;
 use clap::Parser;
 // Allow the server to return its version with a --version flag
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-
 #[derive(Parser)]
 struct Opts {
     #[clap(short, long)]
@@ -27,6 +27,7 @@ async fn main() {
         println!("{}", VERSION);
         return;
     }
+    let _log_guard = log::init_logging();
     let srv = server::get_server(opts.port);
     srv.start().await;
 }

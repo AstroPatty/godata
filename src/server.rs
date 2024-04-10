@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use sysinfo::System;
 use tokio::signal;
 use tokio_stream::wrappers::UnixListenerStream;
-
+use warp::Filter;
 pub struct Server {
     project_manager: Arc<Mutex<ProjectManager>>,
     url: (String, Option<u16>),
@@ -15,6 +15,7 @@ pub struct Server {
 impl Server {
     pub async fn start(&self) {
         // If there's a port, start a TCP server
+
         if self.url.1.is_some() {
             let (_, server) = warp::serve(routes::routes(self.project_manager.clone()))
                 .bind_with_graceful_shutdown(([127, 0, 0, 1], self.url.1.unwrap()), async {
@@ -37,10 +38,20 @@ impl Server {
             }
             let listener = tokio::net::UnixListener::bind(&self.url.0).unwrap();
             let incoming = UnixListenerStream::new(listener);
-            let server = warp::serve(routes::routes(self.project_manager.clone()))
-                .serve_incoming_with_graceful_shutdown(incoming, async {
-                    signal::ctrl_c().await.unwrap()
-                });
+            let server = warp::serve(routes::routes(self.project_manager.clone()).with(
+                warp::trace(|info| {
+                    let request_id = uuid::Uuid::new_v4();
+                    tracing::info_span!(
+                        "request",
+                        request_id = %request_id,
+                        method = %info.method(),
+                        path = %info.path(),
+                    )
+                }),
+            ))
+            .serve_incoming_with_graceful_shutdown(incoming, async {
+                signal::ctrl_c().await.unwrap()
+            });
             server.await
         };
     }

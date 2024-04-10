@@ -112,7 +112,12 @@ impl Project {
         Ok(need_to_remove)
     }
 
-    pub(crate) fn move_(&mut self, from: &str, to: &str, overwrite: bool) -> Result<Option<Vec<String>>> {
+    pub(crate) fn move_(
+        &mut self,
+        from: &str,
+        to: &str,
+        overwrite: bool,
+    ) -> Result<Option<Vec<String>>> {
         let result = self.tree.move_(from, to, overwrite)?;
         if result.is_none() {
             return Ok(None);
