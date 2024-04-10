@@ -6,12 +6,14 @@
 
 use sled::{Batch, Db};
 use std::collections::HashMap;
-use std::io::Result;
 use uuid::Uuid;
 
 use ciborium::{from_reader, into_writer};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use tracing::instrument;
+
+use crate::fsystem::errors::{FSErrorType, FileSystemError, Result};
 
 #[derive(Clone)]
 enum FSObject {
@@ -111,8 +113,21 @@ fn drain(mut folder: Folder) -> Vec<File> {
 }
 
 impl FileSystem {
+    #[instrument]
     pub(crate) fn new(name: String, root_path: PathBuf) -> Result<FileSystem> {
-        let db = sled::open(root_path)?;
+        let db = sled::open(root_path); // If we can't open the database, we just fail
+
+        let db = match db {
+            Ok(db) => db,
+            Err(e) => {
+                tracing::error!("Failed to open database: {}", e);
+                return Err(FileSystemError::new(
+                    FSErrorType::IOError,
+                    format!("Failed to open database"),
+                ));
+            }
+        };
+
         let root_folder = db.get("root".as_bytes()).unwrap();
         // If there is already a root folder, fail
         let root = match root_folder {
@@ -124,9 +139,9 @@ impl FileSystem {
                 _modified: true,
             },
             Some(_) => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::AlreadyExists,
-                    "File system already exists",
+                return Err(FileSystemError::new(
+                    FSErrorType::AlreadyExists,
+                    "File system already exists".to_string(),
                 ))
             }
         };
@@ -138,26 +153,49 @@ impl FileSystem {
             db,
         })
     }
+
+    #[instrument(skip(self))]
     pub(crate) fn export(
         &mut self,
     ) -> Result<Vec<(Vec<u8>, Vec<u8>, impl Iterator<Item = Vec<Vec<u8>>>)>> {
         // Copy the database to the specified path
         self.save();
-        self.db.flush()?;
+        let flush_result = self.db.flush();
+        match flush_result {
+            Ok(_) => (),
+            Err(e) => {
+                tracing::error!("Failed to flush database: {}", e);
+                return Err(FileSystemError::new(
+                    FSErrorType::IOError,
+                    format!("Failed to flush database"),
+                ));
+            }
+        }
+
         let res = self.db.export();
         Ok(res)
     }
 
     pub(crate) fn load(name: &str, root_dir: PathBuf) -> Result<FileSystem> {
-        let db = sled::open(root_dir)?;
+        let db = sled::open(root_dir);
+        let db = match db {
+            Ok(db) => db,
+            Err(e) => {
+                tracing::error!("Failed to open database: {}", e);
+                return Err(FileSystemError::new(
+                    FSErrorType::IOError,
+                    format!("Failed to open database"),
+                ));
+            }
+        };
         let root_folder = db.get("root".as_bytes()).unwrap();
         // If there is no root folder, fail
 
         let root = match root_folder {
             None => {
                 // get a list of the found folders
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
+                return Err(FileSystemError::new(
+                    FSErrorType::NotFound,
                     "File system was opened, but no root folder was found".to_string(),
                 ));
             }
@@ -181,9 +219,9 @@ impl FileSystem {
                 let f_ = self.root.get(&path)?;
                 match f_ {
                     FSObject::File(_) => {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidInput,
-                            "Path is a file",
+                        return Err(FileSystemError::new(
+                            FSErrorType::InvalidPath,
+                            "Path is a file".into(),
                         ))
                     }
                     FSObject::Folder(f) => f,
@@ -209,9 +247,9 @@ impl FileSystem {
     pub(crate) fn get(&self, virtual_path: &str) -> Result<&File> {
         let file = self.root.get(virtual_path)?;
         match file {
-            FSObject::Folder(_) => Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Path is a folder",
+            FSObject::Folder(_) => Err(FileSystemError::new(
+                FSErrorType::InvalidPath,
+                "Path is a folder".into(),
             )),
             FSObject::File(f) => Ok(f),
         }
@@ -300,22 +338,21 @@ impl FileSystem {
         overwrite: bool,
     ) -> Result<Option<Vec<File>>> {
         if !self.root.exists(source_path) {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "Source path does not exist",
+            return Err(FileSystemError::new(
+                FSErrorType::NotFound,
+                "Source path does not exist".into(),
             ));
         }
         if self.root.exists(dest_path) && !overwrite {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::AlreadyExists,
-                "Destination path already exists",
+            return Err(FileSystemError::new(
+                FSErrorType::AlreadyExists,
+                "Destination path already exists".into(),
             ));
         }
         let item = self.root.get(source_path)?;
         // HANDLE RENAME SEMANTICS
         // make a copy of the item
-        let (fpath, fname) = dest_path.rsplit_once('/')
-                            .unwrap_or(("", dest_path));        
+        let (fpath, fname) = dest_path.rsplit_once('/').unwrap_or(("", dest_path));
         let mut item = (*item).clone();
         item.rename(fname.to_string());
         // Split the destination path into path and name
@@ -440,9 +477,9 @@ impl Folder {
         match child {
             Some(item) => {
                 match item {
-                    FSObject::File(_) => Err(std::io::Error::new(
-                        std::io::ErrorKind::AlreadyExists,
-                        "Path is a file",
+                    FSObject::File(_) => Err(FileSystemError::new(
+                        FSErrorType::InvalidPath,
+                        "Path is a file".into(),
                     )), // We have a file with this name, and nothing is left in the path
                     FSObject::Folder(f) => f._insert_many(files, path_parts), // We have a folder with this name, and we need to check the rest of the path
                 }
@@ -545,27 +582,27 @@ impl Folder {
         let path_part = path_parts.first();
         let child = match path_part {
             None => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "File not found",
+                return Err(FileSystemError::new(
+                    FSErrorType::NotFound,
+                    "File not found".to_string(),
                 ))
             }
             Some(&part) => self.children.get(part),
         };
 
         if child.is_none() {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "File not found",
+            Err(FileSystemError::new(
+                FSErrorType::NotFound,
+                "File not found".to_string(),
             ))
         } else if path_parts.len() == 1 {
             return Ok(child.unwrap());
         } else {
             match child.unwrap() {
                 FSObject::File(_) => {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "File not found",
+                    return Err(FileSystemError::new(
+                        FSErrorType::NotFound,
+                        "File not found".to_string(),
                     ))
                 }
                 FSObject::Folder(f) => {
@@ -611,9 +648,9 @@ impl Folder {
                 //We're at the end, try to insert it here
                 if self.children.contains_key(fs_object.get_name()) {
                     if !overwrite {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::AlreadyExists,
-                            "Something already exists at that path!",
+                        return Err(FileSystemError::new(
+                            FSErrorType::AlreadyExists,
+                            "Something already exists at that path!".to_string(),
                         ));
                     } else {
                         let previous = self.children.remove(fs_object.get_name()).unwrap();
@@ -651,9 +688,9 @@ impl Folder {
             }
             Some(f) => {
                 match f {
-                    FSObject::File(_) => Err(std::io::Error::new(
-                        std::io::ErrorKind::AlreadyExists,
-                        "Invalid path",
+                    FSObject::File(_) => Err(FileSystemError::new(
+                        FSErrorType::AlreadyExists,
+                        "Invalid path".to_string(),
                     )), // We have a file with this name, and nothing is left in the path
                     FSObject::Folder(f) => f._insert(fs_object, path_parts, overwrite), // We have a folder with this name, and we need to check the rest of the path
                 }
@@ -679,16 +716,16 @@ impl Folder {
         // split up the path
         let path_part = path.first();
         if path_part.is_none() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Invalid path",
+            return Err(FileSystemError::new(
+                FSErrorType::InvalidPath,
+                "Invalid path".to_string(),
             ));
         }
         let path_part = path_part.unwrap();
         if !self.children.contains_key(*path_part) {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "File not found",
+            return Err(FileSystemError::new(
+                FSErrorType::NotFound,
+                "File not found".to_string(),
             ));
         }
         if path.len() == 1 {
@@ -701,9 +738,9 @@ impl Folder {
             ));
         }
         match self.children.get_mut(*path_part).unwrap() {
-            FSObject::File(_) => Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Invalid path",
+            FSObject::File(_) => Err(FileSystemError::new(
+                FSErrorType::InvalidPath,
+                "Invalid path".to_string(),
             )),
             FSObject::Folder(f) => {
                 let rm_result = f._delete(&path[1..])?;
