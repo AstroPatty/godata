@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use std::io::Result;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use tracing::instrument;
 
 pub struct Project {
     pub(crate) tree: FileSystem,
