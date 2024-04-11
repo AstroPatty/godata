@@ -1,9 +1,12 @@
 use crate::handlers;
 use crate::project::ProjectManager;
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::sync::{Arc, Mutex};
 use warp::http::StatusCode;
 use warp::Filter;
+use warp::Reply;
+use warp::{http::Response, hyper::Body};
 
 pub(super) fn routes(
     project_manager: Arc<Mutex<ProjectManager>>,
@@ -24,7 +27,10 @@ fn project_link(
         .and(warp::post())
         .and(warp::query::<HashMap<String, String>>())
         .map(
-            move |collection, project_name, mut params: HashMap<String, String>| {
+            move |collection,
+                  project_name,
+                  mut params: HashMap<String, String>|
+                  -> Result<Response<Body>, _> {
                 let force = match params.remove("force") {
                     Some(force) => force.parse::<bool>().unwrap(),
                     None => false,
@@ -32,10 +38,13 @@ fn project_link(
                 let ppath = match params.remove("project_path") {
                     Some(project_path) => project_path.to_owned(),
                     None => {
-                        return Ok(warp::reply::with_status(
-                            warp::reply::json(&"Missing project_path argument".to_string()),
-                            StatusCode::BAD_REQUEST,
-                        ))
+                        return Ok::<Response<Body>, Infallible>(
+                            warp::reply::with_status(
+                                warp::reply::json(&"Missing project_path argument".to_string()),
+                                StatusCode::BAD_REQUEST,
+                            )
+                            .into_response(),
+                        )
                     } // invalid request
                 };
                 let rpath = match params.remove("real_path") {
@@ -44,7 +53,8 @@ fn project_link(
                         return Ok(warp::reply::with_status(
                             warp::reply::json(&"Missing real_path argument".to_string()),
                             StatusCode::BAD_REQUEST,
-                        ))
+                        )
+                        .into_response())
                     } // invalid request
                 };
 
@@ -79,7 +89,8 @@ fn project_link(
                     return Ok(warp::reply::with_status(
                         warp::reply::json(&format!("Invalid type argument {}", type_)),
                         StatusCode::BAD_REQUEST,
-                    )); // invalid request
+                    )
+                    .into_response()); // invalid request
                 }
             },
         )

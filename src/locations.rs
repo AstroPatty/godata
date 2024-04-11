@@ -1,6 +1,6 @@
+use crate::errors::{GodataError, GodataErrorType, Result};
 use directories::BaseDirs;
 use std::fs;
-use std::io::Result;
 use std::path::{Path, PathBuf};
 
 pub(crate) fn get_main_dir() -> PathBuf {
@@ -21,8 +21,8 @@ fn create_collection_dir(name: &str) -> Result<PathBuf> {
         return Ok(collection_path);
     }
 
-    Err(std::io::Error::new(
-        std::io::ErrorKind::AlreadyExists,
+    Err(GodataError::new(
+        GodataErrorType::AlreadyExists,
         format!("Collection {} already exists", name),
     ))
 }
@@ -34,8 +34,8 @@ pub(crate) fn load_collection_dir(name: &str) -> Result<PathBuf> {
         return Ok(collection_path);
     }
 
-    Err(std::io::Error::new(
-        std::io::ErrorKind::NotFound,
+    Err(GodataError::new(
+        GodataErrorType::NotFound,
         format!("Collection {} does not exist", name),
     ))
 }
@@ -48,8 +48,8 @@ fn delete_collection_dir(name: &str) -> Result<()> {
         return Ok(());
     }
 
-    Err(std::io::Error::new(
-        std::io::ErrorKind::NotFound,
+    Err(GodataError::new(
+        GodataErrorType::NotFound,
         format!("Collection {} does not exist", name),
     ))
 }
@@ -75,8 +75,8 @@ pub(crate) fn create_project_dir(
         return Ok(project_path);
     }
 
-    Err(std::io::Error::new(
-        std::io::ErrorKind::AlreadyExists,
+    Err(GodataError::new(
+        GodataErrorType::AlreadyExists,
         format!("Project {} already exists", name),
     ))
 }
@@ -88,8 +88,8 @@ pub(crate) fn load_project_dir(name: &str, collection_name: &str) -> Result<Path
         return Ok(project_path);
     }
 
-    Err(std::io::Error::new(
-        std::io::ErrorKind::NotFound,
+    Err(GodataError::new(
+        GodataErrorType::NotFound,
         format!("Project {} does not exist", name),
     ))
 }
@@ -100,8 +100,8 @@ pub(crate) fn delete_project_dir(name: &str, collection_name: &str) -> Result<()
     if project_path.exists() {
         std::fs::remove_dir_all(&project_path)?;
     } else {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
+        return Err(GodataError::new(
+            GodataErrorType::NotFound,
             format!("Project {} does not exist", name),
         ));
     }

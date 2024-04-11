@@ -1,10 +1,12 @@
+use tracing::instrument;
+
+use crate::errors::{GodataError, GodataErrorType, Result};
 use crate::fsystem::{is_empty, FileSystem};
 use crate::locations::{
     create_project_dir, delete_project_dir, load_collection_dir, load_project_dir,
 };
 use crate::storage::{LocalEndpoint, StorageEndpoint, StorageManager};
 use std::collections::HashMap;
-use std::io::Result;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -142,13 +144,13 @@ impl Project {
     }
 }
 
-pub fn get_project_manager() -> ProjectManager {
-    let storage_manager = StorageManager::get_manager();
-    ProjectManager {
+pub fn get_project_manager() -> Result<ProjectManager> {
+    let storage_manager = StorageManager::get_manager()?;
+    Ok(ProjectManager {
         storage_manager,
         projects: HashMap::new(),
         counts: HashMap::new(),
-    }
+    })
 }
 
 pub struct ProjectManager {
@@ -252,26 +254,35 @@ impl ProjectManager {
         Ok(project)
     }
 
+    #[instrument(skip(self))]
     pub(crate) fn drop_project(&mut self, name: &str, collection: &str) -> Result<()> {
         let key = format!("{}/{}", collection, name);
         let count = self.counts.get(&key);
         if count.is_none() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Tried to drop a project {} that is not loaded!", key),
-            ));
+            let message = format!("Tried to drop a project {} that does not exist", key);
+            tracing::error!(message);
+            return Err(GodataError::new(GodataErrorType::NotFound, message));
         }
         let count = count.unwrap();
         if count == &1 {
+            tracing::info!(
+                "Last connection to project {} dropped, removing form cache",
+                key
+            );
             self.projects.remove(&key);
             self.counts.remove(&key);
         } else if count < &0 {
             self.counts.remove(&key);
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
+            tracing::error!(
+                "Count for project {} is negative, this should not happen",
+                key
+            );
+            return Err(GodataError::new(
+                GodataErrorType::InternalError,
                 format!("Tried to drop a project {} that does not exist", key),
             ));
         } else {
+            tracing::info!("Dropping connection to project {}", key);
             self.counts.insert(key, count - 1);
         }
         Ok(())
@@ -304,17 +315,17 @@ impl ProjectManager {
             }
             return Ok(());
         }
-        Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "Project is not empty",
+        Err(GodataError::new(
+            GodataErrorType::NotPermitted,
+            "Project is not empty".to_string(),
         ))
     }
 
     pub fn get_project_names(&self, collection: String, show_hidden: bool) -> Result<Vec<String>> {
         let collection_dir = load_collection_dir(&collection);
         if collection_dir.is_err() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
+            return Err(GodataError::new(
+                GodataErrorType::NotFound,
                 format!("Collection `{}` does not exist", collection),
             ));
         }

@@ -1,3 +1,4 @@
+mod errors;
 mod fsystem;
 mod handlers;
 mod locations;

@@ -22,6 +22,7 @@ ENV PATH="~/.local/bin:${PATH}"
 # copy the server binary into the container
 COPY --from=builder /app/target/release/godata_server /root/.local/bin/
 #install poetry
+RUN echo "INSTALLING POETRY"
 RUN curl -sSL https://install.python-poetry.org | python3 -
 
 # copy the python code into the container
