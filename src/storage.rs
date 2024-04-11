@@ -1,4 +1,4 @@
-use crate::fsystem::errors::{GodataError, GodataErrorType, Result};
+use crate::errors::{GodataError, GodataErrorType, Result};
 use crate::locations::get_default_storage_dir;
 use sled::Db;
 use std::fs;

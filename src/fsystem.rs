@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tracing::instrument;
 
-use crate::fsystem::errors::{GodataError, GodataErrorType, Result};
+use crate::errors::{GodataError, GodataErrorType, Result};
 
 #[derive(Clone)]
 enum FSObject {

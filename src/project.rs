@@ -1,6 +1,6 @@
 use tracing::instrument;
 
-use crate::fsystem::errors::{GodataError, GodataErrorType, Result};
+use crate::errors::{GodataError, GodataErrorType, Result};
 use crate::fsystem::{is_empty, FileSystem};
 use crate::locations::{
     create_project_dir, delete_project_dir, load_collection_dir, load_project_dir,

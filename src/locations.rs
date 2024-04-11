@@ -1,4 +1,4 @@
-use crate::fsystem::errors::{GodataError, GodataErrorType, Result};
+use crate::errors::{GodataError, GodataErrorType, Result};
 use directories::BaseDirs;
 use std::fs;
 use std::path::{Path, PathBuf};
