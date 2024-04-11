@@ -9,10 +9,29 @@ pub(crate) enum GodataErrorType {
     IOError,
 }
 
+impl Into<warp::http::StatusCode> for GodataErrorType {
+    fn into(self) -> warp::http::StatusCode {
+        match self {
+            GodataErrorType::NotFound => warp::http::StatusCode::NOT_FOUND,
+            GodataErrorType::AlreadyExists => warp::http::StatusCode::CONFLICT,
+            GodataErrorType::InvalidPath => warp::http::StatusCode::BAD_REQUEST,
+            GodataErrorType::NotPermitted => warp::http::StatusCode::FORBIDDEN,
+            GodataErrorType::IOError => warp::http::StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct GodataError {
     pub(crate) error_type: GodataErrorType,
     pub(crate) message: String,
+}
+
+impl warp::Reply for GodataError {
+    fn into_response(self) -> warp::reply::Response {
+        warp::reply::with_status(warp::reply::json(&self.message), self.error_type.into())
+            .into_response()
+    }
 }
 
 impl GodataError {
