@@ -1,3 +1,5 @@
+use tracing::instrument;
+
 use crate::fsystem::errors::{GodataError, GodataErrorType, Result};
 use crate::fsystem::{is_empty, FileSystem};
 use crate::locations::{
@@ -252,26 +254,35 @@ impl ProjectManager {
         Ok(project)
     }
 
+    #[instrument(skip(self))]
     pub(crate) fn drop_project(&mut self, name: &str, collection: &str) -> Result<()> {
         let key = format!("{}/{}", collection, name);
         let count = self.counts.get(&key);
         if count.is_none() {
-            return Err(GodataError::new(
-                GodataErrorType::NotFound,
-                format!("Tried to drop a project {} that is not loaded!", key),
-            ));
+            let message = format!("Tried to drop a project {} that does not exist", key);
+            tracing::error!(message);
+            return Err(GodataError::new(GodataErrorType::NotFound, message));
         }
         let count = count.unwrap();
         if count == &1 {
+            tracing::info!(
+                "Last connection to project {} dropped, removing form cache",
+                key
+            );
             self.projects.remove(&key);
             self.counts.remove(&key);
         } else if count < &0 {
             self.counts.remove(&key);
+            tracing::error!(
+                "Count for project {} is negative, this should not happen",
+                key
+            );
             return Err(GodataError::new(
-                GodataErrorType::NotFound,
+                GodataErrorType::InternalError,
                 format!("Tried to drop a project {} that does not exist", key),
             ));
         } else {
+            tracing::info!("Dropping connection to project {}", key);
             self.counts.insert(key, count - 1);
         }
         Ok(())

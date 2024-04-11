@@ -81,7 +81,7 @@ pub(crate) fn load_project(
     match project_names {
         Ok(project_list) => {
             if !project_list.contains(&project_name) {
-                tracing::error!("No project named {project_name} in collection {collection}");
+                tracing::error!("Tried to load project {project_name} in collection {collection}, but it does not exist.");
                 return Ok(warp::reply::with_status(
                     warp::reply::json(&format!(
                         "No project named {project_name} in collection {collection}"
@@ -92,12 +92,14 @@ pub(crate) fn load_project(
             }
         }
         Err(e) => {
-            tracing::error!("No collection named {collection}");
+            tracing::error!(
+                "Tried to load project in collection {collection}, but it does not exist."
+            );
             return Ok(e.into_response());
         }
     }
     let message = format!("Sucessfully loaded project {collection}/{project_name}");
-    tracing::info!("Loading project {project_name} in collection {collection}");
+    tracing::info!(message);
     tokio::task::spawn(async move {
         let _ = project_manager
             .lock()
@@ -126,14 +128,11 @@ pub(crate) fn drop_project(
         .unwrap()
         .drop_project(&project_name, &collection);
     match project {
-        Ok(_) => {
-            tracing::info!("Project {project_name} dropped.");
-            Ok(warp::reply::with_status(
-                warp::reply::json(&format!("Project {project_name} dropped.")),
-                StatusCode::OK,
-            )
-            .into_response())
-        }
+        Ok(_) => Ok(warp::reply::with_status(
+            warp::reply::json(&format!("Project {project_name} dropped.")),
+            StatusCode::OK,
+        )
+        .into_response()),
         Err(e) => Ok(e.into_response()),
     }
 }

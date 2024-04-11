@@ -7,6 +7,7 @@ pub(crate) enum GodataErrorType {
     InvalidPath,
     NotPermitted,
     IOError,
+    InternalError,
 }
 
 impl Into<warp::http::StatusCode> for GodataErrorType {
@@ -16,7 +17,7 @@ impl Into<warp::http::StatusCode> for GodataErrorType {
             GodataErrorType::AlreadyExists => warp::http::StatusCode::CONFLICT,
             GodataErrorType::InvalidPath => warp::http::StatusCode::BAD_REQUEST,
             GodataErrorType::NotPermitted => warp::http::StatusCode::FORBIDDEN,
-            GodataErrorType::IOError => warp::http::StatusCode::INTERNAL_SERVER_ERROR,
+            _ => warp::http::StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
