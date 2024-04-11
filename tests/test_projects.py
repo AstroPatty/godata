@@ -36,9 +36,9 @@ def test_create():
 
 
 def test_create_duplicate():
-    p2 = create_project("test2")
+    _ = create_project("test2")
     with pytest.raises(GodataProjectError):
-        p2 = create_project("test2")
+        _ = create_project("test2")
 
 
 def test_add_file():
@@ -161,6 +161,12 @@ def test_exists():
     # Check the json parsing as well
     assert type(hp1) == bool and type(hp2) == bool
     assert hp1 and not hp2
+
+
+def test_invalid_path_gives_404():
+    p = create_project("test_invalid_path")
+    with pytest.raises(GodataProjectError):
+        p.get("data/test_data2")
 
 
 def test_delete():

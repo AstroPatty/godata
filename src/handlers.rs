@@ -1,5 +1,7 @@
 use crate::project::get_collection_names;
 use crate::project::ProjectManager;
+use warp::reply::Reply;
+use warp::{http::Response, hyper::Body};
 
 use serde::Serialize;
 use std::collections::HashMap;
@@ -50,14 +52,8 @@ pub(crate) fn list_projects(
         .unwrap()
         .get_project_names(collection.clone(), show_hidden);
     match projects {
-        Ok(project_list) => Ok(warp::reply::with_status(
-            warp::reply::json(&project_list),
-            StatusCode::OK,
-        )),
-        Err(_) => Ok(warp::reply::with_status(
-            warp::reply::json(&format!("No collection named {collection}")),
-            StatusCode::NOT_FOUND,
-        )),
+        Ok(project_list) => Ok(warp::reply::json(&project_list).into_response()),
+        Err(e) => Ok(e.into_response()),
     }
 }
 
@@ -91,15 +87,13 @@ pub(crate) fn load_project(
                         "No project named {project_name} in collection {collection}"
                     )),
                     StatusCode::NOT_FOUND,
-                ));
+                )
+                .into_response());
             }
         }
-        Err(_) => {
+        Err(e) => {
             tracing::error!("No collection named {collection}");
-            return Ok(warp::reply::with_status(
-                warp::reply::json(&format!("No collection named {collection}")),
-                StatusCode::NOT_FOUND,
-            ));
+            return Ok(e.into_response());
         }
     }
     let message = format!("Sucessfully loaded project {collection}/{project_name}");
@@ -110,10 +104,7 @@ pub(crate) fn load_project(
             .unwrap()
             .load_project(&project_name, &collection);
     });
-    Ok(warp::reply::with_status(
-        warp::reply::json(&message),
-        StatusCode::OK,
-    ))
+    Ok(warp::reply::with_status(warp::reply::json(&message), StatusCode::OK).into_response())
 }
 
 #[instrument(
@@ -140,24 +131,10 @@ pub(crate) fn drop_project(
             Ok(warp::reply::with_status(
                 warp::reply::json(&format!("Project {project_name} dropped.")),
                 StatusCode::OK,
-            ))
+            )
+            .into_response())
         }
-        Err(e) => match e.kind() {
-            crate::fsystem::errors::GodataErrorType::NotFound => {
-                tracing::error!(e.message);
-                Ok(warp::reply::with_status(
-                    warp::reply::json(&e.to_string()),
-                    StatusCode::NOT_FOUND,
-                ))
-            }
-            _ => {
-                tracing::error!("Project {project_name} cannot be dropped: {e}");
-                Ok(warp::reply::with_status(
-                    warp::reply::json(&e.to_string()),
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                ))
-            }
-        },
+        Err(e) => Ok(e.into_response()),
     }
 }
 
@@ -183,28 +160,17 @@ pub(crate) fn list_project(
         .lock()
         .unwrap()
         .load_project(&project_name, &collection);
-    if project.is_ok() {
-        let project = project.unwrap();
-        let result = project.lock().unwrap().list(project_path);
-        match result {
-            Ok(list) => {
-                return Ok(warp::reply::with_status(
-                    warp::reply::json(&list),
-                    StatusCode::OK,
-                ))
-            }
-            Err(_) => {
-                return Ok(warp::reply::with_status(
-                    warp::reply::json(&"Path does not exist!".to_string()),
-                    StatusCode::NOT_FOUND,
-                ))
+    match project {
+        Ok(project) => {
+            let project = project.lock().unwrap();
+            let result = project.list(project_path);
+            match result {
+                Ok(list) => Ok(warp::reply::json(&list).into_response()),
+                Err(e) => Ok(e.into_response()),
             }
         }
+        Err(e) => Ok(e.into_response()),
     }
-    Ok(warp::reply::with_status(
-        warp::reply::json(&project.err().unwrap().to_string()),
-        StatusCode::NOT_FOUND,
-    ))
 }
 
 #[instrument(
@@ -237,11 +203,9 @@ pub(crate) fn create_project(
                 "Project {project_name} created in collection {collection}"
             )),
             StatusCode::CREATED,
-        )),
-        Err(e) => Ok(warp::reply::with_status(
-            warp::reply::json(&e.to_string()),
-            StatusCode::CONFLICT,
-        )),
+        )
+        .into_response()),
+        Err(e) => Ok(e.into_response()),
     }
 }
 
@@ -271,22 +235,9 @@ pub(crate) fn delete_project(
                 "Project {project_name} deleted from collection {collection}"
             )),
             StatusCode::OK,
-        )),
-        Err(e) => match e.kind() {
-            crate::fsystem::errors::GodataErrorType::NotFound => Ok(warp::reply::with_status(
-                warp::reply::json(&e.to_string()),
-                StatusCode::NOT_FOUND,
-            )),
-
-            crate::fsystem::errors::GodataErrorType::NotPermitted => Ok(warp::reply::with_status(
-                warp::reply::json(&e.to_string()),
-                StatusCode::FORBIDDEN,
-            )),
-            _ => Ok(warp::reply::with_status(
-                warp::reply::json(&e.to_string()),
-                StatusCode::NOT_FOUND,
-            )),
-        },
+        )
+        .into_response()),
+        Err(e) => Ok(e.into_response()),
     }
 }
 
@@ -316,46 +267,39 @@ pub(crate) fn link_file(
     file_path: String,
     metadata: HashMap<String, String>,
     force: bool,
-) -> Result<WithStatus<warp::reply::Json>, Infallible> {
+) -> Result<Response<Body>, Infallible> {
     let project = project_manager
         .lock()
         .unwrap()
         .load_project(&project_name, &collection);
-    if project.is_ok() {
-        let project = project.unwrap();
-        let parsed_file_path = PathBuf::from(&file_path);
-        let result =
-            project
-                .lock()
-                .unwrap()
-                .add_file(&project_path, parsed_file_path, metadata, force);
 
-        match result {
-            Ok(previous_paths) => {
-                let output: LinkResponse = LinkResponse {
-                    message: format!("File {file_path} linked to {project_path} in project {project_name} in collection {collection}"),
-                    removed: previous_paths.unwrap_or(Vec::new()),
-                };
+    match project {
+        Err(e) => return Ok(e.into_response()),
+        Ok(project) => {
+            let parsed_file_path = PathBuf::from(&file_path);
+            let result =
+                project
+                    .lock()
+                    .unwrap()
+                    .add_file(&project_path, parsed_file_path, metadata, force);
 
-                return Ok(warp::reply::with_status(
-                    warp::reply::json(&output),
-                    StatusCode::CREATED,
-                ));
-            }
-            Err(e) => {
-                return Ok(warp::reply::with_status(
-                    warp::reply::json(&e.to_string()),
-                    StatusCode::CONFLICT,
-                ))
+            match result {
+                Ok(previous_paths) => {
+                    let output: LinkResponse = LinkResponse {
+                        message: format!("File {file_path} linked to {project_path} in project {project_name} in collection {collection}"),
+                        removed: previous_paths.unwrap_or(Vec::new()),
+                    };
+
+                    return Ok(warp::reply::with_status(
+                        warp::reply::json(&output),
+                        StatusCode::CREATED,
+                    )
+                    .into_response());
+                }
+                Err(e) => Ok(e.into_response()),
             }
         }
     }
-    Ok(warp::reply::with_status(
-        warp::reply::json(&format!(
-            "No project named {project_name} in collection {collection}"
-        )),
-        StatusCode::NOT_FOUND,
-    ))
 }
 
 #[instrument(
@@ -377,45 +321,39 @@ pub(crate) fn link_folder(
     project_path: String,
     folder_path: String,
     recursive: bool,
-) -> Result<WithStatus<warp::reply::Json>, Infallible> {
+) -> Result<Response<Body>, Infallible> {
     let project = project_manager
         .lock()
         .unwrap()
         .load_project(&project_name, &collection);
-    if project.is_ok() {
-        let project = project.unwrap();
-        let parsed_folder_path = PathBuf::from(&folder_path);
-        let result =
-            project
-                .lock()
-                .unwrap()
-                .add_folder(&project_path, parsed_folder_path, recursive);
-        match result {
-            Ok(_) => {
-                let out = LinkResponse {
-                    message: format!("Folder {folder_path} linked to {project_path} in project {project_name} in collection {collection}"),
-                    removed: Vec::new(),
-                };
-                return Ok(warp::reply::with_status(
-                    warp::reply::json(&out),
-                    StatusCode::CREATED,
-                ));
-            }
+    match project {
+        Ok(project) => {
+            let parsed_folder_path = PathBuf::from(&folder_path);
+            let result =
+                project
+                    .lock()
+                    .unwrap()
+                    .add_folder(&project_path, parsed_folder_path, recursive);
+            match result {
+                Ok(_) => {
+                    let out = LinkResponse {
+                        message: format!("Folder {folder_path} linked to {project_path} in project {project_name} in collection {collection}"),
+                        removed: Vec::new(),
+                    };
+                    return Ok(warp::reply::with_status(
+                        warp::reply::json(&out),
+                        StatusCode::CREATED,
+                    )
+                    .into_response());
+                }
 
-            Err(e) => {
-                return Ok(warp::reply::with_status(
-                    warp::reply::json(&e.to_string()),
-                    StatusCode::NOT_FOUND,
-                ))
-            }
+                Err(e) => {
+                    return Ok(e.into_response());
+                }
+            };
         }
+        Err(e) => Ok(e.into_response()),
     }
-    Ok(warp::reply::with_status(
-        warp::reply::json(&format!(
-            "No project named {project_name} in collection {collection}"
-        )),
-        StatusCode::NOT_FOUND,
-    ))
 }
 
 #[instrument(
