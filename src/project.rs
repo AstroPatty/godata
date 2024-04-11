@@ -1,10 +1,10 @@
+use crate::fsystem::errors::{GodataError, GodataErrorType, Result};
 use crate::fsystem::{is_empty, FileSystem};
 use crate::locations::{
     create_project_dir, delete_project_dir, load_collection_dir, load_project_dir,
 };
 use crate::storage::{LocalEndpoint, StorageEndpoint, StorageManager};
 use std::collections::HashMap;
-use std::io::Result;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -44,7 +44,7 @@ impl Project {
         Ok(Some(output))
     }
 
-    pub(crate) fn duplicate_tree(&mut self, output_path: PathBuf) -> Result<()> {
+    pub(crate) fn duplicate_tree(&mut self, output_path: PathBuf) -> sled::Result<()> {
         let export = self.tree.export()?;
         let db = sled::open(output_path)?;
         db.import(export);
@@ -256,8 +256,8 @@ impl ProjectManager {
         let key = format!("{}/{}", collection, name);
         let count = self.counts.get(&key);
         if count.is_none() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
+            return Err(GodataError::new(
+                GodataErrorType::NotFound,
                 format!("Tried to drop a project {} that is not loaded!", key),
             ));
         }
@@ -267,8 +267,8 @@ impl ProjectManager {
             self.counts.remove(&key);
         } else if count < &0 {
             self.counts.remove(&key);
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
+            return Err(GodataError::new(
+                GodataErrorType::NotFound,
                 format!("Tried to drop a project {} that does not exist", key),
             ));
         } else {
@@ -304,17 +304,17 @@ impl ProjectManager {
             }
             return Ok(());
         }
-        Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "Project is not empty",
+        Err(GodataError::new(
+            GodataErrorType::NotPermitted,
+            "Project is not empty".to_string(),
         ))
     }
 
     pub fn get_project_names(&self, collection: String, show_hidden: bool) -> Result<Vec<String>> {
         let collection_dir = load_collection_dir(&collection);
         if collection_dir.is_err() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
+            return Err(GodataError::new(
+                GodataErrorType::NotFound,
                 format!("Collection `{}` does not exist", collection),
             ));
         }

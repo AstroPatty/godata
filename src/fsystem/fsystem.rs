@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tracing::instrument;
 
-use crate::fsystem::errors::{FSErrorType, FileSystemError, Result};
+use crate::fsystem::errors::{GodataError, GodataErrorType, Result};
 
 #[derive(Clone)]
 enum FSObject {
@@ -121,8 +121,8 @@ impl FileSystem {
             Ok(db) => db,
             Err(e) => {
                 tracing::error!("Failed to open database: {}", e);
-                return Err(FileSystemError::new(
-                    FSErrorType::IOError,
+                return Err(GodataError::new(
+                    GodataErrorType::IOError,
                     format!("Failed to open database"),
                 ));
             }
@@ -139,8 +139,8 @@ impl FileSystem {
                 _modified: true,
             },
             Some(_) => {
-                return Err(FileSystemError::new(
-                    FSErrorType::AlreadyExists,
+                return Err(GodataError::new(
+                    GodataErrorType::AlreadyExists,
                     "File system already exists".to_string(),
                 ))
             }
@@ -157,21 +157,10 @@ impl FileSystem {
     #[instrument(skip(self))]
     pub(crate) fn export(
         &mut self,
-    ) -> Result<Vec<(Vec<u8>, Vec<u8>, impl Iterator<Item = Vec<Vec<u8>>>)>> {
+    ) -> sled::Result<Vec<(Vec<u8>, Vec<u8>, impl Iterator<Item = Vec<Vec<u8>>>)>> {
         // Copy the database to the specified path
         self.save();
-        let flush_result = self.db.flush();
-        match flush_result {
-            Ok(_) => (),
-            Err(e) => {
-                tracing::error!("Failed to flush database: {}", e);
-                return Err(FileSystemError::new(
-                    FSErrorType::IOError,
-                    format!("Failed to flush database"),
-                ));
-            }
-        }
-
+        self.db.flush()?;
         let res = self.db.export();
         Ok(res)
     }
@@ -182,8 +171,8 @@ impl FileSystem {
             Ok(db) => db,
             Err(e) => {
                 tracing::error!("Failed to open database: {}", e);
-                return Err(FileSystemError::new(
-                    FSErrorType::IOError,
+                return Err(GodataError::new(
+                    GodataErrorType::IOError,
                     format!("Failed to open database"),
                 ));
             }
@@ -194,8 +183,8 @@ impl FileSystem {
         let root = match root_folder {
             None => {
                 // get a list of the found folders
-                return Err(FileSystemError::new(
-                    FSErrorType::NotFound,
+                return Err(GodataError::new(
+                    GodataErrorType::NotFound,
                     "File system was opened, but no root folder was found".to_string(),
                 ));
             }
@@ -219,8 +208,8 @@ impl FileSystem {
                 let f_ = self.root.get(&path)?;
                 match f_ {
                     FSObject::File(_) => {
-                        return Err(FileSystemError::new(
-                            FSErrorType::InvalidPath,
+                        return Err(GodataError::new(
+                            GodataErrorType::InvalidPath,
                             "Path is a file".into(),
                         ))
                     }
@@ -247,8 +236,8 @@ impl FileSystem {
     pub(crate) fn get(&self, virtual_path: &str) -> Result<&File> {
         let file = self.root.get(virtual_path)?;
         match file {
-            FSObject::Folder(_) => Err(FileSystemError::new(
-                FSErrorType::InvalidPath,
+            FSObject::Folder(_) => Err(GodataError::new(
+                GodataErrorType::InvalidPath,
                 "Path is a folder".into(),
             )),
             FSObject::File(f) => Ok(f),
@@ -338,14 +327,14 @@ impl FileSystem {
         overwrite: bool,
     ) -> Result<Option<Vec<File>>> {
         if !self.root.exists(source_path) {
-            return Err(FileSystemError::new(
-                FSErrorType::NotFound,
+            return Err(GodataError::new(
+                GodataErrorType::NotFound,
                 "Source path does not exist".into(),
             ));
         }
         if self.root.exists(dest_path) && !overwrite {
-            return Err(FileSystemError::new(
-                FSErrorType::AlreadyExists,
+            return Err(GodataError::new(
+                GodataErrorType::AlreadyExists,
                 "Destination path already exists".into(),
             ));
         }
@@ -477,8 +466,8 @@ impl Folder {
         match child {
             Some(item) => {
                 match item {
-                    FSObject::File(_) => Err(FileSystemError::new(
-                        FSErrorType::InvalidPath,
+                    FSObject::File(_) => Err(GodataError::new(
+                        GodataErrorType::InvalidPath,
                         "Path is a file".into(),
                     )), // We have a file with this name, and nothing is left in the path
                     FSObject::Folder(f) => f._insert_many(files, path_parts), // We have a folder with this name, and we need to check the rest of the path
@@ -582,8 +571,8 @@ impl Folder {
         let path_part = path_parts.first();
         let child = match path_part {
             None => {
-                return Err(FileSystemError::new(
-                    FSErrorType::NotFound,
+                return Err(GodataError::new(
+                    GodataErrorType::NotFound,
                     "File not found".to_string(),
                 ))
             }
@@ -591,8 +580,8 @@ impl Folder {
         };
 
         if child.is_none() {
-            Err(FileSystemError::new(
-                FSErrorType::NotFound,
+            Err(GodataError::new(
+                GodataErrorType::NotFound,
                 "File not found".to_string(),
             ))
         } else if path_parts.len() == 1 {
@@ -600,8 +589,8 @@ impl Folder {
         } else {
             match child.unwrap() {
                 FSObject::File(_) => {
-                    return Err(FileSystemError::new(
-                        FSErrorType::NotFound,
+                    return Err(GodataError::new(
+                        GodataErrorType::NotFound,
                         "File not found".to_string(),
                     ))
                 }
@@ -648,8 +637,8 @@ impl Folder {
                 //We're at the end, try to insert it here
                 if self.children.contains_key(fs_object.get_name()) {
                     if !overwrite {
-                        return Err(FileSystemError::new(
-                            FSErrorType::AlreadyExists,
+                        return Err(GodataError::new(
+                            GodataErrorType::AlreadyExists,
                             "Something already exists at that path!".to_string(),
                         ));
                     } else {
@@ -688,8 +677,8 @@ impl Folder {
             }
             Some(f) => {
                 match f {
-                    FSObject::File(_) => Err(FileSystemError::new(
-                        FSErrorType::AlreadyExists,
+                    FSObject::File(_) => Err(GodataError::new(
+                        GodataErrorType::AlreadyExists,
                         "Invalid path".to_string(),
                     )), // We have a file with this name, and nothing is left in the path
                     FSObject::Folder(f) => f._insert(fs_object, path_parts, overwrite), // We have a folder with this name, and we need to check the rest of the path
@@ -716,15 +705,15 @@ impl Folder {
         // split up the path
         let path_part = path.first();
         if path_part.is_none() {
-            return Err(FileSystemError::new(
-                FSErrorType::InvalidPath,
+            return Err(GodataError::new(
+                GodataErrorType::InvalidPath,
                 "Invalid path".to_string(),
             ));
         }
         let path_part = path_part.unwrap();
         if !self.children.contains_key(*path_part) {
-            return Err(FileSystemError::new(
-                FSErrorType::NotFound,
+            return Err(GodataError::new(
+                GodataErrorType::NotFound,
                 "File not found".to_string(),
             ));
         }
@@ -738,8 +727,8 @@ impl Folder {
             ));
         }
         match self.children.get_mut(*path_part).unwrap() {
-            FSObject::File(_) => Err(FileSystemError::new(
-                FSErrorType::InvalidPath,
+            FSObject::File(_) => Err(GodataError::new(
+                GodataErrorType::InvalidPath,
                 "Invalid path".to_string(),
             )),
             FSObject::Folder(f) => {

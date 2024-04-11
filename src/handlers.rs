@@ -143,18 +143,18 @@ pub(crate) fn drop_project(
             ))
         }
         Err(e) => match e.kind() {
-            std::io::ErrorKind::InvalidData => {
-                tracing::error!("Project {project_name} cannot be dropped. Error: {e}");
-                Ok(warp::reply::with_status(
-                    warp::reply::json(&e.to_string()),
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                ))
-            }
-            _ => {
-                tracing::error!("Project {project_name} cannot be dropped, it is not loaded.");
+            crate::fsystem::errors::GodataErrorType::NotFound => {
+                tracing::error!(e.message);
                 Ok(warp::reply::with_status(
                     warp::reply::json(&e.to_string()),
                     StatusCode::NOT_FOUND,
+                ))
+            }
+            _ => {
+                tracing::error!("Project {project_name} cannot be dropped: {e}");
+                Ok(warp::reply::with_status(
+                    warp::reply::json(&e.to_string()),
+                    StatusCode::INTERNAL_SERVER_ERROR,
                 ))
             }
         },
@@ -273,7 +273,12 @@ pub(crate) fn delete_project(
             StatusCode::OK,
         )),
         Err(e) => match e.kind() {
-            std::io::ErrorKind::InvalidData => Ok(warp::reply::with_status(
+            crate::fsystem::errors::GodataErrorType::NotFound => Ok(warp::reply::with_status(
+                warp::reply::json(&e.to_string()),
+                StatusCode::NOT_FOUND,
+            )),
+
+            crate::fsystem::errors::GodataErrorType::NotPermitted => Ok(warp::reply::with_status(
                 warp::reply::json(&e.to_string()),
                 StatusCode::FORBIDDEN,
             )),
