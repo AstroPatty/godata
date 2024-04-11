@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use sysinfo::System;
 use tokio::signal;
 use tokio_stream::wrappers::UnixListenerStream;
+use tracing::instrument;
 use warp::Filter;
 
 pub struct Server {
@@ -68,7 +69,9 @@ impl Drop for Server {
     }
 }
 
+#[instrument]
 pub fn get_server(port: Option<u16>) -> Server {
+    tracing::info!("Getting server");
     let url = match port {
         Some(p) => format!("localhost:{}", p),
         None => UserDirs::new()
@@ -80,8 +83,16 @@ pub fn get_server(port: Option<u16>) -> Server {
             .to_string(),
     };
     println!("Starting godata server on {}", url);
+    let project_manager = get_project_manager();
+    if project_manager.is_err() {
+        tracing::error!(
+            "Failed to initialize project manager: {:?}",
+            project_manager.err()
+        );
+        panic!("Failed to initialize project manager");
+    }
     Server {
-        project_manager: Arc::new(Mutex::new(get_project_manager())),
+        project_manager: Arc::new(Mutex::new(project_manager.unwrap())),
         url: (url, port),
     }
 }

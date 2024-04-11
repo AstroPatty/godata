@@ -46,7 +46,7 @@ impl Project {
         Ok(Some(output))
     }
 
-    pub(crate) fn duplicate_tree(&mut self, output_path: PathBuf) -> sled::Result<()> {
+    pub(crate) fn duplicate_tree(&mut self, output_path: PathBuf) -> Result<()> {
         let export = self.tree.export()?;
         let db = sled::open(output_path)?;
         db.import(export);
@@ -144,13 +144,13 @@ impl Project {
     }
 }
 
-pub fn get_project_manager() -> ProjectManager {
-    let storage_manager = StorageManager::get_manager();
-    ProjectManager {
+pub fn get_project_manager() -> Result<ProjectManager> {
+    let storage_manager = StorageManager::get_manager()?;
+    Ok(ProjectManager {
         storage_manager,
         projects: HashMap::new(),
         counts: HashMap::new(),
-    }
+    })
 }
 
 pub struct ProjectManager {

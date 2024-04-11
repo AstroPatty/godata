@@ -162,9 +162,9 @@ impl FileSystem {
     #[instrument(skip(self))]
     pub(crate) fn export(
         &mut self,
-    ) -> sled::Result<Vec<(Vec<u8>, Vec<u8>, impl Iterator<Item = Vec<Vec<u8>>>)>> {
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>, impl Iterator<Item = Vec<Vec<u8>>>)>> {
         // Copy the database to the specified path
-        self.save();
+        self.save()?;
         self.db.flush()?;
         let res = self.db.export();
         tracing::info!("Serialized database for project {}", self._name);
@@ -287,7 +287,7 @@ impl FileSystem {
             self.root.insert(FSObject::File(file), ppath, overwrite)?
         };
         self._modified = true;
-        self.save();
+        self.save()?;
         Ok(result)
     }
 
@@ -301,7 +301,7 @@ impl FileSystem {
         });
         self.root.insert_many(file_objects, virtual_path)?;
         self._modified = true;
-        self.save();
+        self.save()?;
         Ok(())
     }
 
@@ -376,7 +376,7 @@ impl FileSystem {
         let result = self.root.insert(item, fpath, overwrite)?;
         self.remove(source_path)?;
         self._modified = true;
-        self.save();
+        self.save()?;
         Ok(result)
     }
 
@@ -401,8 +401,12 @@ impl FileSystem {
 }
 
 impl Drop for FileSystem {
+    #[instrument(skip(self))]
     fn drop(&mut self) {
-        self.save();
+        let res = self.save();
+        if res.is_err() {
+            tracing::error!("Failed to save filesystem on drop: {}", res.err().unwrap());
+        }
     }
 }
 

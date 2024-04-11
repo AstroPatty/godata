@@ -42,10 +42,6 @@ impl GodataError {
             message,
         }
     }
-
-    pub(crate) fn kind(&self) -> GodataErrorType {
-        self.error_type
-    }
 }
 
 impl std::fmt::Display for GodataError {

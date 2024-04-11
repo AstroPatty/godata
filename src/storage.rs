@@ -142,7 +142,7 @@ impl StorageEndpoint for LocalEndpoint {
 
     fn discover_file(&self, project_path: &str, file_extension: String) -> Result<PathBuf> {
         let real_path = self.generate_path(project_path)?;
-        let expected_file_path = real_path.with_extension(file_extension);
+        let expected_file_path = real_path.with_extension(&file_extension);
         if expected_file_path.exists() {
             return Ok(expected_file_path);
         }
