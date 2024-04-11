@@ -1,8 +1,10 @@
+use crate::fsystem::errors::{GodataError, GodataErrorType, Result};
 use crate::locations::get_default_storage_dir;
 use sled::Db;
 use std::fs;
 use std::path::Path;
-use std::{io::Result, path::PathBuf};
+use std::path::PathBuf;
+use tracing::instrument;
 
 pub(crate) struct StorageManager {
     _root_path: PathBuf,
@@ -10,16 +12,17 @@ pub(crate) struct StorageManager {
 }
 
 impl StorageManager {
-    pub(crate) fn get_manager() -> StorageManager {
+    pub(crate) fn get_manager() -> Result<StorageManager> {
         let default_storage_dir = get_default_storage_dir().unwrap();
         let db_location = default_storage_dir.join(".db");
-        let db = sled::open(db_location).unwrap();
-        StorageManager {
+        let db = sled::open(db_location)?;
+        Ok(StorageManager {
             _root_path: default_storage_dir,
             storage_db: db,
-        }
+        })
     }
 
+    #[instrument(skip(self))]
     pub(crate) fn add(
         &self,
         name: &str,
@@ -33,9 +36,10 @@ impl StorageManager {
             fs::create_dir_all(&path)?;
         }
         if self.storage_db.contains_key(&key).unwrap() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::AlreadyExists,
-                "Project already exists",
+            tracing::error!("Tried to add project that already exists");
+            return Err(GodataError::new(
+                GodataErrorType::AlreadyExists,
+                "Project already exists".to_string(),
             ));
         }
         self.storage_db.insert(key, value.as_bytes())?;
@@ -47,8 +51,8 @@ impl StorageManager {
         let value = self.storage_db.get(key).unwrap();
         let value = match value {
             None => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
+                return Err(GodataError::new(
+                    GodataErrorType::NotFound,
                     format!(
                         "Storage information not found for project {}/{}",
                         collection, name
@@ -60,6 +64,13 @@ impl StorageManager {
 
         let value = String::from_utf8(value.to_vec()).unwrap();
         let mut split = value.split(':');
+        if split.clone().count() != 2 {
+            tracing::error!("Storage information is corrupted, found {}", value);
+            return Err(GodataError::new(
+                GodataErrorType::InternalError,
+                format!("Storage information for project {} is corrupted", name),
+            ));
+        }
         let endpoint = split.next().unwrap();
         let path = split.next().unwrap();
         let path = Path::new(path);
@@ -135,9 +146,12 @@ impl StorageEndpoint for LocalEndpoint {
         if expected_file_path.exists() {
             return Ok(expected_file_path);
         }
-        Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "File not found",
+        Err(GodataError::new(
+            GodataErrorType::NotFound,
+            format!(
+                "File with extension {} not found in project path {}",
+                file_extension, project_path
+            ),
         ))
     }
 
@@ -145,7 +159,8 @@ impl StorageEndpoint for LocalEndpoint {
         let from_path = self.generate_path(from)?;
         let to_path = self.generate_path(to)?;
         // copy the file
-        fs::rename(from_path, to_path)
+        fs::rename(from_path, to_path)?;
+        Ok(())
     }
     fn copy_file(&self, from: &str, to: &str) -> Result<()> {
         let from_path = self.generate_path(from)?;
