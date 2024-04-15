@@ -95,6 +95,27 @@ impl Project {
         Ok(meta)
     }
 
+    pub(crate) fn get_files(
+        &self,
+        folder_path: Option<&str>,
+        pattern: &str,
+    ) -> Result<HashMap<String, HashMap<String, String>>> {
+        let matching_files = self.tree.get_many(folder_path, pattern)?;
+        let results = matching_files
+            .iter()
+            .map(|f| {
+                let mut meta = f.metadata.clone();
+                let real_path = self._endpoint.resolve(&f.real_path);
+                meta.insert(
+                    "real_path".to_string(),
+                    real_path.to_str().unwrap().to_string(),
+                );
+                (f.name.clone(), meta)
+            })
+            .collect::<HashMap<_, _>>();
+        Ok(results)
+    }
+
     pub(crate) fn list(
         &self,
         project_path: Option<String>,
