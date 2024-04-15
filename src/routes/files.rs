@@ -1,3 +1,4 @@
+use crate::errors::{GodataError, GodataErrorType};
 use crate::handlers;
 use crate::project::ProjectManager;
 use std::collections::HashMap;
@@ -136,21 +137,27 @@ fn projects_get(
         .and(warp::query::<HashMap<String, String>>())
         .map(
             move |collection, project_name, params: HashMap<String, String>| {
-                let project_path = match params.get("project_path") {
-                    Some(project_path) => project_path.to_owned(),
-                    None => {
-                        return Ok(warp::reply::with_status(
-                            warp::reply::json(&"Missing project_path argument".to_string()),
-                            StatusCode::BAD_REQUEST,
-                        ))
-                    } // invalid request
-                };
-                handlers::get_file(
-                    project_manager.clone(),
-                    collection,
-                    project_name,
-                    project_path,
-                )
+                let project_path = params.get("project_path");
+                match (params.get("pattern"), project_path) {
+                    (None, Some(ppath)) => handlers::get_file(
+                        project_manager.clone(),
+                        collection,
+                        project_name,
+                        ppath.to_owned(),
+                    ),
+                    (Some(pattern), ppath) => handlers::get_files_with_pattern(
+                        project_manager.clone(),
+                        collection,
+                        project_name,
+                        ppath.map(|p| p.as_str()),
+                        pattern,
+                    ),
+                    (None, None) => Ok(GodataError::new(
+                        GodataErrorType::InvalidPath,
+                        "Missing project_path argument".to_string(),
+                    )
+                    .into_response()),
+                }
             },
         )
 }
