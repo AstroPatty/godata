@@ -1,3 +1,4 @@
+use crate::errors::{GodataError, GodataErrorType};
 use crate::project::get_collection_names;
 use crate::project::ProjectManager;
 use warp::reply::Reply;
@@ -400,6 +401,37 @@ pub(crate) fn get_file(
         )),
         StatusCode::NOT_FOUND,
     ))
+}
+
+pub(crate) fn get_files(
+    project_manager: Arc<Mutex<ProjectManager>>,
+    collection: String,
+    project_name: String,
+    project_path: Option<&str>,
+    pattern: &str,
+) -> Result<Response<Body>, Infallible> {
+    let project = project_manager
+        .lock()
+        .unwrap()
+        .load_project(&project_name, &collection);
+    if project.is_ok() {
+        let project = project.unwrap();
+        let result = project.lock().unwrap().get_files(project_path, pattern);
+        match result {
+            Ok(files) => {
+                return Ok(
+                    warp::reply::with_status(warp::reply::json(&files), StatusCode::OK)
+                        .into_response(),
+                )
+            }
+            Err(e) => return Ok(e.into_response()),
+        }
+    }
+    Ok(GodataError::new(
+        GodataErrorType::NotFound,
+        format!("No project named {project_name} in collection {collection}"),
+    )
+    .into_response())
 }
 
 #[instrument(
