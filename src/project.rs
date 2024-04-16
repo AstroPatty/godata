@@ -103,6 +103,7 @@ impl Project {
     ) -> Result<HashMap<String, HashMap<String, String>>> {
         let pattern = glob_to_regex(pattern)?;
         let matching_files = self.tree.get_many(folder_path, &pattern)?;
+
         let results = matching_files
             .iter()
             .map(|f| {

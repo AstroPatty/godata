@@ -24,7 +24,8 @@ I need to think a bit about how to properly reuse the client sesion.
 
 
 class NotFound(Exception):
-    pass
+    def to_native_error(self):
+        return FileNotFoundError(str(self)).with_traceback(self.__traceback__)
 
 
 class AlreadyExists(Exception):
@@ -314,7 +315,7 @@ def get_file(
     if resp.status_code == 200:
         return resp.json()
     else:
-        raise NotFound(f"{resp.json()}")
+        raise NotFound(f"{resp.json()}").to_native_error()
 
 
 def generate_path(collection_name: str, project_name: str, project_path: str):

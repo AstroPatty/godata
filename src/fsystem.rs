@@ -295,8 +295,9 @@ impl FileSystem {
             None => Err(GodataError::new(
                 GodataErrorType::NotFound,
                 format!(
-                    "Unable to find any matching files in folder {}",
-                    virtual_path.unwrap_or("root")
+                    "Unable to find any matching files in folder {} for pattern {}",
+                    virtual_path.unwrap_or("root"),
+                    pattern
                 ),
             )),
         }
