@@ -1,3 +1,4 @@
+use fnmatch_regex::glob_to_regex;
 use tracing::instrument;
 
 use crate::errors::{GodataError, GodataErrorType, Result};
@@ -100,7 +101,8 @@ impl Project {
         folder_path: Option<&str>,
         pattern: &str,
     ) -> Result<HashMap<String, HashMap<String, String>>> {
-        let matching_files = self.tree.get_many(folder_path, pattern)?;
+        let pattern = glob_to_regex(pattern)?;
+        let matching_files = self.tree.get_many(folder_path, &pattern)?;
         let results = matching_files
             .iter()
             .map(|f| {

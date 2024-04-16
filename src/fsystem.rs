@@ -4,12 +4,12 @@
 
 // As far as the rest of the library is concrened,
 
+use regex::Regex;
 use sled::{Batch, Db};
 use std::collections::HashMap;
 use uuid::Uuid;
 
 use ciborium::{from_reader, into_writer};
-use regex;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tracing::instrument;
@@ -267,7 +267,11 @@ impl FileSystem {
         }
     }
 
-    pub(crate) fn get_many(&self, virtual_path: Option<&str>, pattern: &str) -> Result<Vec<&File>> {
+    pub(crate) fn get_many(
+        &self,
+        virtual_path: Option<&str>,
+        pattern: &Regex,
+    ) -> Result<Vec<&File>> {
         let folder = match virtual_path {
             Some(path) => {
                 let f_ = self.root.get(path)?;
@@ -285,8 +289,7 @@ impl FileSystem {
             None => &self.root,
         };
 
-        let regex = regex::Regex::new(pattern)?;
-        let matching_files = folder.search_files(&regex);
+        let matching_files = folder.search_files(pattern);
         match matching_files {
             Some(matches) => Ok(matches),
             None => Err(GodataError::new(

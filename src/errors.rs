@@ -77,6 +77,15 @@ impl From<regex::Error> for GodataError {
     }
 }
 
+impl From<fnmatch_regex::error::Error> for GodataError {
+    fn from(error: fnmatch_regex::error::Error) -> Self {
+        Self {
+            error_type: GodataErrorType::InvalidPath,
+            message: error.to_string(),
+        }
+    }
+}
+
 impl Error for GodataError {}
 
 pub(crate) type Result<T> = std::result::Result<T, GodataError>;

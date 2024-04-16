@@ -1,5 +1,6 @@
 from functools import cache
 from pathlib import Path
+from typing import Optional
 from urllib import parse
 
 import requests
@@ -295,9 +296,18 @@ def list_project_contents(
         raise GodataClientError(f"{resp.status_code}: {resp.text}")
 
 
-def get_file(collection_name: str, project_name: str, project_path: str):
+def get_file(
+    collection_name: str,
+    project_name: str,
+    project_path: Optional[str] = None,
+    pattern: Optional[str] = None,
+):
     client, url = get_client()
-    params = {"project_path": project_path}
+    params = {}
+    if project_path:
+        params["project_path"] = project_path
+    if pattern:
+        params["pattern"] = pattern
     resp = client.get(
         f"{url}/projects/{collection_name}/{project_name}/files", params=params
     )

@@ -249,3 +249,17 @@ def test_ie():
     # get the list of folders in this path
     data = p2.get("data/test_data")
     assert np.all(data == expected_data)
+
+
+def test_multiple_get():
+    p = create_project("test14")
+    expected_data = np.ones((10, 10))
+    expected_data2 = np.zeros((10, 10))
+    p.store(expected_data, "data/test_data.npy")
+    p.store(expected_data2, "data/test_data2.npy")
+    p.store(expected_data, "data/test_data3")
+
+    results = p.get_many("data", "*.npy")
+    assert len(results) == 2
+    assert np.all(results["test_data.npy"] == expected_data)
+    assert np.all(results["test_data2.npy"] == expected_data2)
