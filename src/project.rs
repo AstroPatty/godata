@@ -19,6 +19,7 @@ pub struct Project {
 }
 
 impl Project {
+    #[instrument(skip(self), fields(name = self._name.as_str(), collection = self._collection.as_str()))]
     pub(crate) fn add_file(
         &mut self,
         project_path: &str,
@@ -47,13 +48,21 @@ impl Project {
         Ok(Some(output))
     }
 
+    #[instrument(skip(self), fields(name = self._name.as_str(), collection = self._collection.as_str()))]
     pub(crate) fn duplicate_tree(&mut self, output_path: PathBuf) -> Result<()> {
         let export = self.tree.export()?;
-        let db = sled::open(output_path)?;
+        let db = sled::open(output_path);
+        if db.is_err() {
+            let err = db.err().unwrap();
+            tracing::error!("Sled failed to open database, error: {:?}", err);
+            return Err(err.into());
+        }
+        let db = db.unwrap();
         db.import(export);
         Ok(())
     }
 
+    #[instrument(skip(self), fields(name = self._name.as_str(), collection = self._collection.as_str()))]
     pub(crate) fn add_folder(
         &mut self,
         project_path: &str,
@@ -86,6 +95,7 @@ impl Project {
         Ok(())
     }
 
+    #[instrument(skip(self), fields(name = self._name.as_str(), collection = self._collection.as_str()))]
     pub(crate) fn get_file(&self, project_path: &str) -> Result<HashMap<String, String>> {
         let file = self.tree.get(project_path)?;
         let fpath = self._endpoint.resolve(&file.real_path);
@@ -96,6 +106,7 @@ impl Project {
         Ok(meta)
     }
 
+    #[instrument(skip(self), fields(name = self._name.as_str(), collection = self._collection.as_str()))]
     pub(crate) fn get_files(
         &self,
         folder_path: Option<&str>,
@@ -127,6 +138,7 @@ impl Project {
         Ok(list)
     }
 
+    #[instrument(skip(self), fields(name = self._name.as_str(), collection = self._collection.as_str()))]
     pub(crate) fn remove_file(&mut self, project_path: &str) -> Result<Vec<PathBuf>> {
         let removed_internal_paths = self.tree.remove(project_path)?;
         // filter out paths that are not internal
@@ -138,6 +150,7 @@ impl Project {
         Ok(need_to_remove)
     }
 
+    #[instrument(skip(self), fields(name = self._name.as_str(), collection = self._collection.as_str()))]
     pub(crate) fn move_(
         &mut self,
         from: &str,
@@ -238,6 +251,8 @@ impl ProjectManager {
         self.storage_manager.add(name, collection, endpoint, path)?;
         Ok(project_dir)
     }
+
+    #[instrument(skip(self))]
     pub fn export_project(
         &mut self,
         name: &str,
@@ -245,11 +260,7 @@ impl ProjectManager {
         output_path: PathBuf,
     ) -> Result<()> {
         let output_tree_path = output_path.join(".tree");
-        let project = self.load_project(name, collection);
-        if project.is_err() {
-            return Err(project.err().unwrap());
-        }
-        let project = project.unwrap();
+        let project = self.load_project(name, collection)?
         let mut project = project.lock().unwrap();
         project.duplicate_tree(output_tree_path)?;
         Ok(())
@@ -294,7 +305,7 @@ impl ProjectManager {
         let count = count.unwrap();
         if count == &1 {
             tracing::info!(
-                "Last connection to project {} dropped, removing form cache",
+                "Last connection to project {} dropped, removing from cache",
                 key
             );
             self.projects.remove(&key);
@@ -344,6 +355,10 @@ impl ProjectManager {
             }
             return Ok(());
         }
+        tracing::error!(
+            "Project {} is not empty, not deleting",
+            format!("{}/{}", collection, name)
+        );
         Err(GodataError::new(
             GodataErrorType::NotPermitted,
             "Project is not empty".to_string(),
