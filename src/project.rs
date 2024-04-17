@@ -184,6 +184,7 @@ pub struct ProjectManager {
 }
 
 impl ProjectManager {
+    #[instrument(skip(self))]
     pub fn create_project(
         &mut self,
         name: &str,
@@ -213,6 +214,7 @@ impl ProjectManager {
         Ok(project)
     }
 
+    #[instrument(skip(self))]
     pub fn import_project(
         &self,
         name: &str,
@@ -226,6 +228,7 @@ impl ProjectManager {
         let project_dir = create_project_dir(name, collection, true)?;
         let tree_path = path.join(".tree");
         let db = sled::open(tree_path)?;
+
         let _root = db.get("root").unwrap().unwrap();
 
         let db_export = db.export();
@@ -252,6 +255,7 @@ impl ProjectManager {
         Ok(())
     }
 
+    #[instrument(skip(self))]
     pub fn load_project(&mut self, name: &str, collection: &str) -> Result<Arc<Mutex<Project>>> {
         let key = format!("{}/{}", collection, name);
         if self.projects.contains_key(&key) {
@@ -312,6 +316,7 @@ impl ProjectManager {
         Ok(())
     }
 
+    #[instrument(skip(self))]
     pub fn delete_project(&mut self, name: &str, collection: &str, force: bool) -> Result<()> {
         let key = format!("{}/{}", collection, name);
         let pobj = self.projects.remove(&key);
@@ -345,6 +350,7 @@ impl ProjectManager {
         ))
     }
 
+    #[instrument(skip(self))]
     pub fn get_project_names(&self, collection: String, show_hidden: bool) -> Result<Vec<String>> {
         let collection_dir = load_collection_dir(&collection);
         if collection_dir.is_err() {
