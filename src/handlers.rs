@@ -399,6 +399,17 @@ pub(crate) fn get_file(
     .into_response())
 }
 
+#[instrument(
+    name = "handlers.get_files_with_pattern",
+    level = "info",
+    skip(project_manager),
+    fields(
+        collection = %collection,
+        project_name = %project_name,
+        project_path = format!("{:?}", project_path),
+        pattern = %pattern
+    )
+)]
 pub(crate) fn get_files_with_pattern(
     project_manager: Arc<Mutex<ProjectManager>>,
     collection: String,
