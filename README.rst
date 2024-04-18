@@ -64,7 +64,7 @@ If you've ever forgotten what's in a given folder, it's easy to check::
     ----------------
     my-important-data
 
-For more programattic access, you can also get lists of the files and folders at a given path with :meth:`project.list<godata.project.GodataProject.list>`. You can remove a file from your project just as easily::
+For more programattic access, you can also get lists of the files and folders at a given path with `project.list`. You can remove a file from your project just as easily::
 
     >> project.remove("data/my-important-data")
     True
