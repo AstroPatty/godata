@@ -52,7 +52,8 @@ def install(upgrade=False, version=None):
     with zipfile.ZipFile("godata_server.zip", "r") as zip_ref:
         zip_ref.extractall()
     # move the binary to the install path
-    install_path = server.get_server_path()
+    config = server.get_config()
+    install_path = config.server_path
 
     shutil.move("godata_server", install_path)
     # remove the zip file
@@ -77,7 +78,7 @@ def upgrade():
 
 
 def get_version():
-    install_path = server.get_server_path()
+    install_path = server.get_config().server_path
     try:
         return subprocess.check_output([f"{install_path}", "--version"]).decode("utf-8")
     except FileNotFoundError:

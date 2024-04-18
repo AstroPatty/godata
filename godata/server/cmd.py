@@ -68,7 +68,8 @@ def stop():
         config = json.load(f)
         config = ServerConfig(**config)
         if not config.is_running:
-            raise RuntimeError("Server is not running.")
+            print("Server is not running.")
+            return
 
         # check if the url is a unix socket or localhost
         local_urls = ["http://localhost", "http+unix://"]
