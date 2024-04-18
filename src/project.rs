@@ -298,7 +298,7 @@ impl ProjectManager {
         let key = format!("{}/{}", collection, name);
         let count = self.counts.get(&key);
         if count.is_none() {
-            let message = format!("Tried to drop a project {} that does not exist", key);
+            let message = format!("Tried to drop a project {} that was not in the cache", key);
             tracing::error!(message);
             return Err(GodataError::new(GodataErrorType::NotFound, message));
         }

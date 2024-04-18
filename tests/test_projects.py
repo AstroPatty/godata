@@ -15,20 +15,6 @@ from godata.project import GodataProjectError
 data_path = Path(os.environ.get("DATA_PATH"))
 
 
-def setup_module(module):
-    # Make sure the server is running
-    from godata.server import start
-
-    start()
-
-
-def teardown_module(module):
-    # Make sure the server is stopped
-    from godata.server import stop
-
-    stop()
-
-
 def test_create():
     p = create_project("test1")
     items = p.ls()

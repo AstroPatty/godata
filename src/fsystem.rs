@@ -467,7 +467,7 @@ impl Folder {
             }
         }
     }
-    #[instrument]
+    #[instrument(skip(db))]
     fn from_tree(db: &Db, uuid: String) -> Result<Folder> {
         let folder_info = db.get(uuid.as_bytes());
         if folder_info.is_err() {
