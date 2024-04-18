@@ -130,7 +130,7 @@ pub(crate) fn drop_project(
         .drop_project(&project_name, &collection);
     match project {
         Ok(_) => Ok(warp::reply::with_status(
-            warp::reply::json(&format!("Project {project_name} dropped.")),
+            warp::reply::json(&format!("Project {} dropped.", project_name)),
             StatusCode::OK,
         )
         .into_response()),
@@ -456,7 +456,7 @@ pub(crate) fn generate_path(
     collection: String,
     project_name: String,
     project_path: String,
-) -> Result<WithStatus<warp::reply::Json>, Infallible> {
+) -> Result<Response<Body>, Infallible> {
     let project = project_manager
         .lock()
         .unwrap()
@@ -469,14 +469,11 @@ pub(crate) fn generate_path(
                 return Ok(warp::reply::with_status(
                     warp::reply::json(&path),
                     StatusCode::OK,
-                ))
+                ).into_response())
             }
 
-            Err(_) => {
-                return Ok(warp::reply::with_status(
-                    warp::reply::json(&"Uncaught error generating path!".to_string()),
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                ))
+            Err(e) => {
+                return Ok(e.into_response());
             }
         }
     };
@@ -486,7 +483,7 @@ pub(crate) fn generate_path(
             "No project named {project_name} in collection {collection}"
         )),
         StatusCode::NOT_FOUND,
-    ))
+    ).into_response())
 }
 
 pub(crate) fn path_exists(
@@ -494,7 +491,7 @@ pub(crate) fn path_exists(
     collection: String,
     project_name: String,
     project_path: String,
-) -> Result<WithStatus<warp::reply::Json>, Infallible> {
+) -> Result<Response<Body>, Infallible> {
     let project = project_manager
         .lock()
         .unwrap()
@@ -506,12 +503,12 @@ pub(crate) fn path_exists(
             return Ok(warp::reply::with_status(
                 warp::reply::json(&true),
                 StatusCode::OK,
-            ));
+            ).into_response());
         } else {
             return Ok(warp::reply::with_status(
                 warp::reply::json(&false),
                 StatusCode::OK,
-            ));
+            ).into_response());
         }
     }
     Ok(warp::reply::with_status(
@@ -519,7 +516,7 @@ pub(crate) fn path_exists(
             "No project named {project_name} in collection {collection}"
         )),
         StatusCode::NOT_FOUND,
-    ))
+    ).into_response())
 }
 
 #[instrument(
@@ -594,7 +591,7 @@ pub(crate) fn remove_file(
     collection: String,
     project_name: String,
     project_path: String,
-) -> Result<WithStatus<warp::reply::Json>, Infallible> {
+) -> Result<Response<Body>, Infallible> {
     let project = project_manager
         .lock()
         .unwrap()
@@ -607,14 +604,11 @@ pub(crate) fn remove_file(
                 return Ok(warp::reply::with_status(
                     warp::reply::json(&v),
                     StatusCode::OK,
-                ))
+                ).into_response())
             }
 
-            Err(_) => {
-                return Ok(warp::reply::with_status(
-                    warp::reply::json(&format!("File {project_path} does not exist!")),
-                    StatusCode::NOT_FOUND,
-                ))
+            Err(e) => {
+                return Ok(e.into_response());
             }
         }
     }
@@ -623,7 +617,7 @@ pub(crate) fn remove_file(
             "No project named {project_name} in collection {collection}"
         )),
         StatusCode::NOT_FOUND,
-    ))
+    ).into_response())
 }
 
 #[instrument(

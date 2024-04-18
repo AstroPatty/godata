@@ -188,7 +188,8 @@ fn projects_path_exists(
                         return Ok(warp::reply::with_status(
                             warp::reply::json(&"Missing project_path argument".to_string()),
                             StatusCode::BAD_REQUEST,
-                        ));
+                        )
+                        .into_response());
                     } // invalid request
                 };
                 handlers::path_exists(
@@ -217,7 +218,8 @@ fn project_generate_path(
                         return Ok(warp::reply::with_status(
                             warp::reply::json(&"Missing project_path argument".to_string()),
                             StatusCode::BAD_REQUEST,
-                        ));
+                        )
+                        .into_response());
                     } // invalid request
                 };
                 handlers::generate_path(
@@ -246,7 +248,8 @@ fn project_remove_file(
                         return Ok(warp::reply::with_status(
                             warp::reply::json(&"Missing project_path argument".to_string()),
                             StatusCode::BAD_REQUEST,
-                        ));
+                        )
+                        .into_response());
                     } // invalid request
                 };
                 handlers::remove_file(
