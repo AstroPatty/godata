@@ -106,7 +106,7 @@ class GodataProject:
                     metadata=metadata,
                     force=overwrite,
                 )
-        except client.AlreadyExists:
+        except FileNotFoundError:
             raise GodataProjectError(
                 f"Something already exists at {project_path}. Use overwrite=True to "
                 "overwrite it."
@@ -407,12 +407,7 @@ class GodataProject:
         Raises:
             GodataProjectError: If the file does not exist in the project.
         """
-        try:
-            paths = client.remove_file(self.collection, self.name, project_path)
-        except client.NotFound:
-            raise GodataProjectError(
-                f"File or folder {project_path} does not exist in project {self.name}"
-            )
+        paths = client.remove_file(self.collection, self.name, project_path)
         file_utils.handle_removal(paths)
         # will raise an error if it cannot be removed
         return True
@@ -423,12 +418,7 @@ class GodataProject:
         Get the metadata for a given file. This will return a dictionary of metadata
         for the file. If the file does not exist, this will throw an error.
         """
-        try:
-            file_info = client.get_file(self.collection, self.name, project_path)
-        except client.NotFound:
-            raise GodataProjectError(
-                f"File or folder {project_path} does not exist in project {self.name}"
-            )
+        file_info = client.get_file(self.collection, self.name, project_path)
         return file_info
 
     @sanitize_project_path
@@ -645,12 +635,7 @@ def load_project(name: str, collection: str = "default") -> GodataProject:
         GodataProjectError: If the project does not exist in the given collection.
     """
 
-    try:
-        _ = client.load_project(collection, name)
-    except client.NotFound:
-        raise GodataProjectError(
-            f"Project {name} does not exist in collection {collection}"
-        )
+    client.load_project(collection, name)
     return GodataProject(collection, name)
 
 
@@ -674,14 +659,7 @@ def delete_project(name: str, collection: str = "default", force=False) -> bool:
         GodataProjectError: If the project does not exist in the given collection.
 
     """
-    try:
-        client.delete_project(collection, name, force)
-    except client.NotFound:
-        raise GodataProjectError(
-            f"Project {name} does not exist in collection {collection}"
-        )
-    except client.Forbidden as e:
-        raise GodataProjectError(f"{str(e)}")
+    client.delete_project(collection, name, force)
     return True
 
 
@@ -708,10 +686,7 @@ def list_projects(
     Returns:
         list[str]: A list of project names in the given collection.
     """
-    try:
-        projects = client.list_projects(collection, show_hidden)
-    except client.NotFound:
-        raise GodataProjectError(f"Collection {collection} does not exist")
+    projects = client.list_projects(collection, show_hidden)
     if display:
         print(f"Projects in collection `{collection or 'default'}`:")
         for p in projects:

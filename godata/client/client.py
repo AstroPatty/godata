@@ -25,19 +25,6 @@ I need to think a bit about how to properly reuse the client sesion.
 """
 
 
-class NotFound(Exception):
-    def to_native_error(self):
-        return FileNotFoundError(str(self)).with_traceback(self.__traceback__)
-
-
-class AlreadyExists(Exception):
-    pass
-
-
-class Forbidden(Exception):
-    pass
-
-
 def check_server(client, url):
     from godata import __minimum_server_version__
 
