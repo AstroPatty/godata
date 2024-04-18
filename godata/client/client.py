@@ -10,7 +10,7 @@ from requests.adapters import HTTPAdapter
 from godata import server
 from godata.errors import GodataError
 
-from .parser import parse_response
+from .parser import RequestType, parse_response
 from .unixsocket import UnixHTTPAdapter
 
 """
@@ -80,7 +80,7 @@ def get_client():
 
 def get_version(client, url):
     resp = client.get(f"{url}/version")
-    return parse_response(resp)
+    return resp.json()
 
 
 def list_collections(show_hidden=False):
@@ -94,12 +94,7 @@ def list_projects(collection_name: str, show_hidden: bool = False):
     client, url = get_client()
     payload = {"show_hidden": str(show_hidden).lower()}
     resp = client.get(f"{url}/projects/{collection_name}", params=payload)
-    if resp.status_code == 200:
-        return resp.json()
-    elif resp.status_code == 404:
-        raise NotFound(f"{resp.json()}")
-    else:
-        raise GodataError(f"{resp.status_code}: {resp.text}")
+    return parse_response(resp, RequestType.PROJECT)
 
 
 def create_project(
@@ -113,12 +108,7 @@ def create_project(
     if storage_location:
         args["storage_location"] = storage_location
     result = client.post(f"{url}/create/{collection_name}/{project_name}", params=args)
-    if result.status_code == 201:
-        return result.json()
-    elif result.status_code == 409:
-        raise AlreadyExists(f"{result.json()}")
-    else:
-        raise GodataError(f"{result.status_code}: {result.text}")
+    return parse_response(result, RequestType.PROJECT)
 
 
 def delete_project(collection_name: str, project_name: str, force: bool = False):
@@ -127,14 +117,7 @@ def delete_project(collection_name: str, project_name: str, force: bool = False)
     resp = client.delete(
         f"{url}/projects/{collection_name}/{project_name}", params=payload
     )
-    if resp.status_code == 200:
-        return resp.json()
-    elif resp.status_code == 404:
-        raise NotFound(f"{resp.json()}")
-    elif resp.status_code == 403:
-        raise Forbidden(f"{resp.json()}")
-    else:
-        raise GodataError(f"{resp.status_code}: {resp.text}")
+    return parse_response(resp, RequestType.PROJECT)
 
 
 def load_project(collection_name: str, project_name: str):
@@ -146,10 +129,8 @@ def load_project(collection_name: str, project_name: str):
     if resp.status_code == 200:
         print(resp.json())
         return True
-    elif resp.status_code == 404:
-        raise NotFound(f"{resp.json()}")
     else:
-        raise GodataError(f"{resp.status_code}: {resp.text}")
+        return parse_response(resp, RequestType.PROJECT)
 
 
 def drop_project(collection_name: str, project_name: str):
@@ -163,13 +144,7 @@ def drop_project(collection_name: str, project_name: str):
     except requests.exceptions.ConnectionError:
         # The server is probably down, so this operation doesn't really matter
         return {}
-    if resp.status_code == 200:
-        return resp.json()
-    elif resp.status_code == 404:
-        # Project is not loaded, so we don't care
-        return {}
-    else:
-        raise GodataError(f"{resp.status_code}: {resp.text}")
+    return parse_response(resp, RequestType.PROJECT)
 
 
 def path_exists(collection_name: str, project_name: str, project_path: str):
@@ -178,10 +153,7 @@ def path_exists(collection_name: str, project_name: str, project_path: str):
     resp = client.get(
         f"{url}/projects/{collection_name}/{project_name}/exists", params=params
     )
-    if resp.status_code == 200:
-        return resp.json()
-    else:
-        raise GodataError(f"{resp.status_code}: {resp.text}")
+    return parse_response(resp, RequestType.FILE)
 
 
 def link_file(
@@ -214,13 +186,9 @@ def link_file(
     resp = client.post(
         f"{url}/projects/{collection_name}/{project_name}/files", params=params
     )
-    if resp.status_code == 201:
-        print(resp.json())
-        return resp.json()
-    elif resp.status_code == 409:
-        raise AlreadyExists(f"{resp.json()}")
-    else:
-        raise GodataError(f"{resp.status_code}: {resp.text}")
+    result = parse_response(resp, RequestType.FILE)
+    print(result)
+    return result
 
 
 def link_folder(
@@ -240,12 +208,7 @@ def link_folder(
     resp = client.post(
         f"{url}/projects/{collection_name}/{project_name}/files", params=params
     )
-    if resp.status_code == 201:
-        return resp.json()
-    elif resp.status_code == 409:
-        raise AlreadyExists(f"{resp.json()}")
-    else:
-        raise GodataError(f"{resp.status_code}: {resp.text}")
+    return parse_response(resp, RequestType.FILE)
 
 
 def move(
@@ -264,12 +227,7 @@ def move(
     resp = client.post(
         f"{url}/projects/{collection_name}/{project_name}/files/move", params=params
     )
-    if resp.status_code == 200:
-        return resp.json()
-    elif resp.status_code == 409:
-        raise AlreadyExists(f"{resp.json()}")
-    else:
-        raise GodataError(f"{resp.status_code}: {resp.text}")
+    return parse_response(resp, RequestType.FILE)
 
 
 def list_project_contents(
@@ -286,12 +244,7 @@ def list_project_contents(
     resp = client.get(
         f"{url}/projects/{collection_name}/{project_name}/list", params=params
     )
-    if resp.status_code == 200:
-        return resp.json()
-    elif resp.status_code == 404:
-        raise NotFound(f"{resp.json()}")
-    else:
-        raise GodataError(f"{resp.status_code}: {resp.text}")
+    return parse_response(resp, RequestType.FILE)
 
 
 def get_file(
@@ -309,10 +262,7 @@ def get_file(
     resp = client.get(
         f"{url}/projects/{collection_name}/{project_name}/files", params=params
     )
-    if resp.status_code == 200:
-        return resp.json()
-    else:
-        raise NotFound(f"{resp.json()}").to_native_error()
+    return parse_response(resp, RequestType.FILE)
 
 
 def generate_path(collection_name: str, project_name: str, project_path: str):
@@ -322,12 +272,7 @@ def generate_path(collection_name: str, project_name: str, project_path: str):
         f"{url}/projects/{collection_name}/{project_name}/generate",
         params=params,
     )
-    if resp.status_code == 200:
-        return resp.json()
-    elif resp.status_code == 404:
-        raise NotFound(f"{resp.json()}")
-    else:
-        raise GodataError(f"{resp.status_code}: {resp.text}")
+    return parse_response(resp, RequestType.FILE)
 
 
 def remove_file(collection_name: str, project_name: str, project_path: str):
@@ -336,33 +281,18 @@ def remove_file(collection_name: str, project_name: str, project_path: str):
     resp = client.delete(
         f"{url}/projects/{collection_name}/{project_name}/files", params=params
     )
-    if resp.status_code == 200:
-        return resp.json()
-    elif resp.status_code == 404:
-        raise NotFound(f"{resp.json()}")
-    else:
-        raise GodataError(f"{resp.status_code}: {resp.text}")
+    return parse_response(resp, RequestType.FILE)
 
 
 def export_tree(collection_name: str, project_name: str, output_path: Path):
     client, url = get_client()
     params = {"output_path": str(output_path)}
     resp = client.get(f"{url}/export/{collection_name}/{project_name}", params=params)
-    if resp.status_code == 200:
-        return resp.json()
-    elif resp.status_code == 404:
-        raise NotFound(f"{resp.json()}")
-    else:
-        raise GodataError(f"{resp.status_code}: {resp.text}")
+    return parse_response(resp, RequestType.PROJECT)
 
 
 def import_tree(collection_name: str, project_name: str, input_path: Path):
     client, url = get_client()
     params = {"input_path": str(input_path)}
     resp = client.get(f"{url}/import/{collection_name}/{project_name}", params=params)
-    if resp.status_code == 200:
-        return resp.json()
-    elif resp.status_code == 404:
-        raise NotFound(f"{resp.json()}")
-    else:
-        raise GodataError(f"{resp.status_code}: {resp.text}")
+    return parse_response(resp, RequestType.PROJECT)

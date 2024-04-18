@@ -96,7 +96,7 @@ def test_overwrite(project):
     stored_path = project.get("data/test_data_overwrite", as_path=True)
 
     df_data = pd.read_csv(data_path / "test_df.csv")
-    with pytest.raises(GodataProjectError):
+    with pytest.raises(FileExistsError):
         project.store(df_data, "data/test_data_overwrite")
     project.store(df_data, "data/test_data_overwrite", overwrite=True)
     data = project.get("data/test_data_overwrite")
