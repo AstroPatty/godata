@@ -16,3 +16,15 @@ class GodataError(Exception):
 
 class GodataProjectError(Exception):
     pass
+
+
+class AlreadyExists(GodataProjectError):
+    pass
+
+
+class NotFound(GodataProjectError):
+    pass
+
+
+class GodataFileError(Exception):
+    pass

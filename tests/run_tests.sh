@@ -8,6 +8,6 @@ else
 fi
 
 poetry run pytest -W ignore::ResourceWarning
-pkill godata_server
+poetry run godata server stop
 
 cp $HOME/godata/logs/* /home/logs
