@@ -8,6 +8,7 @@ from packaging import version
 from requests.adapters import HTTPAdapter
 
 from godata import server
+from godata.errors import GodataError
 
 from .unixsocket import UnixHTTPAdapter
 
@@ -36,10 +37,6 @@ class Forbidden(Exception):
     pass
 
 
-class GodataClientError(Exception):
-    pass
-
-
 def check_server(client, url):
     from godata import __minimum_server_version__
 
@@ -47,7 +44,7 @@ def check_server(client, url):
     minium_version = version.parse(__minimum_server_version__)
 
     if server_version < minium_version:
-        raise GodataClientError(
+        raise GodataError(
             f"Server version {server_version} is less than minimum version "
             f"{minium_version}. Please upgrade the server."
         )
@@ -102,7 +99,7 @@ def list_projects(collection_name: str, show_hidden: bool = False):
     elif resp.status_code == 404:
         raise NotFound(f"{resp.json()}")
     else:
-        raise GodataClientError(f"{resp.status_code}: {resp.text}")
+        raise GodataError(f"{resp.status_code}: {resp.text}")
 
 
 def create_project(
@@ -121,7 +118,7 @@ def create_project(
     elif result.status_code == 409:
         raise AlreadyExists(f"{result.json()}")
     else:
-        raise GodataClientError(f"{result.status_code}: {result.text}")
+        raise GodataError(f"{result.status_code}: {result.text}")
 
 
 def delete_project(collection_name: str, project_name: str, force: bool = False):
@@ -137,7 +134,7 @@ def delete_project(collection_name: str, project_name: str, force: bool = False)
     elif resp.status_code == 403:
         raise Forbidden(f"{resp.json()}")
     else:
-        raise GodataClientError(f"{resp.status_code}: {resp.text}")
+        raise GodataError(f"{resp.status_code}: {resp.text}")
 
 
 def load_project(collection_name: str, project_name: str):
@@ -152,7 +149,7 @@ def load_project(collection_name: str, project_name: str):
     elif resp.status_code == 404:
         raise NotFound(f"{resp.json()}")
     else:
-        raise GodataClientError(f"{resp.status_code}: {resp.text}")
+        raise GodataError(f"{resp.status_code}: {resp.text}")
 
 
 def drop_project(collection_name: str, project_name: str):
@@ -172,7 +169,7 @@ def drop_project(collection_name: str, project_name: str):
         # Project is not loaded, so we don't care
         return {}
     else:
-        raise GodataClientError(f"{resp.status_code}: {resp.text}")
+        raise GodataError(f"{resp.status_code}: {resp.text}")
 
 
 def path_exists(collection_name: str, project_name: str, project_path: str):
@@ -184,7 +181,7 @@ def path_exists(collection_name: str, project_name: str, project_path: str):
     if resp.status_code == 200:
         return resp.json()
     else:
-        raise GodataClientError(f"{resp.status_code}: {resp.text}")
+        raise GodataError(f"{resp.status_code}: {resp.text}")
 
 
 def link_file(
@@ -202,7 +199,7 @@ def link_file(
         "force": str(force).lower(),
     }
     if set(metadata.keys()).intersection(set(params.keys())):
-        raise GodataClientError(
+        raise GodataError(
             f"Metadata keys {set(metadata.keys())} conflict with parameter keys "
             f"{set(params.keys())}."
         )
@@ -210,7 +207,7 @@ def link_file(
         try:
             params.update({str(k): str(v)})
         except TypeError:
-            raise GodataClientError(
+            raise GodataError(
                 "Metadata keys and values must be convertible strings."
             ) from None
 
@@ -223,7 +220,7 @@ def link_file(
     elif resp.status_code == 409:
         raise AlreadyExists(f"{resp.json()}")
     else:
-        raise GodataClientError(f"{resp.status_code}: {resp.text}")
+        raise GodataError(f"{resp.status_code}: {resp.text}")
 
 
 def link_folder(
@@ -248,7 +245,7 @@ def link_folder(
     elif resp.status_code == 409:
         raise AlreadyExists(f"{resp.json()}")
     else:
-        raise GodataClientError(f"{resp.status_code}: {resp.text}")
+        raise GodataError(f"{resp.status_code}: {resp.text}")
 
 
 def move(
@@ -272,7 +269,7 @@ def move(
     elif resp.status_code == 409:
         raise AlreadyExists(f"{resp.json()}")
     else:
-        raise GodataClientError(f"{resp.status_code}: {resp.text}")
+        raise GodataError(f"{resp.status_code}: {resp.text}")
 
 
 def list_project_contents(
@@ -294,7 +291,7 @@ def list_project_contents(
     elif resp.status_code == 404:
         raise NotFound(f"{resp.json()}")
     else:
-        raise GodataClientError(f"{resp.status_code}: {resp.text}")
+        raise GodataError(f"{resp.status_code}: {resp.text}")
 
 
 def get_file(
@@ -330,7 +327,7 @@ def generate_path(collection_name: str, project_name: str, project_path: str):
     elif resp.status_code == 404:
         raise NotFound(f"{resp.json()}")
     else:
-        raise GodataClientError(f"{resp.status_code}: {resp.text}")
+        raise GodataError(f"{resp.status_code}: {resp.text}")
 
 
 def remove_file(collection_name: str, project_name: str, project_path: str):
@@ -344,7 +341,7 @@ def remove_file(collection_name: str, project_name: str, project_path: str):
     elif resp.status_code == 404:
         raise NotFound(f"{resp.json()}")
     else:
-        raise GodataClientError(f"{resp.status_code}: {resp.text}")
+        raise GodataError(f"{resp.status_code}: {resp.text}")
 
 
 def export_tree(collection_name: str, project_name: str, output_path: Path):
@@ -356,7 +353,7 @@ def export_tree(collection_name: str, project_name: str, output_path: Path):
     elif resp.status_code == 404:
         raise NotFound(f"{resp.json()}")
     else:
-        raise GodataClientError(f"{resp.status_code}: {resp.text}")
+        raise GodataError(f"{resp.status_code}: {resp.text}")
 
 
 def import_tree(collection_name: str, project_name: str, input_path: Path):
@@ -368,4 +365,4 @@ def import_tree(collection_name: str, project_name: str, input_path: Path):
     elif resp.status_code == 404:
         raise NotFound(f"{resp.json()}")
     else:
-        raise GodataClientError(f"{resp.status_code}: {resp.text}")
+        raise GodataError(f"{resp.status_code}: {resp.text}")

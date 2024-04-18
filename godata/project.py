@@ -15,15 +15,12 @@ import portalocker
 from loguru import logger
 
 from godata.client import client
+from godata.errors import GodataProjectError
 from godata.files import utils as file_utils
 from godata.io import find_writer, get_typekey, godataIoException, try_to_read
 from godata.utils import sanitize_project_path
 
 __all__ = ["load_project", "list_projects", "create_project", "GodataProjectError"]
-
-
-class GodataProjectError(Exception):
-    pass
 
 
 class GodataProject:

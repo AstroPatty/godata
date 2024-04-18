@@ -541,7 +541,7 @@ pub(crate) fn move_(
     project_path: String,
     new_project_path: String,
     overwrite: bool,
-) -> Result<WithStatus<warp::reply::Json>, Infallible> {
+) -> Result<Response<Body>, Infallible> {
     let project = project_manager
         .lock()
         .unwrap()
@@ -562,14 +562,12 @@ pub(crate) fn move_(
                         }
                     ),
                     StatusCode::OK,
-                ))
+                ).into_response())
             }
 
-            Err(_) => {
-                return Ok(warp::reply::with_status(
-                    warp::reply::json(&format!("File {project_path} does not exist!")),
-                    StatusCode::NOT_FOUND,
-                ))
+            Err(e) => {
+                return Ok(e.into_response());
+            
             }
         }
     }
@@ -578,7 +576,7 @@ pub(crate) fn move_(
             "No project named {project_name} in collection {collection}"
         )),
         StatusCode::NOT_FOUND,
-    ))
+    ).into_response())
 }
 
 #[instrument(

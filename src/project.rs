@@ -260,7 +260,7 @@ impl ProjectManager {
         output_path: PathBuf,
     ) -> Result<()> {
         let output_tree_path = output_path.join(".tree");
-        let project = self.load_project(name, collection)?
+        let project = self.load_project(name, collection)?;
         let mut project = project.lock().unwrap();
         project.duplicate_tree(output_tree_path)?;
         Ok(())

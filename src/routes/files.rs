@@ -275,7 +275,8 @@ fn move_file(
                         return Ok(warp::reply::with_status(
                             warp::reply::json(&"Missing project_path argument".to_string()),
                             StatusCode::BAD_REQUEST,
-                        ));
+                        )
+                        .into_response());
                     } // invalid request
                 };
                 let new_path = match params.get("destination_path") {
@@ -285,7 +286,8 @@ fn move_file(
                         return Ok(warp::reply::with_status(
                             warp::reply::json(&"Missing new_path argument".to_string()),
                             StatusCode::BAD_REQUEST,
-                        ));
+                        )
+                        .into_response());
                     } // invalid request
                 };
                 let overwrite = match params.get("overwrite") {
