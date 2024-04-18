@@ -10,6 +10,7 @@ from requests.adapters import HTTPAdapter
 from godata import server
 from godata.errors import GodataError
 
+from .parser import parse_response
 from .unixsocket import UnixHTTPAdapter
 
 """
@@ -79,8 +80,7 @@ def get_client():
 
 def get_version(client, url):
     resp = client.get(f"{url}/version")
-    if resp.status_code == 200:
-        return resp.json()
+    return parse_response(resp)
 
 
 def list_collections(show_hidden=False):
