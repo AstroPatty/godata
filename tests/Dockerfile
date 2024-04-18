@@ -2,14 +2,19 @@ FROM lukemathwalker/cargo-chef:latest-rust-1 as chef
 WORKDIR /app
 
 from chef as planner
-COPY . .
+COPY ./*.toml ./
+COPY ./src ./src
+
 RUN cargo chef prepare --recipe-path recipe.json
 
 
 from chef AS builder
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
-COPY . .
+
+COPY ./*.toml ./
+COPY ./src ./src
+
 RUN cargo build --release --bin godata_server
 
 FROM rust:latest
@@ -29,7 +34,7 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 COPY pyproject.toml /app/pyproject.toml
 COPY poetry.lock /app/poetry.lock
 COPY README.rst /app/README.rst
-COPY godata /app/godata
+COPY ./godata /app/godata
 
 
 WORKDIR /app

@@ -1,3 +1,4 @@
+use fnmatch_regex::glob_to_regex;
 use tracing::instrument;
 
 use crate::errors::{GodataError, GodataErrorType, Result};
@@ -18,6 +19,7 @@ pub struct Project {
 }
 
 impl Project {
+    #[instrument(skip(self), fields(name = self._name.as_str(), collection = self._collection.as_str()))]
     pub(crate) fn add_file(
         &mut self,
         project_path: &str,
@@ -46,13 +48,21 @@ impl Project {
         Ok(Some(output))
     }
 
+    #[instrument(skip(self), fields(name = self._name.as_str(), collection = self._collection.as_str()))]
     pub(crate) fn duplicate_tree(&mut self, output_path: PathBuf) -> Result<()> {
         let export = self.tree.export()?;
-        let db = sled::open(output_path)?;
+        let db = sled::open(output_path);
+        if db.is_err() {
+            let err = db.err().unwrap();
+            tracing::error!("Sled failed to open database, error: {:?}", err);
+            return Err(err.into());
+        }
+        let db = db.unwrap();
         db.import(export);
         Ok(())
     }
 
+    #[instrument(skip(self), fields(name = self._name.as_str(), collection = self._collection.as_str()))]
     pub(crate) fn add_folder(
         &mut self,
         project_path: &str,
@@ -85,6 +95,7 @@ impl Project {
         Ok(())
     }
 
+    #[instrument(skip(self), fields(name = self._name.as_str(), collection = self._collection.as_str()))]
     pub(crate) fn get_file(&self, project_path: &str) -> Result<HashMap<String, String>> {
         let file = self.tree.get(project_path)?;
         let fpath = self._endpoint.resolve(&file.real_path);
@@ -95,6 +106,30 @@ impl Project {
         Ok(meta)
     }
 
+    #[instrument(skip(self), fields(name = self._name.as_str(), collection = self._collection.as_str()))]
+    pub(crate) fn get_files(
+        &self,
+        folder_path: Option<&str>,
+        pattern: &str,
+    ) -> Result<HashMap<String, HashMap<String, String>>> {
+        let pattern = glob_to_regex(pattern)?;
+        let matching_files = self.tree.get_many(folder_path, &pattern)?;
+
+        let results = matching_files
+            .iter()
+            .map(|f| {
+                let mut meta = f.metadata.clone();
+                let real_path = self._endpoint.resolve(&f.real_path);
+                meta.insert(
+                    "real_path".to_string(),
+                    real_path.to_str().unwrap().to_string(),
+                );
+                (f.name.clone(), meta)
+            })
+            .collect::<HashMap<_, _>>();
+        Ok(results)
+    }
+
     pub(crate) fn list(
         &self,
         project_path: Option<String>,
@@ -103,6 +138,7 @@ impl Project {
         Ok(list)
     }
 
+    #[instrument(skip(self), fields(name = self._name.as_str(), collection = self._collection.as_str()))]
     pub(crate) fn remove_file(&mut self, project_path: &str) -> Result<Vec<PathBuf>> {
         let removed_internal_paths = self.tree.remove(project_path)?;
         // filter out paths that are not internal
@@ -114,6 +150,7 @@ impl Project {
         Ok(need_to_remove)
     }
 
+    #[instrument(skip(self), fields(name = self._name.as_str(), collection = self._collection.as_str()))]
     pub(crate) fn move_(
         &mut self,
         from: &str,
@@ -160,6 +197,7 @@ pub struct ProjectManager {
 }
 
 impl ProjectManager {
+    #[instrument(skip(self))]
     pub fn create_project(
         &mut self,
         name: &str,
@@ -189,6 +227,7 @@ impl ProjectManager {
         Ok(project)
     }
 
+    #[instrument(skip(self))]
     pub fn import_project(
         &self,
         name: &str,
@@ -202,6 +241,7 @@ impl ProjectManager {
         let project_dir = create_project_dir(name, collection, true)?;
         let tree_path = path.join(".tree");
         let db = sled::open(tree_path)?;
+
         let _root = db.get("root").unwrap().unwrap();
 
         let db_export = db.export();
@@ -211,6 +251,8 @@ impl ProjectManager {
         self.storage_manager.add(name, collection, endpoint, path)?;
         Ok(project_dir)
     }
+
+    #[instrument(skip(self))]
     pub fn export_project(
         &mut self,
         name: &str,
@@ -218,16 +260,13 @@ impl ProjectManager {
         output_path: PathBuf,
     ) -> Result<()> {
         let output_tree_path = output_path.join(".tree");
-        let project = self.load_project(name, collection);
-        if project.is_err() {
-            return Err(project.err().unwrap());
-        }
-        let project = project.unwrap();
+        let project = self.load_project(name, collection)?;
         let mut project = project.lock().unwrap();
         project.duplicate_tree(output_tree_path)?;
         Ok(())
     }
 
+    #[instrument(skip(self))]
     pub fn load_project(&mut self, name: &str, collection: &str) -> Result<Arc<Mutex<Project>>> {
         let key = format!("{}/{}", collection, name);
         if self.projects.contains_key(&key) {
@@ -266,7 +305,7 @@ impl ProjectManager {
         let count = count.unwrap();
         if count == &1 {
             tracing::info!(
-                "Last connection to project {} dropped, removing form cache",
+                "Last connection to project {} dropped, removing from cache",
                 key
             );
             self.projects.remove(&key);
@@ -288,6 +327,7 @@ impl ProjectManager {
         Ok(())
     }
 
+    #[instrument(skip(self))]
     pub fn delete_project(&mut self, name: &str, collection: &str, force: bool) -> Result<()> {
         let key = format!("{}/{}", collection, name);
         let pobj = self.projects.remove(&key);
@@ -315,12 +355,17 @@ impl ProjectManager {
             }
             return Ok(());
         }
+        tracing::error!(
+            "Project {} is not empty, not deleting",
+            format!("{}/{}", collection, name)
+        );
         Err(GodataError::new(
             GodataErrorType::NotPermitted,
             "Project is not empty".to_string(),
         ))
     }
 
+    #[instrument(skip(self))]
     pub fn get_project_names(&self, collection: String, show_hidden: bool) -> Result<Vec<String>> {
         let collection_dir = load_collection_dir(&collection);
         if collection_dir.is_err() {

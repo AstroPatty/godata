@@ -4,6 +4,7 @@
 
 // As far as the rest of the library is concrened,
 
+use regex::Regex;
 use sled::{Batch, Db};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -263,6 +264,42 @@ impl FileSystem {
                 ))
             }
             FSObject::File(f) => Ok(f),
+        }
+    }
+
+    pub(crate) fn get_many(
+        &self,
+        virtual_path: Option<&str>,
+        pattern: &Regex,
+    ) -> Result<Vec<&File>> {
+        let folder = match virtual_path {
+            Some(path) => {
+                let f_ = self.root.get(path)?;
+                match f_ {
+                    FSObject::File(_) => {
+                        tracing::info!("Path is a file!");
+                        return Err(GodataError::new(
+                            GodataErrorType::InvalidPath,
+                            format!("Path {} is a file", path),
+                        ));
+                    }
+                    FSObject::Folder(f) => f,
+                }
+            }
+            None => &self.root,
+        };
+
+        let matching_files = folder.search_files(pattern);
+        match matching_files {
+            Some(matches) => Ok(matches),
+            None => Err(GodataError::new(
+                GodataErrorType::NotFound,
+                format!(
+                    "Unable to find any matching files in folder {} for pattern {}",
+                    virtual_path.unwrap_or("root"),
+                    pattern
+                ),
+            )),
         }
     }
 
@@ -682,6 +719,25 @@ impl Folder {
                 }
             }
         }
+    }
+
+    fn search_files(&self, pattern: &regex::Regex) -> Option<Vec<&File>> {
+        let file_matches = self.children.values().filter_map(|child| {
+            match child {
+                FSObject::Folder(_) => return None,
+                FSObject::File(f) => {
+                    if pattern.is_match(&f.name) {
+                        return Some(f);
+                    };
+                    return None;
+                }
+            };
+        });
+        let results: Vec<&File> = file_matches.collect();
+        if results.len() == 0 {
+            return None;
+        }
+        Some(results)
     }
 
     #[instrument(skip(self, fs_object))]

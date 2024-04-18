@@ -2,6 +2,7 @@ use crate::handlers;
 use crate::project::ProjectManager;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tracing::instrument;
 use warp::http::StatusCode;
 use warp::Filter;
 
@@ -51,6 +52,7 @@ fn list_projects(
         )
 }
 
+#[instrument(skip(project_manager))]
 fn create_project(
     project_manager: Arc<Mutex<ProjectManager>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
@@ -77,6 +79,7 @@ fn create_project(
         )
 }
 
+#[instrument(skip(project_manager))]
 fn delete_project(
     project_manager: Arc<Mutex<ProjectManager>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
@@ -114,6 +117,7 @@ fn drop_project(
         })
 }
 
+#[instrument(skip(project_manager))]
 fn project_export_tree(
     project_manager: Arc<Mutex<ProjectManager>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
@@ -125,10 +129,11 @@ fn project_export_tree(
                 let output_path = match params.get("output_path") {
                     Some(output_path) => output_path.to_owned(),
                     None => {
+                        tracing::error!("Missing output_path argument");
                         return Ok(warp::reply::with_status(
                             warp::reply::json(&"Missing output_path argument".to_string()),
                             StatusCode::BAD_REQUEST,
-                        ))
+                        ));
                     } // invalid request
                 };
                 handlers::export_project_tree(
@@ -141,6 +146,7 @@ fn project_export_tree(
         )
 }
 
+#[instrument(skip(project_manager))]
 fn import_project_tree(
     project_manager: Arc<Mutex<ProjectManager>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
@@ -152,10 +158,11 @@ fn import_project_tree(
                 let input_path = match params.get("input_path") {
                     Some(input_path) => input_path.to_owned(),
                     None => {
+                        tracing::error!("Missing input_path argument");
                         return Ok(warp::reply::with_status(
                             warp::reply::json(&"Missing input_path argument".to_string()),
                             StatusCode::BAD_REQUEST,
-                        ))
+                        ));
                     } // invalid request
                 };
                 handlers::import_project_tree(

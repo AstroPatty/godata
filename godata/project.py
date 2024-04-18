@@ -4,27 +4,23 @@ projects. This includes creating, deleting, and listing projects, as well as add
 removing, and listing files in projects.
 """
 
-
 from __future__ import annotations
 
 import atexit
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import portalocker
 from loguru import logger
 
 from godata.client import client
+from godata.errors import GodataProjectError
 from godata.files import utils as file_utils
 from godata.io import find_writer, get_typekey, godataIoException, try_to_read
 from godata.utils import sanitize_project_path
 
 __all__ = ["load_project", "list_projects", "create_project", "GodataProjectError"]
-
-
-class GodataProjectError(Exception):
-    pass
 
 
 class GodataProject:
@@ -302,6 +298,47 @@ class GodataProject:
                 f"Error: {e}"
             )
             return path
+
+    @sanitize_project_path
+    def get_many(
+        self,
+        project_path: Optional[str] = None,
+        pattern: Optional[str] = None,
+        as_path=False,
+    ) -> dict[str, Any]:
+        """
+        Get multiple objects at once from a given folder that matches a given
+        pattern. If no pattern is provided, this will return all objects in
+        the folder (equivalent to the * pattern).
+
+        This method is not recursive. It will only return files. If the
+        project path is not provided, the operation will be performed on the
+        project root.
+        """
+
+        if pattern is None:
+            pattern = "*"
+        files = client.get_file(self.collection, self.name, project_path, pattern)
+        if as_path:
+            return {name: Path(data["real_path"]) for name, data in files.items()}
+
+        fobjs = {}
+        for name, file_info in files.items():
+            path_str = file_info["real_path"]
+            path = Path(path_str)
+            try:
+                format = file_info.get("obj_type")
+                with portalocker.Lock(str(path), "rb"):
+                    data = try_to_read(path, format)
+                fobjs[name] = data
+            except godataIoException as e:
+                logger.info(
+                    f"Could not find a reader for file {path}. Returning path"
+                    f"instead Error: {e}"
+                )
+                fobjs[name] = path
+
+        return fobjs
 
     @sanitize_project_path
     def move(
