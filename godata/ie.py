@@ -15,6 +15,7 @@ import zipfile
 from pathlib import Path
 
 from godata.client.client import export_tree, import_tree
+from godata.errors import GodataProjectError
 from godata.project import (
     GodataProject,
     create_project,
@@ -91,8 +92,8 @@ def import_project(
         project_name = zip_path.stem
 
     if has_project(project_name, collection_name):
-        raise ValueError(
-            f"Project {project_name} already exists in collection {collection_name}"
+        raise GodataProjectError(
+            f"Project `{project_name}` already exists in collection `{collection_name}`"
         )
     if not output_location:
         output_location = Path.cwd()
