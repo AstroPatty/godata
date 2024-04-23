@@ -92,24 +92,18 @@ class GodataProject:
             raise FileNotFoundError(f"Nothing found at {file_path}")
         fpath = fpath.resolve()
 
-        try:
-            if fpath.is_dir():
-                result = client.link_folder(
-                    self.collection, self.name, project_path, str(fpath), recursive
-                )
-            else:
-                result = client.link_file(
-                    self.collection,
-                    self.name,
-                    project_path,
-                    str(fpath),
-                    metadata=metadata,
-                    force=overwrite,
-                )
-        except FileNotFoundError:
-            raise GodataProjectError(
-                f"Something already exists at {project_path}. Use overwrite=True to "
-                "overwrite it."
+        if fpath.is_dir():
+            result = client.link_folder(
+                self.collection, self.name, project_path, str(fpath), recursive
+            )
+        else:
+            result = client.link_file(
+                self.collection,
+                self.name,
+                project_path,
+                str(fpath),
+                metadata=metadata,
+                force=overwrite,
             )
         if verbose:
             print(result["message"])

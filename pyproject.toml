@@ -42,6 +42,7 @@ toml = "^0.10.2"
 polars = "^0.20.5"
 pyarrow = "^14.0.2"
 astropy = "^6.0.0"
+pytest-reportlog = "^0.4.0"
 
 
 [tool.poetry.group.tests.dependencies]
