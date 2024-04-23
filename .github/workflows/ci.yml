@@ -201,7 +201,7 @@ jobs:
         uses: JRubics/poetry-publish@v2.0
         with:
           pypi_token: ${{ secrets.PYPI_API_KEY }}
-          ignore_dev_requirements: true
+          poetry_install_options: '--no-dev'
   release-github:
     name: release-github
     runs-on: ubuntu-latest
