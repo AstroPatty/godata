@@ -141,7 +141,7 @@ impl FileSystem {
             },
             Some(_) => {
                 tracing::error!(
-                    "Was able to create a new filesystem for project {} at path {}, but somehow the root folder already exists!",
+                    "Was able to create a new filesystem for project `{}` at path `{}`, but somehow the root folder already exists!",
                     name,
                     root_path.display()
                 );
@@ -168,7 +168,7 @@ impl FileSystem {
         self.save()?;
         self.db.flush()?;
         let res = self.db.export();
-        tracing::info!("Serialized database for project {}", self._name);
+        tracing::info!("Serialized database for project `{}`", self._name);
         Ok(res)
     }
 
@@ -178,7 +178,7 @@ impl FileSystem {
             Ok(db) => db,
             Err(e) => {
                 tracing::error!(
-                    "Sled failed to open database for project {} at path {}: {}",
+                    "Sled failed to open database for project `{}` at path `{}`: {}",
                     name,
                     root_dir.display(),
                     e
@@ -196,7 +196,7 @@ impl FileSystem {
             None => {
                 // get a list of the found folders
                 tracing::error!(
-                    "Was able to open the database for project {} at path {}, but no root folder was found!",
+                    "Was able to open the database for project `{}` at path `{}`, but no root folder was found!",
                     name,
                     root_dir.display()
                 );
@@ -229,7 +229,7 @@ impl FileSystem {
                         tracing::info!("Path is a file!");
                         return Err(GodataError::new(
                             GodataErrorType::InvalidPath,
-                            format!("Path {} is a file", path),
+                            format!("Path `{}` is a file", path),
                         ));
                     }
                     FSObject::Folder(f) => f,
@@ -280,7 +280,7 @@ impl FileSystem {
                         tracing::info!("Path is a file!");
                         return Err(GodataError::new(
                             GodataErrorType::InvalidPath,
-                            format!("Path {} is a file", path),
+                            format!("Path `{}` is a file", path),
                         ));
                     }
                     FSObject::Folder(f) => f,
@@ -295,7 +295,7 @@ impl FileSystem {
             None => Err(GodataError::new(
                 GodataErrorType::NotFound,
                 format!(
-                    "Unable to find any matching files in folder {} for pattern {}",
+                    "Unable to find any matching files in folder `{}` for pattern `{}`",
                     virtual_path.unwrap_or("root"),
                     pattern
                 ),
@@ -345,7 +345,10 @@ impl FileSystem {
     #[instrument(skip(self))]
     pub(crate) fn remove(&mut self, virtual_path: &str) -> Result<Vec<File>> {
         let result = self.root.delete(virtual_path)?;
-        tracing::info!("Removed item at path {}, dropping from tree", virtual_path);
+        tracing::info!(
+            "Removed item at path `{}`, dropping from tree",
+            virtual_path
+        );
         let mut batch = Batch::default();
         let output = match result {
             RemoveResult::IsEmpty => {
@@ -392,14 +395,14 @@ impl FileSystem {
             tracing::info!("Source path does not exist");
             return Err(GodataError::new(
                 GodataErrorType::NotFound,
-                format!("Source path {} does not exist", source_path),
+                format!("Source path `{}` does not exist", source_path),
             ));
         }
         if self.root.exists(dest_path) && !overwrite {
             tracing::info!("Destination path already exists");
             return Err(GodataError::new(
                 GodataErrorType::AlreadyExists,
-                format!("Destination path {} already exists", dest_path),
+                format!("Destination path `{}` already exists", dest_path),
             ));
         }
         let item = self.root.get(source_path)?;
@@ -424,7 +427,7 @@ impl FileSystem {
     #[instrument(skip(self))]
     fn save(&mut self) -> Result<()> {
         // Write the root folder to the database
-        tracing::info!("Saving filesystem for project {}", self._name);
+        tracing::info!("Saving filesystem for project `{}`", self._name);
         let mut batch = Batch::default();
         self.root.write_to_tree(&mut batch)?;
         self.db.apply_batch(batch)?;
@@ -614,7 +617,7 @@ impl Folder {
         let write_result = into_writer(&db_folder, &mut bytes);
         if write_result.is_err() {
             tracing::error!(
-                "Failed to serialize folder {} to bytes: {}",
+                "Failed to serialize folder `{}` to bytes: {}",
                 self.name,
                 write_result.err().unwrap()
             );
@@ -670,7 +673,7 @@ impl Folder {
         let result = self._get(&path);
         if result.is_err() {
             let mut err = result.err().unwrap();
-            err.message = format!("Failed to get path {}: {}", virtual_path, err.message);
+            err.message = format!("Failed to get path `{}`: {}", virtual_path, err.message);
             return Err(err);
         }
         result
@@ -695,7 +698,7 @@ impl Folder {
 
         if child.is_none() {
             let msg = format!(
-                "Child {} does not exist in folder {}",
+                "Child `{}` does not exist in folder `{}`",
                 path_part.unwrap(),
                 self.name
             );
@@ -707,7 +710,7 @@ impl Folder {
             match child.unwrap() {
                 FSObject::File(_) => {
                     let msg = format!(
-                        "Child {} of folder {} is a file",
+                        "Child `{}` of folder `{}` is a file",
                         path_part.unwrap(),
                         self.name
                     );
@@ -760,7 +763,10 @@ impl Folder {
         let insert_result = self._insert(fs_object, path_parts, overwrite);
         if insert_result.is_err() {
             let mut err = insert_result.err().unwrap();
-            err.message = format!("Failed to insert at path {}: {}", virtual_path, err.message);
+            err.message = format!(
+                "Failed to insert at path `{}` {}",
+                virtual_path, err.message
+            );
             return Err(err);
         }
         insert_result
@@ -815,7 +821,7 @@ impl Folder {
         match child {
             None => {
                 // child doesn't exist, create it
-                tracing::info!("Creating new folder {}", path_part.unwrap());
+                tracing::info!("Creating new folder `{}`", path_part.unwrap());
                 let mut folder = Folder::new(path_part.unwrap().to_string());
                 folder._insert(fs_object, path_parts, overwrite).unwrap();
                 self.children
@@ -827,7 +833,7 @@ impl Folder {
                 match f {
                     FSObject::File(_) => {
                         let msg = format!(
-                            "Child {} of folder {} is a file",
+                            "Child `{}` of folder `{}` is a file",
                             path_part.unwrap(),
                             self.name
                         );
@@ -858,7 +864,7 @@ impl Folder {
         let delete_result = self._delete(&path);
         if delete_result.is_err() {
             let mut err = delete_result.err().unwrap();
-            err.message = format!("Failed to delete path {}: {}", virtual_path, err.message);
+            err.message = format!("Failed to delete path `{}`: {}", virtual_path, err.message);
             return Err(err);
         }
         Ok(delete_result.unwrap())
@@ -880,7 +886,10 @@ impl Folder {
         }
         let path_part = path_part.unwrap();
         if !self.children.contains_key(*path_part) {
-            let msg = format!("Child {} does not exist in folder {}", path_part, self.name);
+            let msg = format!(
+                "Child `{}` does not exist in folder `{}`",
+                path_part, self.name
+            );
             tracing::info!(msg);
             return Err(GodataError::new(GodataErrorType::NotFound, msg));
         }
@@ -895,7 +904,7 @@ impl Folder {
         }
         match self.children.get_mut(*path_part).unwrap() {
             FSObject::File(_) => {
-                let msg = format!("Child {} of folder {} is a file", path_part, self.name);
+                let msg = format!("Child `{}` of folder `{}` is a file", path_part, self.name);
                 tracing::info!(msg);
                 Err(GodataError::new(GodataErrorType::InvalidPath, msg))
             }

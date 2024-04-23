@@ -298,14 +298,17 @@ impl ProjectManager {
         let key = format!("{}/{}", collection, name);
         let count = self.counts.get(&key);
         if count.is_none() {
-            let message = format!("Tried to drop a project {} that was not in the cache", key);
+            let message = format!(
+                "Tried to drop a project `{}` that was not in the cache",
+                key
+            );
             tracing::error!(message);
             return Err(GodataError::new(GodataErrorType::NotFound, message));
         }
         let count = count.unwrap();
         if count == &1 {
             tracing::info!(
-                "Last connection to project {} dropped, removing from cache",
+                "Last connection to project `{}` dropped, removing from cache",
                 key
             );
             self.projects.remove(&key);
@@ -313,15 +316,15 @@ impl ProjectManager {
         } else if count < &0 {
             self.counts.remove(&key);
             tracing::error!(
-                "Count for project {} is negative, this should not happen",
+                "Count for project `{}` is negative, this should not happen",
                 key
             );
             return Err(GodataError::new(
                 GodataErrorType::InternalError,
-                format!("Tried to drop a project {} that does not exist", key),
+                format!("Tried to drop a project `{}` that does not exist", key),
             ));
         } else {
-            tracing::info!("Dropping connection to project {}", key);
+            tracing::info!("Dropping connection to project `{}`", key);
             self.counts.insert(key, count - 1);
         }
         Ok(())
@@ -356,7 +359,7 @@ impl ProjectManager {
             return Ok(());
         }
         tracing::error!(
-            "Project {} is not empty, not deleting",
+            "Project `{}` is not empty, not deleting",
             format!("{}/{}", collection, name)
         );
         Err(GodataError::new(

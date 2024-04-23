@@ -23,7 +23,7 @@ fn create_collection_dir(name: &str) -> Result<PathBuf> {
 
     Err(GodataError::new(
         GodataErrorType::AlreadyExists,
-        format!("Collection {} already exists", name),
+        format!("Collection `{}` already exists", name),
     ))
 }
 
@@ -36,7 +36,7 @@ pub(crate) fn load_collection_dir(name: &str) -> Result<PathBuf> {
 
     Err(GodataError::new(
         GodataErrorType::NotFound,
-        format!("Collection {} does not exist", name),
+        format!("Collection `{}` does not exist", name),
     ))
 }
 
@@ -50,7 +50,7 @@ fn delete_collection_dir(name: &str) -> Result<()> {
 
     Err(GodataError::new(
         GodataErrorType::NotFound,
-        format!("Collection {} does not exist", name),
+        format!("Collection `{}` does not exist", name),
     ))
 }
 
@@ -77,7 +77,7 @@ pub(crate) fn create_project_dir(
 
     Err(GodataError::new(
         GodataErrorType::AlreadyExists,
-        format!("Project {} already exists", name),
+        format!("Project `{}` already exists", name),
     ))
 }
 
@@ -90,7 +90,7 @@ pub(crate) fn load_project_dir(name: &str, collection_name: &str) -> Result<Path
 
     Err(GodataError::new(
         GodataErrorType::NotFound,
-        format!("Project {} does not exist", name),
+        format!("Project `{}` does not exist", name),
     ))
 }
 
@@ -102,7 +102,7 @@ pub(crate) fn delete_project_dir(name: &str, collection_name: &str) -> Result<()
     } else {
         return Err(GodataError::new(
             GodataErrorType::NotFound,
-            format!("Project {} does not exist", name),
+            format!("Project `{}` does not exist", name),
         ));
     }
     // Check if this folder has any subdirectories

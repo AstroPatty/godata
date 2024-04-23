@@ -54,7 +54,7 @@ impl StorageManager {
                 return Err(GodataError::new(
                     GodataErrorType::NotFound,
                     format!(
-                        "Storage information not found for project {}/{}",
+                        "Storage information not found for project `{}/{}`",
                         collection, name
                     ),
                 ));
@@ -68,7 +68,7 @@ impl StorageManager {
             tracing::error!("Storage information is corrupted, found {}", value);
             return Err(GodataError::new(
                 GodataErrorType::InternalError,
-                format!("Storage information for project {} is corrupted", name),
+                format!("Storage information for project `{}` is corrupted", name),
             ));
         }
         let endpoint = split.next().unwrap();
