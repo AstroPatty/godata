@@ -7,7 +7,7 @@ else
   poetry run godata server start --port $PORT
 fi
 
-poetry run pytest -W ignore::ResourceWarning
+poetry run pytest -W ignore::ResourceWarning --report-log=/home/logs/pytest_report.log
 poetry run godata server stop
 
 cp $HOME/godata/logs/* /home/logs

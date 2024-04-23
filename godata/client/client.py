@@ -174,8 +174,8 @@ def link_file(
         f"{url}/projects/{collection_name}/{project_name}/files", params=params
     )
     result = parse_response(resp, RequestType.FILE)
-    print(result)
     return result
+    print(result)
 
 
 def link_folder(
