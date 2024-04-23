@@ -581,7 +581,7 @@ def create_project(
 
     if has_project(name, collection):
         raise GodataProjectError(
-            f"Project {name} already exists in collection {collection}"
+            f"Project `{name}` already exists in collection `{collection}`"
         )
     # If a custom storage location exsts, we need to make sure it's valid.
     if storage_location is not None:
